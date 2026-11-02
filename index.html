@@ -215,6 +215,28 @@ body{display:block;min-height:0}
  .hud{padding:7px!important;gap:5px} .gauges{width:170px;padding:5px 7px 6px} .brand{font-size:8px;margin-bottom:2px} .stat{margin-top:3px} .stat-label,.value{font-size:8px} .track{height:8px} .top-btn{width:33px;height:33px;font-size:20px}
  .status{top:58px} .status #hint{display:none} #combo{font-size:11px} .queued{top:96px} #controls{bottom:4px} .note{display:none}
 } 
+
+#targetHud {
+  position: absolute;
+  z-index: 6;
+  top: calc(env(safe-area-inset-top, 0px) + 49px);
+  right: calc(env(safe-area-inset-right, 0px) + 9px);
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  pointer-events: none;
+}
+#targetHud > * { position: static; transform: none; }
+#targetHud #aimToggle, #targetHud summary { pointer-events: auto; }
+#targetHud #fpsPanel { padding: 2px 5px; font-size: 9px; }
+#targetHud #eliteHud { width: min(205px, 42vw); padding: 3px 6px; }
+#eliteHud summary { display: block; cursor: pointer; padding: 4px 0; }
+#eliteHud summary::-webkit-details-marker { display: none; }
+#eliteHud .eliteTitle { gap: 3px; letter-spacing: 0; }
+#eliteHud .eliteTitle strong, #eliteHud .eliteTitle span { font-size: 8px; }
+#eliteHud summary .eliteTitle::after { content: "▾"; }
+#eliteHud[open] summary .eliteTitle::after { content: "▴"; }
+#eliteHud .eliteTrack { display: block; height: 4px; margin-top: 2px; }
 </style></head>
 <body>
 <div id="game" aria-label="RPG isométrico pixel art, etapa dezesseis">
@@ -223,11 +245,11 @@ body{display:block;min-height:0}
   <div class="status"><div id="combo">PRONTO PARA COMBATER</div><div id="hint">Encadeie finalizadores · aproveite lançamentos e derrubadas</div></div>
   <button id="enemyPicker" class="enemy-picker" aria-label="Alternar tamanho da arena" title="Alternar arena: Q">⚔ ARENA: 3 INIMIGOS ↻</button><button id="targetPicker" class="target-picker" aria-label="Alternar alvo prioritário" title="Trocar alvo: E">◎ FOCO: GUARDIÃO</button>
   <div id="trainingHud">Precisão — · 0 dano/s · Parry 0/0</div><div id="labDock"><button id="eliteBtn" title="Entrar ou sair do duelo de elite (V)" aria-label="Combate de elite">♛ ELITE</button><button id="difficultyBtn" title="Alternar dificuldade" aria-label="Alternar dificuldade">⚖ EQUILIBRADO ↻</button><button id="labBtn" title="Treinamento avançado (T)">✦ TREINO</button></div><button id="labRecenter" aria-label="Reposicionar parceiro de treinamento" title="Reposicionar (Z)">⌖ REPOSICIONAR</button>
-  <div id="eliteHud" role="status" aria-live="off"><div class="eliteTitle"><strong>♛ SENTINELA DO ECLIPSE</strong><span id="eliteStage">FASE I</span></div><div class="eliteTrack"><span id="eliteHPFill"></span></div><div class="elitePoise"><span id="elitePoiseFill"></span></div><div id="eliteTell">Vermelho: esquive · dourado: parry</div></div><div id="drillHud" aria-live="off"><strong id="drillTitle">EXERCÍCIO</strong><span id="drillTip"></span><div id="drillMeter"><div id="drillMeterFill"></div></div><span id="drillFeedback"></span></div>
-  <div id="squadStatus" class="squad-status" aria-live="off">ESQUADRÃO · 0/2 ATACANDO</div><button id="aimToggle" class="aim-toggle" aria-pressed="true" aria-label="Alternar mira automática" title="Alternar mira: M">◎ MIRA AUTO</button><div id="queued" class="queued" aria-live="off"></div><div id="nextMove" class="next-move" aria-live="off"></div><div id="banner" role="status" aria-live="polite"></div>
+  <div id="drillHud" aria-live="off"><strong id="drillTitle">EXERCÍCIO</strong><span id="drillTip"></span><div id="drillMeter"><div id="drillMeterFill"></div></div><span id="drillFeedback"></span></div>
+  <div id="squadStatus" class="squad-status" aria-live="off">ESQUADRÃO · 0/2 ATACANDO</div><div id="targetHud"><button id="aimToggle" class="aim-toggle" aria-pressed="true" aria-label="Alternar mira automática" title="Alternar mira: M">◎ MIRA AUTO</button><div id="fpsPanel" class="fps-panel" style="display:none" aria-live="off">-- FPS</div><details id="eliteHud"><summary aria-label="Detalhes da Sentinela do Eclipse"><span class="eliteTitle"><strong>♛ SENTINELA DO ECLIPSE</strong><span id="eliteStage">FASE I</span></span><span class="eliteTrack"><span id="eliteHPFill"></span></span></summary><div class="elitePoise"><span id="elitePoiseFill"></span></div><div id="eliteTell">Vermelho: esquive · dourado: parry</div></details></div><div id="queued" class="queued" aria-live="off"></div><div id="nextMove" class="next-move" aria-live="off"></div><div id="banner" role="status" aria-live="polite"></div>
   <div id="rhythmHud" class="rhythm-hud" aria-live="off">COMPASSO · toque uma vez por golpe</div><div id="portraitHint" aria-hidden="true"><div>↻</div><b>VIRE O CELULAR</b><span>O combate agora foi pensado para tela horizontal.</span></div>
   <div id="controls"><div id="joystick" aria-label="Joystick de movimento"><div id="stick"></div></div><div class="buttons"><button class="action" id="heavy" aria-label="Ataque pesado"><span>PESADO</span><small>K</small></button><button class="action" id="light" aria-label="Ataque leve"><span>LEVE</span><small>J</small></button><button class="action ready" id="parry" aria-label="Parry"><span>PARRY</span><small>L</small></button><button class="action ready" id="dodge" aria-label="Esquiva direcional"><span>ESQUIVA</span><small>ESPAÇO</small></button></div></div>
-  <div id="fpsPanel" class="fps-panel" style="display:none" aria-live="off">-- FPS</div><div class="note">Vire o aparelho para jogar na horizontal · WASD · J/K: ataques · L: parry · ESPAÇO: esquiva · V: elite · T: treino</div>
+  <div class="note">Vire o aparelho para jogar na horizontal · WASD · J/K: ataques · L: parry · ESPAÇO: esquiva · V: elite · T: treino</div>
   <div id="guide" role="dialog" aria-modal="true" aria-label="Lista de combos"><div class="guide-card"><div class="guide-head"><h2>Combos &amp; Táticas de Grupo</h2><button id="closeGuide" aria-label="Fechar lista de combos">×</button></div><p>Etapa 15: controle o ritmo dos golpes; não adianta pressionar leve e pesado juntos. Use o sinal JANELA DE COMBO para encadear ataques. Use o botão ⚖ para escolher TREINO, PADRÃO ou DESAFIO. Os perfis ajustam o dano adversário, o tempo de preparação, as oportunidades de recuperação e a janela de parry. O painel ⚙ mostra precisão, parries, esquivas bem-sucedidas e o relatório da última onda. A mana ainda não é usada. Enfrente <b>três inimigos simultâneos</b> (ou alterne entre DUELO, TRIO e HORDA de 5 tocando em ARENA). Toque em <b>FOCO</b> para alternar o alvo prioritário; a mira automática ajuda a atingir inimigos na direção apontada. Um mesmo corte amplo pode atingir vários alvos ao longo de sua trajetória. No máximo <b>dois inimigos</b> preparam ataques ofensivos ao mesmo tempo; observe os avisos coloridos. O trio mistura GUARDIÃO, DUELISTA e FURIOSO. Com táticas ligadas, o DUELISTA busca flanquear, o GUARDIÃO protege companheiros próximos e ataques em dupla são escalonados para dar tempo de reação. Um parry perfeito pode atrasar um ataque inimigo próximo. Desative <b>Táticas de grupo</b> em Ajustes para comparar com a IA clássica. Finalizadores que acertam habilitam extensões, mantendo lançamentos, derrubadas, parry, ripostas e esquivas. A mana não é consumida.</p><p>Na <b>ARENA ELITE (♛ ou tecla V)</b>, enfrente a Sentinela do Eclipse, com três fases, ataques encadeados e uma janela para punição após errar os golpes especiais. <b>DOURADO:</b> parry possível. <b>VERMELHO:</b> golpe inaparavelmente forte — esquive ou saia da zona marcada. O chefe resiste a derrubadas até a quebra de postura; o parry perfeito abre uma oportunidade. Ao vencer, toque em ♛ novamente para voltar à arena. Direcione o joystick para mover e orientar seus cortes. Com mira AUTO, ataques feitos na direção do inimigo recebem uma correção suave; em mira LIVRE, você controla integralmente a direção. Durante a preparação do ataque, é possível corrigir um pouco a mira. Comandos de combos entram em uma fila curta. Após o impacto, você pode cancelar a recuperação com parry ou esquiva.</p>
   <div class="row"><b>GUARDIÃO</b><span>Bloqueia · quebra de guarda</span></div>
   <div class="row"><b>DUELISTA</b><span>Esquiva · finta roxa</span></div>
