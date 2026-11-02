@@ -302,6 +302,14 @@ body{display:block;min-height:0}
 
 /* Etapa 22 revisada: campos livres e provisórios */
 .creatorChoices{display:block!important}.creatorFreeLabel{display:block;font-size:9px;letter-spacing:.06em;font-weight:800;color:#a9e5d7}.creatorFreeInput{display:block;width:100%;margin-top:6px;min-height:37px;background:#092331;border:1px solid #8bb9b499;border-radius:7px;padding:9px 10px;color:#f1fff4;font:inherit;font-size:12px}.creatorFreeInput:focus{outline:2px solid #82d8b5}.creatorDraftNote{margin:7px 0!important;line-height:1.4;color:#aec9ca!important;font-size:10px!important}.creatorSummary{overflow-wrap:anywhere;max-height:58px;overflow:auto}
+
+/* Raças v1: escolhas aprovadas, não afetam arquétipos e objetivos provisórios. */
+#creatorChoices.raceChoices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px}
+.raceOption{display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0;min-height:49px;padding:7px 9px;text-align:left;color:#e9fff5;background:#11313b;border:1px solid #79b4a288;border-radius:8px;cursor:pointer}
+.raceOption strong{font-size:11px;color:#f1ffda}
+.raceOption span{font-size:9px;line-height:1.25;color:#c6e0da}
+.raceOption.selected{border:2px solid #f3d389;background:#235249;padding:6px 8px}
+@media (orientation:landscape) and (max-height:380px){.raceOption{min-height:41px;padding:5px 7px}.raceOption span{font-size:8px}.creatorCard{padding:7px 10px}}
 </style></head>
 <body>
 <div id="game" aria-label="RPG isométrico pixel art, etapa vinte e dois">
@@ -387,11 +395,11 @@ body{display:block;min-height:0}
   <div id="creatorOverlay" role="dialog" aria-modal="true" aria-label="Criar personagem para nova campanha">
     <section class="creatorCard">
       <div class="creatorHeader"><small id="creatorStepText">CRIAR PERSONAGEM · ETAPA 1 DE 3</small><button type="button" id="creatorCancel" class="creatorClose" aria-label="Cancelar criação">×</button></div>
-      <h2 id="creatorHeading">Raça do personagem</h2><p id="creatorHelp" class="creatorHelp">Campos descritivos provisórios — sem raças ou classes impostas.</p>
+      <h2 id="creatorHeading">Escolha sua raça</h2><p id="creatorHelp" class="creatorHelp">Cinco raças com atributos distintos. Arquétipos e objetivos ainda são provisórios.</p>
       <label class="creatorNameRow" for="heroName">NOME <input id="heroName" type="text" maxlength="18" placeholder="Nome do aventureiro" autocomplete="off" spellcheck="false"></label>
       <div id="creatorChoices" class="creatorChoices" role="group" aria-label="Rascunho de personagem"></div>
       <div class="creatorFooter"><button id="creatorBack" type="button">← VOLTAR</button><button id="creatorNext" type="button">PRÓXIMO →</button></div>
-      <div class="creatorSummary" id="creatorSummary">Raça, arquétipo e objetivo: a definir</div>
+      <div class="creatorSummary" id="creatorSummary">Raça: selecione · Arquétipo e objetivo: a definir</div>
     </section>
   </div>
 </div>
@@ -629,27 +637,37 @@ const BIOMES={
  tundra:{name:'Cordilheira Gelada',icon:'❄',tint:'#99c8de66',intro:'A neblina esconde caminhos de pedra e antigos fortes.'},
  ruins:{name:'Ruínas Abissais',icon:'🔮',tint:'#7359b763',intro:'Uma cidade partida envolve corredores instáveis e portais.'}
 };
-// ETAPA 22 REVISADA — interface neutra, sem raça, classe ou objetivo pré-definido.
-const DEFAULT_HERO={name:'Aventureiro',race:'',archetype:'',goal:''};
-const LEGACY_UNAPPROVED={
- race:['human','sylvan','stone','feral'],
- archetype:['vanguard','duelist','wanderer'],
- goal:['sentinel','survivor','explorer']
+// ETAPA RAÇAS v1 — cinco raças aprovadas pelo criador. Demais escolhas ainda são provisórias.
+// Multiplicadores fracionários, sobre bases de 100 PV e 60 MP; mágicas e sorte aguardam sistemas oficiais.
+const RACE_OPTIONS={
+ human:{name:'Humano',hp:0,mana:0,damage:0,magicDamage:0,xp:.15,luck:0,speed:0,dodge:0,effects:['Experiência +15%']},
+ elf:{name:'Elfo',hp:-.15,mana:.25,damage:-.10,magicDamage:.15,xp:0,luck:0,speed:0,dodge:0,effects:['Mana +25%','Dano mágico +15%','Dano físico −10%','Vida −15%']},
+ orc:{name:'Orc',hp:.20,mana:-.20,damage:.15,magicDamage:-.15,xp:0,luck:0,speed:0,dodge:0,effects:['Vida +20%','Dano físico +15%','Mana −20%','Dano mágico −15%']},
+ dwarf:{name:'Anão',hp:.30,mana:-.15,damage:.05,magicDamage:.05,xp:-.15,luck:0,speed:0,dodge:0,effects:['Vida +30%','Dano físico +5%','Dano mágico +5%','Experiência −15%','Mana −15%']},
+ halfling:{name:'Pequenino',hp:-.15,mana:0,damage:-.10,magicDamage:0,xp:0,luck:.20,speed:.10,dodge:.18,effects:['Sorte +20%','Movimento +10%','Recarga da esquiva −18%','Vida −15%','Dano físico −10%']}
 };
+const DEFAULT_HERO={name:'Aventureiro',race:'',archetype:'',goal:''};
+const LEGACY_UNAPPROVED={archetype:['vanguard','duelist','wanderer'],goal:['sentinel','survivor','explorer']};
 function cleanCharacterField(value,field){
  const str=String(value??'').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,field==='goal'?90:32);
+ if(field==='race')return Object.hasOwn(RACE_OPTIONS,str)?str:'';
  return LEGACY_UNAPPROVED[field]?.includes(str)?'':str;
 }
 function safeCharacter(raw){
  const name=String(raw?.name||'').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,18)||'Aventureiro';
  return {name,race:cleanCharacterField(raw?.race,'race'),archetype:cleanCharacterField(raw?.archetype,'archetype'),goal:cleanCharacterField(raw?.goal,'goal')};
 }
-function heroBonuses(){return {hp:0,xp:0,speed:0,damage:0,parry:0,dodge:0};}
+function raceStats(race){
+ const r=RACE_OPTIONS[race];
+ if(!r)return {hp:0,mana:0,damage:0,magicDamage:0,xp:0,luck:0,speed:0,dodge:0,parry:0};
+ return {hp:Math.round(100*r.hp),mana:Math.round(60*r.mana),damage:r.damage,magicDamage:r.magicDamage,xp:r.xp,luck:r.luck,speed:r.speed,dodge:r.dodge,parry:0};
+}
+function heroBonuses(){return raceStats(runState?.active?safeCharacter(runState.character).race:'');}
 let creatorDraft={...DEFAULT_HERO},creatorStep=0;
 const CREATOR_STEPS=[
- {key:'race',title:'Raça do personagem',desc:'Escreva uma ideia sua ou deixe em branco. Raças oficiais e suas características ainda serão definidas em conjunto.',placeholder:'Raça (opcional, ainda sem efeitos)'},
- {key:'archetype',title:'Arquétipo do personagem',desc:'Você pode registrar uma ideia de estilo de combate. Classes e benefícios não estão definidos neste protótipo.',placeholder:'Arquétipo (opcional, ainda sem efeitos)'},
- {key:'goal',title:'Objetivo pessoal',desc:'Anote a motivação do personagem. A condição de vitória será implementada depois que definirmos os objetivos oficiais.',placeholder:'Objetivo da jornada (opcional)'}
+ {key:'race',title:'Escolha sua raça',desc:'Cada raça altera atributos da campanha. Os valores são iniciais e poderão ser balanceados em testes.'},
+ {key:'archetype',title:'Arquétipo do personagem',desc:'Campo descritivo provisório. Arquétipos e suas vantagens serão decididos juntos.',placeholder:'Arquétipo (opcional, sem efeitos)'},
+ {key:'goal',title:'Objetivo pessoal',desc:'Campo descritivo provisório. Condições oficiais de vitória ainda não foram definidas.',placeholder:'Objetivo da jornada (opcional)'}
 ];
 function openCharacterCreator(){
  creatorDraft={...DEFAULT_HERO};creatorStep=0;$('heroName').value='';
@@ -657,32 +675,48 @@ function openCharacterCreator(){
 }
 function creatorSummaryText(){
  const c=creatorDraft;
- return 'Raça: '+(c.race||'a definir')+' · Arquétipo: '+(c.archetype||'a definir')+' · Objetivo: '+(c.goal||'a definir');
+ return 'Raça: '+(RACE_OPTIONS[c.race]?.name||'selecione')+' · Arquétipo: '+(c.archetype||'a definir')+' · Objetivo: '+(c.goal||'a definir');
 }
 function renderCharacterCreator(){
  const step=CREATOR_STEPS[creatorStep];
- $('creatorStepText').textContent='PERSONAGEM · '+(creatorStep+1)+' DE 3 · RASCUNHO';
+ $('creatorStepText').textContent='PERSONAGEM · '+(creatorStep+1)+' DE 3'+(creatorStep===0?' · RAÇAS OFICIAIS':' · RASCUNHO');
  $('creatorHeading').textContent=step.title;
  $('creatorHelp').textContent=step.desc;
  const grid=$('creatorChoices');grid.replaceChildren();
- const label=document.createElement('label');label.className='creatorFreeLabel';
- label.textContent='CAMPO LIVRE — SEM BÔNUS OU REGRAS DEFINIDAS';
- const field=document.createElement('input');field.type='text';field.id='creatorTextField';field.className='creatorFreeInput';
- field.autocomplete='off';field.spellcheck=false;field.maxLength=step.key==='goal'?90:32;
- field.placeholder=step.placeholder;field.value=creatorDraft[step.key]||'';
- const warning=document.createElement('p');warning.className='creatorDraftNote';
- warning.textContent='A escolha é apenas descritiva. Não altera atributos, mapas, habilidades ou o final da campanha.';
- field.addEventListener('input',()=>{creatorDraft[step.key]=cleanCharacterField(field.value,step.key);$('creatorSummary').textContent=creatorSummaryText();});
- label.appendChild(field);grid.append(label,warning);
+ if(step.key==='race'){
+  grid.classList.add('raceChoices');
+  for(const [id,race] of Object.entries(RACE_OPTIONS)){
+   const b=document.createElement('button');b.type='button';b.className='raceOption'+(creatorDraft.race===id?' selected':'');
+   b.setAttribute('aria-pressed',String(creatorDraft.race===id));
+   const name=document.createElement('strong');name.textContent=race.name;
+   const detail=document.createElement('span');detail.textContent=race.effects.join(' · ');
+   b.append(name,detail);b.addEventListener('click',()=>{creatorDraft.race=id;renderCharacterCreator();});
+   grid.appendChild(b);
+  }
+ }else{
+  grid.classList.remove('raceChoices');
+  const label=document.createElement('label');label.className='creatorFreeLabel';
+  label.textContent='CAMPO LIVRE — SEM REGRAS DEFINIDAS';
+  const field=document.createElement('input');field.type='text';field.id='creatorTextField';field.className='creatorFreeInput';
+  field.autocomplete='off';field.spellcheck=false;field.maxLength=step.key==='goal'?90:32;
+  field.placeholder=step.placeholder;field.value=creatorDraft[step.key]||'';
+  const warning=document.createElement('p');warning.className='creatorDraftNote';
+  warning.textContent='A escolha é apenas descritiva. Não modifica os atributos nem encerra a campanha.';
+  field.addEventListener('input',()=>{creatorDraft[step.key]=cleanCharacterField(field.value,step.key);$('creatorSummary').textContent=creatorSummaryText();});
+  label.appendChild(field);grid.append(label,warning);
+ }
  $('creatorBack').textContent=creatorStep===0?'CANCELAR':'← VOLTAR';
- $('creatorNext').textContent=creatorStep===2?'✦ COMEÇAR RUN DE TESTE':'PRÓXIMO →';
+ $('creatorNext').textContent=creatorStep===2?'✦ COMEÇAR CAMPANHA':'PRÓXIMO →';
+ $('creatorNext').disabled=creatorStep===0&&!creatorDraft.race;
  $('creatorSummary').textContent=creatorSummaryText();
 }
 function cancelCharacterCreator(){$('creatorOverlay').classList.remove('open');$('campaignOverlay').classList.contains('open')||showCampaignMenu();}
 function advanceCharacterCreator(){
  creatorDraft.name=$('heroName').value;
  const current=CREATOR_STEPS[creatorStep];
- creatorDraft[current.key]=cleanCharacterField($('creatorTextField')?.value,current.key);
+ if(current.key==='race'){
+  if(!RACE_OPTIONS[creatorDraft.race])return;
+ }else creatorDraft[current.key]=cleanCharacterField($('creatorTextField')?.value,current.key);
  if(creatorStep<2){creatorStep++;renderCharacterCreator();return;}
  const newHero=safeCharacter(creatorDraft);$('creatorOverlay').classList.remove('open');newCampaign(newHero);
 }
@@ -698,7 +732,7 @@ let runState=null, loadedRun=null, saveTimer=0;
 function randSeed(){try{let a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||1;}catch(e){return (Math.random()*4294967295)>>>0||1;}}
 function seeded(seed,index){let v=(seed^(index*2654435761))>>>0;v=Math.imul(v^(v>>>16),2246822507);v=Math.imul(v^(v>>>13),3266489909);return ((v^(v>>>16))>>>0)/4294967296;}
 function kindForRoom(n){if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
-function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character);h.textContent=c.name+' · '+(c.archetype||'Sem arquétipo definido')+'\n'+b.icon+' '+b.name+' · SALA '+runState.room+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);}
+function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character);h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+'\n'+b.icon+' '+b.name+' · SALA '+runState.room+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);}
 function chooseRegion(seed){return Object.keys(BIOMES)[Math.floor(seeded(seed,1)*Object.keys(BIOMES).length)];}
 function readSave(){try{const x=JSON.parse(localStorage.getItem(RUN_KEY)||'null');return x?.version===21&&x?.run?.active&&x?.player?.hp>0&&BIOMES[x.run.region]&&x.progress?x:null;}catch(e){return null;}}
 function saveCampaign(){if(!runState?.active||!player||player.hp<=0)return;try{
@@ -709,14 +743,14 @@ function clearSave(){try{localStorage.removeItem(RUN_KEY);}catch(e){}}
 function historyLines(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').slice(0,4).map(x=>(x.won?'★ ':'☠ ')+(x.character?.name||'Aventureiro')+' · '+(BIOMES[x.region]?.name||'Campanha')+' · sala '+x.room+' · nível '+x.level).join(' | ');}catch(e){return '';}}
 function campaignOverlay(tag,title,description,actions){const panel=$('campaignOverlay'),slot=$('campaignActions');$('campaignTag').textContent=tag;$('campaignTitle').textContent=title;$('campaignDescription').textContent=description;slot.replaceChildren();for(const a of actions){const b=document.createElement('button');b.textContent=a.label;if(a.secondary)b.classList.add('secondary');b.addEventListener('click',a.action);slot.appendChild(b);}const lines=historyLines();$('campaignHistory').textContent=lines?'Últimas campanhas: '+lines:'';panel.classList.add('open');joyReset();keys.clear();}
 function closeCampaignOverlay(){$('campaignOverlay').classList.remove('open');last=0;frameAccumulator=0;refreshInteractionButton();}
-function showCampaignMenu(){saveCampaign();const saved=loadedRun||readSave();const active=!!runState?.active;campaignOverlay('ETAPA 22 REFEITA · ROGUELIKE','Cada vida é uma campanha',active?'Jornada de '+safeCharacter(runState.character).name+'. Objetivo declarado: '+(safeCharacter(runState.character).goal||'a definir')+'. Sair preserva a run; abandonar apaga o personagem.':'Comece em uma região aleatória. Suas habilidades e equipamentos existirão apenas nesta campanha.',[
+function showCampaignMenu(){saveCampaign();const saved=loadedRun||readSave();const active=!!runState?.active;campaignOverlay('RAÇAS v1 · ROGUELIKE','Cada vida é uma campanha',active?'Jornada de '+safeCharacter(runState.character).name+'. Objetivo declarado: '+(safeCharacter(runState.character).goal||'a definir')+'. Sair preserva a run; abandonar apaga o personagem.':'Comece em uma região aleatória. Suas habilidades e equipamentos existirão apenas nesta campanha.',[
  ...(active?[{label:'▶ Continuar campanha',action:()=>closeCampaignOverlay()}]:saved?[{label:'▶ Continuar campanha salva',action:()=>resumeCampaign(saved)}]:[]),
  {label:'✦ Criar personagem · nova campanha',action:()=>{if(active||saved){if(!window.confirm('Abandonar a campanha atual? Todo o progresso desta run será perdido.'))return;}openCharacterCreator();}},
  ...(!active?[{label:'⚔ Laboratório de combate (sem XP)',secondary:true,action:()=>{closeCampaignOverlay();runState=null;eliteMode=false;drill.active=false;reset();openLab();}}]:[])
  ]);}
 function newCampaign(character=DEFAULT_HERO){progress=safeProgress(null);clearSave();loadedRun=null;runState={active:true,seed:randSeed(),region:'forest',startRegion:null,room:1,visited:[],visitedRegions:[],bossKills:0,character:safeCharacter(character),cleared:false,createdAt:Date.now(),cause:null};runState.region=chooseRegion(runState.seed);runState.startRegion=runState.region;runState.visitedRegions=[runState.region];eliteMode=false;eliteVictory=false;drill.active=false;game.classList.remove('in-drill');reset();enterRoom(true);closeCampaignOverlay();note((BIOMES[runState.region].icon+' '+BIOMES[runState.region].name).toUpperCase(),BIOMES[runState.region].intro,3.5);}
 function resumeCampaign(data){loadedRun=null;runState={...data.run,character:safeCharacter(data.run?.character),visitedRegions:Array.isArray(data.run?.visitedRegions)?data.run.visitedRegions.filter(x=>BIOMES[x]):[data.run.region],bossKills:Number(data.run?.bossKills)||0,active:true};progress=safeProgress(data.progress);eliteMode=!!data.eliteMode;eliteVictory=!!data.eliteVictory;drill.active=false;game.classList.remove('in-drill');reset();
- player={...player,...data.player};player.hp=Math.max(1,Math.min(player.maxHp,player.hp));player.act=null;player.buffer=null;player.bufferTime=0;player.parryWindow=0;player.parryRecovery=0;player.invuln=Math.min(.6,player.invuln||0);player.attackLock=0;
+ const rebuiltMaxHp=player.maxHp,rebuiltMaxMp=player.maxMp;player={...player,...data.player};if(player.maxHp!==rebuiltMaxHp){const ratio=Math.max(0,Math.min(1,Number(player.hp||0)/Math.max(1,Number(player.maxHp)||1)));player.maxHp=rebuiltMaxHp;player.hp=Math.max(1,Math.round(rebuiltMaxHp*ratio));}if(player.maxMp!==rebuiltMaxMp){const ratio=Math.max(0,Math.min(1,Number(player.mp||0)/Math.max(1,Number(player.maxMp)||1)));player.maxMp=rebuiltMaxMp;player.mp=Math.round(rebuiltMaxMp*ratio);}player.hp=Math.max(1,Math.min(player.maxHp,player.hp));player.act=null;player.buffer=null;player.bufferTime=0;player.parryWindow=0;player.parryRecovery=0;player.invuln=Math.min(.6,player.invuln||0);player.attackLock=0;
  enemies=(Array.isArray(data.enemies)?data.enemies:[]).slice(0,5).map(x=>({...x,face:x.face||{x:-1,z:0},phase:['chase','windup','strike','recover','dead','guard','feint'].includes(x.phase)?x.phase:'chase'}));selectedEnemy=Number.isInteger(data.selectedEnemy)?data.selectedEnemy:0;squadSize=Number.isInteger(data.squadSize)?data.squadSize:3;clock=Math.max(0,Number(data.clock)||0);kills=Math.max(0,Number(data.kills)||0);wavesCleared=Math.max(0,Number(data.wavesCleared)||0);nextEnemyId=Math.max(0,Number(data.nextEnemyId)||0);respawn=0;focusId=data.focusId||null;chooseTarget();
  setCampaignHud();updateEliteUI();hud();closeCampaignOverlay();if(progress.points>0)showAbilityChoices();else if(runState.cleared)showRoomExit();else if(!['combat','boss'].includes(kindForRoom(runState.room)))enterRoom();saveCampaign();}
 function enterRoom(first=false){if(!runState?.active)return;clearInteractables();runState.cleared=false;const type=kindForRoom(runState.room);eliteMode=type==='boss';eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);squadSize=eliteMode?1:runState.room%3===0?5:runState.room%2===0?1:3;selectedEnemy=Math.floor(seeded(runState.seed,runState.room*17)*3);
@@ -733,7 +767,7 @@ function checkCampaignVictory(){
  // Nenhum objetivo provisório encerra a run automaticamente.
  return false;
 }
-function endCampaign(cause,won=false){if(!runState?.active)return;runState.active=false;runState.cause=cause;try{const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');h.unshift({region:runState.startRegion,room:runState.room,level:progress.level,cause,kills,won,character:safeCharacter(runState.character),at:Date.now()});localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,12)));}catch(e){}clearSave();$('abilityOverlay').classList.remove('open');setCampaignHud();campaignOverlay(won?'CAMPANHA CONCLUÍDA':'FIM DA CAMPANHA',won?'Objetivo cumprido!':'Sua história terminou',safeCharacter(runState.character).name+' · personagem de teste. Você chegou à sala '+runState.room+' em '+BIOMES[runState.region].name+', alcançou o nível '+progress.level+' e derrotou '+kills+' inimigos. '+(won?'Sua campanha terminou em vitória.':'A morte encerrou esta campanha.')+' A próxima aventura começa do zero.',[{label:'✦ Criar outro personagem · nova campanha',action:openCharacterCreator}]);}
+function endCampaign(cause,won=false){if(!runState?.active)return;runState.active=false;runState.cause=cause;try{const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');h.unshift({region:runState.startRegion,room:runState.room,level:progress.level,cause,kills,won,character:safeCharacter(runState.character),at:Date.now()});localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,12)));}catch(e){}clearSave();$('abilityOverlay').classList.remove('open');setCampaignHud();campaignOverlay(won?'CAMPANHA CONCLUÍDA':'FIM DA CAMPANHA',won?'Objetivo cumprido!':'Sua história terminou',safeCharacter(runState.character).name+' · '+(RACE_OPTIONS[safeCharacter(runState.character).race]?.name||'raça não definida')+'. Você chegou à sala '+runState.room+' em '+BIOMES[runState.region].name+', alcançou o nível '+progress.level+' e derrotou '+kills+' inimigos. '+(won?'Sua campanha terminou em vitória.':'A morte encerrou esta campanha.')+' A próxima aventura começa do zero.',[{label:'✦ Criar outro personagem · nova campanha',action:openCharacterCreator}]);}
 let offeredChoices=[];
 function showAbilityChoices(){if(!runState?.active||progress.points<=0)return;const available=Object.keys(ABILITIES).filter(k=>progress.ranks[k]<TALENT_LIMIT);if(!available.length){progress.points=0;saveCampaign();return;}
  if(!Array.isArray(runState.offers)||runState.offers.length!==Math.min(3,available.length)||runState.offers.some(k=>!available.includes(k))){const shuffled=[...available].sort((a,b)=>seeded(runState.seed,progress.level*101+a.length+a.charCodeAt(0))-seeded(runState.seed,progress.level*101+b.length+b.charCodeAt(0)));runState.offers=shuffled.slice(0,3);}offeredChoices=runState.offers;
@@ -803,13 +837,13 @@ function makeEnemy(styleIndex=selectedEnemy){
  const profile=FOES[styleIndex];return{x:profile.id==='berserker'?3.60:2.45,z:-.8,hp:Math.round(profile.life*BALANCE[settings.difficulty].enemyHp),maxHp:Math.round(profile.life*BALANCE[settings.difficulty].enemyHp),balance:profile.balance,maxBalance:profile.balance,balanceTimer:0,face:{x:-1,z:0},phase:'chase',wind:0,windMax:.75,strike:0,strikeMax:0,recover:0,cooldown:(profile.id==='berserker'?.50:1.1)*BALANCE[settings.difficulty].cooldown,stun:0,flash:0,knockX:0,knockZ:0,walk:0,hit:false,attackCount:0,type:'light',style:profile.id,title:profile.title,color:profile.color,aiSpeed:profile.speed,preferred:profile.reach,air:0,airVel:0,downTimer:0,downTotal:0,getup:0,launchCount:0,reaction:0,reactionDir:1,moveMagnitude:0,guardTime:0,guardCooldown:1.8,evade:0,evadeCooldown:1.6,iframe:0,side:1,feintCount:0,choice:styleIndex};
 }
 
-function reset(){clearInteractables();eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);$('eliteBtn').textContent=eliteMode?'↩ ARENA':'♛ ELITE';if(drill.active){drill.score=0;drill.errors=0;drill.unique=new Set();drill.done=false;drill.attacks=0;drill.last='Objetivo iniciado · observe os golpes';}totalFlanks=0;totalCovers=0;totalPunishes=0;peakAttackers=0;lastTacticBanner=-10;lastAttackOrdered=-10;lastAttackInput=-10;rejectedInputs=0;simultaneousInputs=0;acceptedInputs=0;precisionHits=0;precisionMisses=0;parryAttempts=0;parryMisses=0;dodgeSaves=0;totalSwings=0;successfulSwings=0;maxChain=0;damageTimeline=[];lastWave=null;waveStart=0;waveStartDamage=0;waveStartTaken=0;waveStartParries=0;waveStartSwings=0;waveStartSuccess=0;totalHits=0;totalDamage=0;totalParries=0;totalDodges=0;totalTaken=0;player={x:0,z:0,hp:100+8*progress.ranks.vigor+heroBonuses().hp,maxHp:100+8*progress.ranks.vigor+heroBonuses().hp,mp:60,maxMp:60,face:{x:1,z:0},assist:false,act:null,buffer:null,bufferTime:0,attackLock:0,seq:'',seqTimer:0,chainReady:false,dodgeFollowup:0,dodgeChain:false,parryWindow:0,parryRecovery:0,parryCooldown:0,riposte:0,invuln:0,dodge:0,dodgeCooldown:0,dodgeDir:{x:0,z:0},velX:0,velZ:0,flash:0,walk:0,knockX:0,knockZ:0,reaction:0,reactionDir:1,moveMagnitude:0};enemy=null;nextEnemyId=0;wavesCleared=0;cam={x:0,z:0,zoom:1};particles=[];texts=[];arcs=[];rings=[];flashes=[];specials=[];pixelHits=[];dodgeEchoes=[];dodgeEchoClock=0;clock=0;shake=0;hitStop=0;screenFlash=0;kills=0;respawn=0;bannerTime=0;noticeTime=0;banner.classList.remove('visible');hintUI.textContent=eliteMode?'Dourado: parry · Vermelho: esquiva':'Ajuste a dificuldade em ⚖ · confira o relatório em ⚙';spawnWave();updateSettings();hud();if(drill.active){drill.start=clock;game.classList.add('in-drill');}drillRefresh();}
+function reset(){clearInteractables();eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);$('eliteBtn').textContent=eliteMode?'↩ ARENA':'♛ ELITE';if(drill.active){drill.score=0;drill.errors=0;drill.unique=new Set();drill.done=false;drill.attacks=0;drill.last='Objetivo iniciado · observe os golpes';}totalFlanks=0;totalCovers=0;totalPunishes=0;peakAttackers=0;lastTacticBanner=-10;lastAttackOrdered=-10;lastAttackInput=-10;rejectedInputs=0;simultaneousInputs=0;acceptedInputs=0;precisionHits=0;precisionMisses=0;parryAttempts=0;parryMisses=0;dodgeSaves=0;totalSwings=0;successfulSwings=0;maxChain=0;damageTimeline=[];lastWave=null;waveStart=0;waveStartDamage=0;waveStartTaken=0;waveStartParries=0;waveStartSwings=0;waveStartSuccess=0;totalHits=0;totalDamage=0;totalParries=0;totalDodges=0;totalTaken=0;player={x:0,z:0,hp:100+8*progress.ranks.vigor+heroBonuses().hp,maxHp:100+8*progress.ranks.vigor+heroBonuses().hp,mp:60+heroBonuses().mana,maxMp:60+heroBonuses().mana,face:{x:1,z:0},assist:false,act:null,buffer:null,bufferTime:0,attackLock:0,seq:'',seqTimer:0,chainReady:false,dodgeFollowup:0,dodgeChain:false,parryWindow:0,parryRecovery:0,parryCooldown:0,riposte:0,invuln:0,dodge:0,dodgeCooldown:0,dodgeDir:{x:0,z:0},velX:0,velZ:0,flash:0,walk:0,knockX:0,knockZ:0,reaction:0,reactionDir:1,moveMagnitude:0};enemy=null;nextEnemyId=0;wavesCleared=0;cam={x:0,z:0,zoom:1};particles=[];texts=[];arcs=[];rings=[];flashes=[];specials=[];pixelHits=[];dodgeEchoes=[];dodgeEchoClock=0;clock=0;shake=0;hitStop=0;screenFlash=0;kills=0;respawn=0;bannerTime=0;noticeTime=0;banner.classList.remove('visible');hintUI.textContent=eliteMode?'Dourado: parry · Vermelho: esquiva':'Ajuste a dificuldade em ⚖ · confira o relatório em ⚙';spawnWave();updateSettings();hud();if(drill.active){drill.start=clock;game.classList.add('in-drill');}drillRefresh();}
 function updateFoePicker(){const b=$('enemyPicker');b.textContent=`⚔ ARENA: ${squadSize===1?'DUELO':squadSize+' INIMIGOS'} ↻`;b.style.color='#8cefe4';$('targetPicker').textContent='◎ FOCO: '+(enemy?.name||enemy?.title||'—');}
 function switchFoe(){if(runState?.active)return;changeMode();}
 function note(main,sub='',duration=1){banner.replaceChildren(document.createTextNode(main));if(sub){const sm=document.createElement('small');sm.textContent=sub;banner.append(sm);}banner.classList.add('visible');bannerTime=duration;}
 function label(s,time=1.15){hintUI.textContent=s;noticeTime=time;}
 function buzz(ms){if(!settings.haptics)return;try{navigator.vibrate?.(ms)}catch(e){}}
-function hud(){if(!player)return;hpFill.style.width=player.hp/player.maxHp*100+'%';mpFill.style.width=player.mp/player.maxMp*100+'%';hpText.textContent=Math.ceil(player.hp)+'/'+Math.ceil(player.maxHp);mpText.textContent=player.mp+'/60';progressionUI();
+function hud(){if(!player)return;hpFill.style.width=player.hp/player.maxHp*100+'%';mpFill.style.width=player.mp/player.maxMp*100+'%';hpText.textContent=Math.ceil(player.hp)+'/'+Math.ceil(player.maxHp);mpText.textContent=Math.ceil(player.mp)+'/'+Math.ceil(player.maxMp);progressionUI();
  let s='PRONTO PARA COMBATER';if(player.hp<=0)s='DERROTADO';else if(player.dodge>0)s='ESQUIVA';else if(player.riposte>0)s='RIPOSTA DISPONÍVEL!';else if(player.act?.move.fin)s=player.act.move.name;else if(player.seqTimer>0&&player.seq)s='COMBO: '+player.seq.split('').map(c=>c==='L'?'L':'P').join(' · ');else if(kills>0)s='DERROTADOS: '+kills+'  ·  EM CAMPO: '+living().length;comboUI.textContent=s;
  parryBtn.classList.toggle('cooling',player.parryCooldown>.08);parryBtn.classList.toggle('ready',player.parryCooldown<=.08);parryBtn.setAttribute('aria-label',player.parryCooldown>.08?'Parry recarregando':'Parry disponível');dodgeBtn.classList.toggle('cooling',player.dodgeCooldown>.05);dodgeBtn.classList.toggle('ready',player.dodgeCooldown<=.05);dodgeBtn.setAttribute('aria-label',player.dodgeCooldown>.05?'Esquiva recarregando':'Esquiva direcional disponível');
  $('queued').textContent=player.buffer?'↳ '+(player.buffer==='L'?'LEVE':'PESADO')+' NA FILA':'';
