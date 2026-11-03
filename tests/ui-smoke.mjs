@@ -38,6 +38,22 @@ try{
   const portraits=await page.locator('.racePortrait').evaluateAll(els=>els.map(el=>el.toDataURL()));
   assert.equal(portraits.length,5,'cinco retratos');
   assert.equal(new Set(portraits).size,5,'as raças precisam de silhuetas diferentes');
+  const portraitsValid=await page.locator('.racePortrait').evaluateAll(els=>els.map(canvas=>{
+   const ctx=canvas.getContext('2d'),pixels=ctx.getImageData(0,0,52,70).data;
+   let visible=0,leak=0;
+   for(let y=0;y<70;y++)for(let x=0;x<52;x++){
+    const alpha=pixels[(y*52+x)*4+3];
+    if(alpha)visible++;
+    // A sprite ocupa somente o recorte proporcional de 40x60 em (6,5).
+    if(alpha&&(x<6||x>=46||y<5||y>=65))leak++;
+   }
+   return {visible,leak};
+  }));
+  for(const p of portraitsValid){
+   assert.ok(p.visible>130,'o retrato deve possuir pixels visíveis');
+   assert.equal(p.leak,0,'o retrato não pode vazar ou ser esticado');
+  }
+  await page.screenshot({path:resolve(root,'screenshots','racas-'+width+'x'+height+'.png')});
   await page.evaluate(()=>document.querySelector('#creatorOverlay').classList.remove('open'));
   await page.evaluate(()=>window.__rpgDebug.openOptions());
   await page.evaluate(()=>{document.querySelector('#fpsToggle').click();document.querySelector('[data-pad-size="large"]').click();});
@@ -78,6 +94,24 @@ try{
   assert.ok(!overlap(boss,fps),'FPS não pode ficar sob o chefe');
   await page.locator('#eliteHud summary').click();
   assert.equal(await page.locator('#eliteHud').evaluate(el=>el.open),true);
+  // Testa a renderização das cinco raças usando as cinco armas.
+  if(width===854&&height===480){
+   for(const [race,archetype] of [
+    ['human','warrior'],['elf','arcanist'],['orc','guardian'],
+    ['dwarf','rebel'],['halfling','hunter']
+   ]){
+    await page.evaluate(({race,archetype})=>{
+     const debug=window.__rpgDebug;
+     document.querySelector('#drillRace').value=race;
+     document.querySelector('#drillArchetype').value=archetype;
+     debug.chooseDrill('sandbox','dummy',0);
+     debug.debugSet({player:{face:{x:0,z:1}}});
+     debug.action('L');
+     debug.testTick(.12);
+    },{race,archetype});
+    await page.screenshot({path:resolve(root,'screenshots','golpe-'+race+'-'+archetype+'.png')});
+   }
+  }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }
