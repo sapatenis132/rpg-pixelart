@@ -1159,6 +1159,33 @@ function perfectParry(){if(enemy?.style==='elite'){enemy.bossWeak=1.8;enemy.boss
  }
 sfx('parry');player.parryWindow=0;player.parryRecovery=.08;player.parryCooldown=.33;player.riposte=1.45;player.invuln=.22;player.seq='';player.seqTimer=0;player.chainReady=false;player.dodgeFollowup=0;player.dodgeChain=false;player.act=null;player.buffer=null;player.bufferTime=0;enemy.phase='stun';enemy.wind=0;enemy.strike=0;enemy.stun=1.38;enemy.knockX-=enemy.face.x*2.9;enemy.knockZ-=enemy.face.z*2.9;enemy.flash=.24;
  hitStop=.068;shake=12;pixelImpact((player.x+enemy.x)/2,(player.z+enemy.z)/2,'#a8ffe3','parry',1.5);ring(player.x,player.z,'#e5fff4',22,2.1);ring(enemy.x,enemy.z,'#9dffdc',28,1.4);burst((player.x+enemy.x)/2,(player.z+enemy.z)/2,'#e4ffba',34,1.65);flashAt(enemy.x,enemy.z,'#e9fff6',1.6,.26);directionalBurst(enemy.x,enemy.z,{x:-enemy.face.x,z:-enemy.face.z},'#dcfff2',1.4,18);floating('PARRY PERFEITO!',enemy.x,enemy.z,'#a9ffda',18);screenFlash=Math.max(screenFlash,.22);note('PARRY PERFEITO!','Leve ou pesado para ripostar',1.2);buzz(27);hud();}
+// POSTURA v2: pressão por arma e por golpe, independente do dano de vida.
+// Rajadas dividem um orçamento de pressão entre as flechas para evitar que um pesado
+// com cinco projéteis quebre a guarda cinco vezes mais rápido que o disparo triplo.
+const POSTURE_PROFILES={
+ warrior:{light:13,heavy:24,fin:34,break:36,rip:29,ext:41},
+ guardian:{light:11,heavy:25,fin:32,break:38,rip:27,ext:45},
+ rebel:{light:7,heavy:15,fin:21,break:24,rip:19,ext:29},
+ arcanist:{light:9,heavy:21,fin:24,break:24,rip:19,ext:28},
+ hunter:{light:10,heavy:22,fin:25,break:25,rip:18,ext:28}
+};
+function postureDamage(move,key,archetype,target){
+ const p=POSTURE_PROFILES[archetype]||POSTURE_PROFILES.warrior;
+ const heavy=key.includes('H')||move.heavyShot;
+ let base=move.ext?p.ext:move.break?p.break:move.fin?p.fin:move.rip?p.rip:heavy?p.heavy:p.light;
+ if(move.dash)base=Math.round((base+p.light)*.5);
+ // Golpes mais fortes da mesma classe pressionam um pouco mais, sem picos de 95 pontos.
+ base+=Math.max(0,Math.min(5,Math.round(((move.dmg||10)-(heavy?20:10))*.13)));
+ if(move.ranged&&archetype==='hunter'){
+   const count=Math.max(1,move.shots||1);
+   base=count>=5?30:count>=3?24:base;
+   base/=count; // pressão real apenas dos projéteis que atingirem o alvo.
+ }
+ // Defendendo, o inimigo perde postura mais rápido; chefes têm maior estabilidade.
+ const guarding=target.phase==='guard'&&target.guardTime>0;
+ const modifier=(guarding?1.18:1)*(target.style==='elite'?.72:1);
+ return Math.max(1,Math.round(base*modifier));
+}
 function playerHit(contact=false,target=null,externalAct=null){
  const currentEnemy=enemy;if(target)enemy=target;
  try{
@@ -1195,25 +1222,26 @@ function playerHit(contact=false,target=null,externalAct=null){
 
  if(guarding){sfx('guard');floating('BLOQUEIO!',enemy.x,enemy.z,'#8bfff0',13);pixelImpact(enemy.x,enemy.z,'#74ffee','guard',1);ring(enemy.x,enemy.z,'#87fff2',15,.9);shake=3;}
  enemy.hp=Math.max(drill.active?1:0,enemy.hp-dmg);if(drill.active&&enemy.hp<enemy.maxHp*.16)enemy.hp=enemy.maxHp;totalHits++;precisionHits++;totalDamage+=dmg;damageTimeline.push({t:clock,d:dmg});if(damageTimeline.length>500)damageTimeline.splice(0,100);enemy.flash=.19;enemy.reaction=.25;enemy.reactionDir=move.angle||1;
- const pressure=(move.break?95:move.fin?76:move.rip?75:a.key.includes('H')?44:27)*(move.ranged?.70:1)*(guarding?1.22:1)*(enemy.style==='elite'?.75:1);
+ const pressure=postureDamage(move,a.key,currentArchetype(),enemy);
  enemy.balance=Math.max(0,enemy.balance-pressure);enemy.balanceTimer=1.25;
  const broken=enemy.balance<=0;
  if(broken){if(enemy.style==='elite'){enemy.bossWeak=2.3;enemy.bossQueue=[];floating('POSTURA ROMPIDA! +35% DANO',enemy.x,enemy.z,'#ffe4a4',13);}enemy.balance=enemy.maxBalance;enemy.cooldown=.90;enemy.guardTime=0;enemy.stun=Math.max(enemy.stun,.85);if(!airborne&&!downed)enemy.phase='stun';floating('GUARDA QUEBRADA',enemy.x,enemy.z,'#ffe9a4',13);}
  else if(enemy.phase==='chase')enemy.cooldown=Math.max(enemy.cooldown,.19);
  let effectText='';
- if(guarding&&!broken){enemy.guardTime=Math.max(0,enemy.guardTime-.23);effectText='ESCUDO SEGURA O GOLPE';}
+ if(guarding&&!broken){enemy.guardTime=Math.max(0,enemy.guardTime-(move.break?.30:.18));effectText='ESCUDO SEGURA O GOLPE';}
  else if(move.launch&&(enemy.style!=='elite'||broken)){enemy.downTimer=0;enemy.getup=0;enemy.air=Math.max(enemy.air,.09);enemy.airVel=4.7;enemy.launchCount++;enemy.stun=0;enemy.phase='air';effectText='LANÇADO!';}
  else if(move.slam&&(airborne||downed)&&(enemy.style!=='elite'||broken)){enemy.air=0;enemy.airVel=0;enemy.downTimer=1.12;enemy.downTotal=1.12;enemy.stun=0;enemy.phase='down';effectText='IMPACTO NO SOLO!';}
  else if(move.down&&(enemy.style!=='elite'||broken)){enemy.air=0;enemy.airVel=0;enemy.downTimer=1.06;enemy.downTotal=1.06;enemy.stun=0;enemy.phase='down';effectText='DERRUBADO!';}
  else if(move.vortex){enemy.knockX-=dir.x*4.1;enemy.knockZ-=dir.z*4.1;effectText='PUXÃO CIRCULAR';}
- else if(move.break){enemy.stun=Math.max(enemy.stun,1.02);enemy.phase='stun';effectText='ABERTURA NA GUARDA';}
+ else if(move.break&&enemy.balance<enemy.maxBalance*.35){effectText='POSTURA INSTÁVEL';}
  else if(airborne){enemy.airVel=Math.max(enemy.airVel,2.8);enemy.phase='air';effectText='CONTROLE AÉREO';}
  if(enemy.style==='elite'&&!broken&&(move.launch||move.down||move.slam))effectText='ELITE RESISTE · QUEBRE A POSTURA';if(move.execute&&downed){effectText='EXECUÇÃO +42%';}
  if(move.airBonus&&airborne){effectText='ATAQUE AÉREO +35%';}
  if(effectText){floating(effectText,enemy.x,enemy.z,'#b9f4ff',12);label(effectText,.75);}
  enemy.knockX+=dir.x*move.knock*(enemy.style==='elite'&&!broken?.27:broken?1.6:guarding?.10:1.10);enemy.knockZ+=dir.z*move.knock*(enemy.style==='elite'&&!broken?.27:broken?1.6:guarding?.10:1.10);
  impactFX(enemy.x,enemy.z,dir,pal,move.fin?1.7:move.dmg>20?1.2:1,move.fin);
- if(!guarding)pixelImpact(enemy.x,enemy.z,pal.main,move.fin?'finisher':'hit',move.fin?1.5:1);if(!guarding)sfx(move.fin?'finisher':'impact');
+ if(!guarding)pixelImpact(enemy.x,enemy.z,pal.main,move.fin?'finisher':'hit',move.fin?1.5:1);
+ if(pressure>=24&&!broken)floating('POSTURA −'+pressure,enemy.x,enemy.z,'#f5dfa6',11);if(!guarding)sfx(move.fin?'finisher':'impact');
  if(move.fin&&!move.ranged)finisherFX(enemy.x,enemy.z,dir,pal,a.key);
  floating('-'+dmg,enemy.x,enemy.z,move.fin?pal.edge:'#e9fbff',move.fin?26:18);
  shake=move.fin?12:move.dmg>20?7:4;hitStop=move.fin?.075:.040;screenFlash=Math.max(screenFlash,pal.screen*(move.fin?1:.65));buzz(move.fin?31:12);
