@@ -549,9 +549,10 @@ let rangedShots=[];
 function fireRangedMove(a){
  if(!a?.move?.ranged||a.launched)return;
  const m=a.move,count=m.shots||1,spread=m.spread||0,base=Math.atan2(player.face.z,player.face.x);
+ const volley={landed:false,pending:count};
  for(let i=0;i<count;i++){
   const theta=base+(i-(count-1)/2)*spread,dir={x:Math.cos(theta),z:Math.sin(theta)};
-  const shotAct={key:a.key,move:m,hit:false,landed:false,slashed:true,hitIds:new Set(),pal:a.pal};
+  const shotAct={key:a.key,move:m,hit:false,landed:false,slashed:true,hitIds:new Set(),pal:a.pal,group:volley};
   rangedShots.push({x:player.x+dir.x*.58,z:player.z+dir.z*.58,dir,speed:m.speed||10,
    life:Math.min(1.45,(m.reach||7)/(m.speed||10)+.14),radius:m.heavyShot?(m.magic?.33:.16):(m.magic?.17:.105),magic:!!m.magic,act:shotAct});
  }
@@ -571,7 +572,12 @@ function updateRangedShots(dt){
    shot.life=0;break;
   }
  }
- rangedShots=rangedShots.filter(p=>p.life>0&&Math.abs(p.x)<9&&Math.abs(p.z)<9);
+ for(const shot of rangedShots){
+  if(shot.accounted||shot.life>0&&Math.abs(shot.x)<9&&Math.abs(shot.z)<9)continue;
+  shot.accounted=true;const group=shot.act?.group;
+  if(group&&--group.pending===0&&!group.landed)precisionMisses++;
+ }
+ rangedShots=rangedShots.filter(p=>!p.accounted);
 }
 function drawRangedShots(){
  for(const shot of rangedShots){
@@ -1171,11 +1177,13 @@ function playerHit(contact=false,target=null,externalAct=null){
   precisionMisses++;if(move.fin){player.seq='';player.seqTimer=0;player.chainReady=false;}return;
  }
  if(enemy.iframe>0){floating('ESQUIVA!',enemy.x,enemy.z,'#ddbbff',15);burst(enemy.x,enemy.z,'#c3a4ff',10,.8);if(move.fin){player.seq='';player.seqTimer=0;player.chainReady=false;}return;}
- if(!a.landed){successfulSwings++;drillEvent('landed',a.key);
+ const firstHitForAttack=!a.landed&&(!move.ranged||!a.group?.landed);
+ if(firstHitForAttack){successfulSwings++;drillEvent('landed',a.key);
   if(enemy.style==='elite'&&enemy.bossMemory){const group=a.key.includes('H')?'H':'L',m=enemy.bossMemory;
    m.streak=group===m.type&&clock-m.last<4.0?m.streak+1:1;m.type=group;m.last=clock;
    if(m.streak>=3){enemy.bossAdapt=1.6;enemy.bossAdaptiveCount++;m.streak=0;floating('PADRÃO LIDO!',enemy.x,enemy.z,'#ffd19a',14);}}
- }a.landed=true;if(a.hitIds.size>=2)floating('MULTIACERTO x'+a.hitIds.size,player.x,player.z,'#b3ffe3',15);
+ }a.landed=true;if(move.ranged&&a.group)a.group.landed=true;
+ if(a.hitIds.size>=2)floating('MULTIACERTO x'+a.hitIds.size,player.x,player.z,'#b3ffe3',15);
  const guarding=enemy.phase==='guard'&&enemy.guardTime>0;
  const airborne=enemy.air>.05,downed=enemy.downTimer>0;
  const multiplier=move.execute&&downed?1.42:move.airBonus&&airborne?1.35:1;
