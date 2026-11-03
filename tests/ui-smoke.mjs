@@ -182,6 +182,55 @@ try{
     'arco deve tensionar, soltar e recuperar a corda');
    for(const m of checks.melee)assert.ok(m.delta>8,m.arch+' deve ter golpe visível');
   }
+  // Regressão: as duas espadas e a adaga acompanham o joystick de modo
+  // contínuo. Antes o ângulo era quase fixo independentemente da direção.
+  if(width===854&&height===480){
+   const following=await page.evaluate(()=>{
+    const d=window.__rpgDebug,archetypes=['warrior','guardian','rebel'];
+    const output=[];
+    for(const archetype of archetypes){
+     const poses=[];
+     for(let i=0;i<72;i++){
+      const theta=i*Math.PI*2/72;
+      const face={x:Math.cos(theta),z:Math.sin(theta)};
+      poses.push(d.weaponVisualPose(face,archetype,0,0,{impact:.48}));
+     }
+     let maxJump=0;
+     for(let i=0;i<poses.length;i++){
+      const prev=poses[i],next=poses[(i+1)%poses.length];
+      maxJump=Math.max(maxJump,Math.abs(next.a-prev.a));
+     }
+     output.push({
+      archetype,
+      angleRange:Math.max(...poses.map(p=>p.a))-Math.min(...poses.map(p=>p.a)),
+      gripRange:Math.max(...poses.map(p=>p.y1))-Math.min(...poses.map(p=>p.y1)),
+      maxJump
+     });
+    }
+    return output;
+   });
+   for(const weapon of following){
+    assert.ok(weapon.angleRange>.85,weapon.archetype+' deve acompanhar a direção do joystick');
+    assert.ok(weapon.gripRange>5,weapon.archetype+' deve deslocar a empunhadura');
+    assert.ok(weapon.maxJump<.11,weapon.archetype+' não pode saltar de direção');
+   }
+   // Integração: mover o joystick real via teclas usa a mesma entrada de movimento.
+   const keyboardAim=await page.evaluate(()=>{
+    const debug=window.__rpgDebug;
+    const initial=debug.weaponJoystickFacing();
+    return{initial};
+   });
+   await page.keyboard.down('ArrowLeft');
+   await page.evaluate(()=>{for(let n=0;n<9;n++)window.__rpgDebug.testTick(.016);});
+   await page.keyboard.up('ArrowLeft');
+   const leftAim=await page.evaluate(()=>window.__rpgDebug.weaponJoystickFacing());
+   await page.keyboard.down('ArrowRight');
+   await page.evaluate(()=>{for(let n=0;n<14;n++)window.__rpgDebug.testTick(.016);});
+   await page.keyboard.up('ArrowRight');
+   const rightAim=await page.evaluate(()=>window.__rpgDebug.weaponJoystickFacing());
+   assert.ok(Math.hypot(leftAim.x-rightAim.x,leftAim.z-rightAim.z)>.6,
+    'a orientação visual deve responder às direções opostas do joystick');
+  }
   // Testa a renderização das cinco raças usando as cinco armas.
   if(width===854&&height===480){
    for(const [race,archetype] of [
