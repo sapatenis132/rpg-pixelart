@@ -39,20 +39,30 @@ try{
   assert.equal(portraits.length,5,'cinco retratos');
   assert.equal(new Set(portraits).size,5,'as raças precisam de silhuetas diferentes');
   const portraitsValid=await page.locator('.racePortrait').evaluateAll(els=>els.map(canvas=>{
-   const ctx=canvas.getContext('2d'),pixels=ctx.getImageData(0,0,52,70).data;
-   let visible=0,leak=0;
-   for(let y=0;y<70;y++)for(let x=0;x<52;x++){
-    const alpha=pixels[(y*52+x)*4+3];
-    if(alpha)visible++;
-    // A sprite ocupa somente o recorte proporcional de 40x60 em (6,5).
-    if(alpha&&(x<6||x>=46||y<5||y>=65))leak++;
-   }
-   return {visible,leak};
+   const style=getComputedStyle(canvas);
+   const rect=canvas.getBoundingClientRect(),card=canvas.closest('.raceOption').getBoundingClientRect();
+   const {width,height}=canvas,ctx=canvas.getContext('2d');
+   const pixels=ctx.getImageData(0,0,width,height).data;
+   let painted=0;for(let i=3;i<pixels.length;i+=4)if(pixels[i]>0)painted++;
+   return{
+    width,height,cssWidth:rect.width,cssHeight:rect.height,
+    position:style.position,
+    insideCard:rect.left>=card.left-2&&rect.top>=card.top-2&&
+     rect.right<=card.right+2&&rect.bottom<=card.bottom+2,
+    painted
+   };
   }));
   for(const p of portraitsValid){
-   assert.ok(p.visible>130,'o retrato deve possuir pixels visíveis');
-   assert.equal(p.leak,0,'o retrato não pode vazar ou ser esticado');
+   assert.equal(p.width,48,'retrato interno: 48px');
+   assert.equal(p.height,72,'retrato interno: 72px');
+   assert.equal(p.position,'static','a imagem de raça não pode ser absoluta');
+   assert.ok(p.insideCard,'retrato precisa ficar DENTRO da opção de raça');
+   assert.ok(p.cssWidth>=35&&p.cssHeight>=53,'a miniatura precisa ser legível');
+   assert.ok(Math.abs(p.cssWidth/p.cssHeight-2/3)<.018,'proporção correta');
+   assert.ok(p.painted>150,'a imagem tem que conter pixels visíveis');
   }
+  assert.equal(await page.locator('#scene').evaluate(el=>getComputedStyle(el).position),'absolute',
+   'apenas a arena deve ocupar a tela');
   await page.screenshot({path:resolve(root,'screenshots','racas-'+width+'x'+height+'.png')});
   await page.evaluate(()=>document.querySelector('#creatorOverlay').classList.remove('open'));
   await page.evaluate(()=>window.__rpgDebug.openOptions());
@@ -94,6 +104,29 @@ try{
   assert.ok(!overlap(boss,fps),'FPS não pode ficar sob o chefe');
   await page.locator('#eliteHud summary').click();
   assert.equal(await page.locator('#eliteHud').evaluate(el=>el.open),true);
+  // Confere matematicamente que a ponta da arma jamais retorna ao rosto.
+  if(width===854&&height===480){
+   const poseCheck=await page.evaluate(()=>{
+    const directions=[];
+    for(let k=0;k<8;k++)directions.push({x:Math.cos(k*Math.PI/4),z:Math.sin(k*Math.PI/4)});
+    let count=0;const failures=[];
+    for(const archetype of ['warrior','arcanist','guardian','rebel','hunter']){
+     for(const face of directions){
+      for(let i=-12;i<=12;i++){
+       const pose=window.__rpgDebug.weaponVisualPose(face,archetype,i/10);
+       count++;
+       if(!Number.isFinite(pose.x2)||!Number.isFinite(pose.y2)||
+         pose.side*(pose.x2-pose.x1)<=0||
+         Math.sign(pose.x1)!==pose.side)
+         failures.push({archetype,face,angle:i/10,pose});
+      }
+     }
+    }
+    return{count,failures};
+   });
+   assert.equal(poseCheck.count,1000);
+   assert.deepEqual(poseCheck.failures,[],'a arma deve ficar para fora do rosto em todo o arco');
+  }
   // Testa a renderização das cinco raças usando as cinco armas.
   if(width===854&&height===480){
    for(const [race,archetype] of [
