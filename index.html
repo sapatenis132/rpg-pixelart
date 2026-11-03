@@ -1296,9 +1296,203 @@ const ABILITIES={
  agility:{title:'Passos Ligeiros',desc:'Reduz 4% da recarga da esquiva',tag:'Esquiva'}
 };
 let runState=null, loadedRun=null, saveTimer=0;
+let roomGeometry=null,roomTransitionCooldown=0;
 function randSeed(){try{let a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||1;}catch(e){return (Math.random()*4294967295)>>>0||1;}}
 function seeded(seed,index){let v=(seed^(index*2654435761))>>>0;v=Math.imul(v^(v>>>16),2246822507);v=Math.imul(v^(v>>>13),3266489909);return ((v^(v>>>16))>>>0)/4294967296;}
-function kindForRoom(n){if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
+
+// ETAPA 27A — Fundação procedural: rede de áreas, salas e geometria estável.
+const ROOM_DIRECTIONS=[
+ {dx:1,dz:0,name:'LESTE'}, {dx:0,dz:1,name:'SUL'},
+ {dx:-1,dz:0,name:'OESTE'}, {dx:0,dz:-1,name:'NORTE'}
+];
+function generateWorld(seed){
+ const biomes=Object.keys(BIOMES),rooms={},areas=[];
+ const count=5+Math.floor(seeded(seed,779)*3);
+ let nextId=0;
+ function link(a,b){
+  const offset=Math.floor(seeded(seed,a.id*571+b.id*83)*4);
+  for(let n=0;n<4;n++){
+   const d=(offset+n)%4,reverse=(d+2)%4;
+   if(a.exits.some(e=>e.dir===d)||b.exits.some(e=>e.dir===reverse))continue;
+   a.exits.push({dir:d,to:b.id});b.exits.push({dir:reverse,to:a.id});return;
+  }
+  throw Error('Gerador não encontrou direção livre para conectar as salas');
+ }
+ for(let ai=0;ai<count;ai++){
+  const special=ai===2?'village':ai===count-1?'boss':'wild';
+  const biome=biomes[(ai+Math.floor(seeded(seed,18)*biomes.length))%biomes.length];
+  const size=special==='wild'?3+Math.floor(seeded(seed,ai*199+30)*4):1;
+  const area={id:ai,biome,type:special,rooms:[],name:
+   special==='village'?'Povoação isolada':special==='boss'?'Recinto do chefe':BIOMES[biome].name+' '+(ai+1)};
+  areas.push(area);
+  for(let j=0;j<size;j++){
+   const id=++nextId,noise=seeded(seed,id*407+31);
+   const kind=special==='boss'?'boss':special==='village'?'rest':
+    j===0&&ai===0?'combat':noise<.20?'empty':noise<.34?'rest':'combat';
+   const room={id,area:ai,kind,shape:['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
+    width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
+    height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
+    exits:[],variant:Math.floor(seeded(seed,id*109+87)*100000)};
+   rooms[id]=room;area.rooms.push(id);
+   if(j>0){
+    const candidates=area.rooms.slice(0,-1).map(key=>rooms[key]).filter(r=>r.exits.length<3);
+    const parent=candidates[Math.floor(seeded(seed,id*71+9)*candidates.length)]||rooms[area.rooms[j-1]];
+    link(parent,room);
+   }else if(ai>0){
+    // As áreas formam uma árvore conexa, mas podem ramificar entre regiões.
+    const parentArea=areas[ai===3?1:ai-1];
+    const parents=parentArea.rooms.map(key=>rooms[key]).filter(r=>r.exits.length<3);
+    link(parents[Math.floor(seeded(seed,id*53+5)*parents.length)]||rooms[parentArea.rooms[0]],room);
+   }
+  }
+ }
+ return{version:1,seed,areas,rooms,memories:{},current:1,discovered:[1]};
+}
+function roomById(id=runState?.room){return runState?.world?.rooms?.[id]||null;}
+function makeRoomGeometry(room){
+ const tiles=[],walkable=new Set(),solid=new Set(),props=[];
+ const hw=room.width/2,hh=room.height/2;
+ for(let x=-hw;x<hw;x++)for(let z=-hh;z<hh;z++){
+  const u=(x+.5)/hw,v=(z+.5)/hh;
+  const a=Math.abs(u),b=Math.abs(v);
+  let inside=room.shape==='rect'?true:
+   room.shape==='ellipse'?u*u+v*v<.97:
+   room.shape==='cross'?a<.48||b<.42:
+   room.shape==='bend'?u<.30||v>.16:
+   b<.33+Math.sin(u*4+room.variant)*.10;
+  // Eixos centrais atravessáveis conectam todas as saídas sem armadilhas.
+  if(Math.abs(x+.5)<1.6||Math.abs(z+.5)<1.6)inside=true;
+  if(!inside)continue;
+  tiles.push({x,z});
+  const key=x+','+z;walkable.add(key);
+  const variation=seeded(room.variant,x*1499+z*701);
+  if(Math.abs(x+.5)>2.5&&Math.abs(z+.5)>2.5&&variation<.055){
+   solid.add(key);props.push({x,z,type:variation<.024?'stone':'bush'});
+  }
+ }
+ return{room,hw,hh,tiles,walkable,solid,props};
+}
+function worldExtent(){return roomGeometry&&runState?.world?Math.max(roomGeometry.hw,roomGeometry.hh):6.65;}
+function worldPassable(x,z){
+ if(!runState?.world||!roomGeometry)return true;
+ // Verifica também as bordas do corpo para impedir atravessar obstáculos.
+ for(const dx of [-.19,.19])for(const dz of [-.19,.19]){
+  const cx=Math.floor(x+dx),cz=Math.floor(z+dz),key=cx+','+cz;
+  if(!roomGeometry.walkable.has(key)||roomGeometry.solid.has(key))return false;
+ }
+ return true;
+}
+function resolveWorldActor(actor,oldX,oldZ){
+ if(!runState?.world||!roomGeometry||!actor||actor.hp<=0)return;
+ if(worldPassable(actor.x,actor.z))return;
+ if(worldPassable(actor.x,oldZ)){actor.z=oldZ;return;}
+ if(worldPassable(oldX,actor.z)){actor.x=oldX;return;}
+ actor.x=oldX;actor.z=oldZ;
+}
+function rememberWorldRoom(){
+ if(!runState?.world||!roomGeometry)return;
+ runState.world.memories[runState.room]={
+  visited:true,cleared:!!runState.cleared,
+  enemies:enemies.map(e=>({...e})),region:runState.region
+ };
+}
+function enterWorldRoom(id,from=null){
+ const world=runState?.world,room=world?.rooms?.[id];if(!room)return false;
+ clearInteractables();projectileEpoch++;rangedShots=[];
+ runState.room=id;world.current=id;roomGeometry=makeRoomGeometry(room);
+ const area=world.areas[room.area];runState.region=area.biome;
+ if(!runState.visitedRegions.includes(runState.region))runState.visitedRegions.push(runState.region);
+ if(!world.discovered.includes(id))world.discovered.push(id);
+ const stored=world.memories[id],isReturning=!!stored;
+ runState.cleared=!!stored?.cleared;roomTransitionCooldown=.75;
+ eliteMode=room.kind==='boss';eliteVictory=runState.cleared&&eliteMode;
+ game.classList.toggle('in-elite',eliteMode);
+ $('eliteBtn').classList.toggle('active',eliteMode);
+ squadSize=eliteMode?1:room.id%3===0?5:room.id%2===0?1:3;
+ selectedEnemy=Math.floor(seeded(world.seed,id*17)*3);
+ enemies=[];respawn=0;player.act=null;player.buffer=null;player.seq='';player.seqTimer=0;
+ player.dodge=0;player.parryWindow=0;player.attackLock=0;player.velX=0;player.velZ=0;
+ player.knockX=0;player.knockZ=0;player.invuln=Math.max(player.invuln||0,.55);
+ const fromDoor=room.exits.find(e=>e.to===from);
+ const point=fromDoor?ROOM_DIRECTIONS[fromDoor.dir]:{dx:0,dz:0};
+ player.x=fromDoor?(-point.dx)*(roomGeometry.hw-2.4):0;
+ player.z=fromDoor?(-point.dz)*(roomGeometry.hh-2.4):0;
+ // A sala de destino usa a entrada oposta à passagem de origem.
+ if(fromDoor){player.x=point.dx*(roomGeometry.hw-2.4);player.z=point.dz*(roomGeometry.hh-2.4);}
+ player.face={x:fromDoor?-point.dx:1,z:fromDoor?-point.dz:0};
+ cam.x=player.x;cam.z=player.z;
+ if(stored){
+  enemies=(stored.enemies||[]).map(e=>({...e,face:e.face||{x:-1,z:0}}));
+  if(enemies.some(e=>e.hp>0)){squadRoles();chooseTarget(true);}
+ }else if(room.kind==='combat'||room.kind==='boss')spawnWave();
+ else{chooseTarget();runState.cleared=true;}
+ world.memories[id]={visited:true,cleared:runState.cleared,
+  enemies:enemies.map(e=>({...e})),region:runState.region};
+ setCampaignHud();updateEliteUI();hud();saveCampaign();
+ note((BIOMES[runState.region]?.icon||'✦')+' '+area.name,
+  isReturning?'Área conhecida · caminhos preservados':
+   room.kind==='boss'?'Um adversário poderoso aguarda':room.kind==='combat'?'Explore ou enfrente os inimigos':'Explore o local e suas passagens',2);
+ return true;
+}
+function worldExitAt(e){
+ const dir=ROOM_DIRECTIONS[e.dir];
+ return{x:dir.dx*(roomGeometry.hw-.72),z:dir.dz*(roomGeometry.hh-.72)};
+}
+function tryWorldTransition(move){
+ if(!runState?.world||!roomGeometry||roomTransitionCooldown>0||player.hp<=0)return false;
+ for(const e of roomGeometry.room.exits){
+  const dir=ROOM_DIRECTIONS[e.dir],p=worldExitAt(e);
+  if(Math.hypot(player.x-p.x,player.z-p.z)>1.4)continue;
+  if(move.x*dir.dx+move.z*dir.dz<.38)continue;
+  if(!runState.cleared&&(['boss'].includes(roomGeometry.room.kind)||roomGeometry.room.variant%5===0&&roomGeometry.room.kind==='combat')){
+   label('PASSAGEM SELADA · derrote os inimigos',1.2);return false;
+  }
+  const source=runState.room;rememberWorldRoom();
+  enterWorldRoom(e.to,source);return true;
+ }
+ return false;
+}
+function drawWorldFloor(){
+ const g=roomGeometry,room=g.room,b=BIOMES[runState.region]||BIOMES.forest;
+ ctx.fillStyle='#07151f';ctx.fillRect(0,0,w,h);
+ ctx.imageSmoothingEnabled=false;
+ for(const tile of g.tiles){
+  const i=tile.x,j=tile.z,p=point(i+.5,j+.5);
+  if(p.x< -sx*2||p.x>w+sx*2||p.y< -sy*3||p.y>h+sy*3)continue;
+  const variant=Math.floor(seeded(room.variant,i*199+j*337)*4);
+  const tex=PIXEL_ART['tile'+variant];
+  if(tex?.complete&&tex.naturalWidth)ctx.drawImage(tex,Math.round(p.x-sx),Math.round(p.y-sy),Math.ceil(sx*2),Math.ceil(sy*2));
+  else polygon([point(i,j),point(i+1,j),point(i+1,j+1),point(i,j+1)],'#263a43','#42626b',1);
+  // Variação discreta do bioma sem alterar hitboxes.
+  if(seeded(room.variant,i*431+j*719)<.11){
+   ctx.fillStyle=room.area%3===0?'#719e70':room.area%3===1?'#aa9b68':'#9a9ab7';
+   ctx.fillRect(Math.round(p.x-2),Math.round(p.y-2),3,3);
+  }
+ }
+ ctx.fillStyle=b.tint;ctx.fillRect(0,0,w,h);
+ for(const prop of g.props){
+  const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
+  if(p.x< -30||p.x>w+30||p.y< -40||p.y>h+40)continue;
+  ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
+  ctx.fillStyle=prop.type==='stone'?'#526b7c':'#27594b';
+  ctx.fillRect(p.x-size*.75,p.y-size*2,1.5*size,1.6*size);
+  ctx.fillStyle=prop.type==='stone'?'#9eb6bf':'#5caa74';
+  ctx.fillRect(p.x-size*.55,p.y-size*2.1,size,size*.7);
+ }
+ for(const exit of room.exits){
+  const pos=worldExitAt(exit),p=point(pos.x,pos.z);
+  if(p.x< -70||p.x>w+70||p.y< -70||p.y>h+70)continue;
+  const gated=!runState.cleared&&(room.kind==='boss'||room.kind==='combat'&&room.variant%5===0);
+  ctx.fillStyle=gated?'#a95c64':'#85efce';ctx.globalAlpha=.75;
+  ctx.beginPath();ctx.ellipse(p.x,p.y,Math.max(15,sx*.46),Math.max(8,sy*.38),0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle='#071b25';ctx.font='bold 10px system-ui';ctx.textAlign='center';
+  const next=roomById(exit.to);const area=runState.world.areas[next.area];
+  ctx.fillText(gated?'BLOQUEADA':area.id===room.area?'PASSAGEM':'NOVA ÁREA',p.x,p.y-16);
+ }
+ const v=ctx.createRadialGradient(w*.5,h*.46,h*.14,w*.5,h*.5,Math.max(w,h)*.76);
+ v.addColorStop(0,'#0000');v.addColorStop(1,'#03101bb1');ctx.fillStyle=v;ctx.fillRect(0,0,w,h);
+}
+function kindForRoom(n){if(roomById(n))return roomById(n).kind;if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
 function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character);h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+b.name+' · SALA '+runState.room+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);}
 function chooseRegion(seed){return Object.keys(BIOMES)[Math.floor(seeded(seed,1)*Object.keys(BIOMES).length)];}
 function readSave(){try{const x=JSON.parse(localStorage.getItem(RUN_KEY)||'null');return x?.version===21&&x?.run?.active&&x?.player?.hp>0&&BIOMES[x.run.region]&&x.progress?x:null;}catch(e){return null;}}
