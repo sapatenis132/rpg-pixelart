@@ -480,7 +480,12 @@ try{
    assert.equal(d.world.tab,'world');
    assert.equal(d.area.current,1);
    assert.equal(d.area.states[1],2,'sala atual visitada');
-   assert.equal(d.area.seen,1,'não revelar salas ainda não visitadas');
+   const visitedInArea=d.area.nodes.filter(id=>d.run.world.discovered.includes(id)).length;
+   assert.equal(d.area.seen,visitedInArea,'salas descobertas correspondem ao save');
+   for(const id of d.area.nodes){
+    assert.equal(d.area.states[id]===2,d.run.world.discovered.includes(id),
+     'não revelar sala '+id+' como visitada prematuramente');
+   }
    assert.equal(d.world.seen,1,'não revelar áreas ainda não visitadas');
    assert.ok(Object.values(d.world.states).some(x=>x===0),'mundo deve manter regiões ocultas');
    assert.ok(Object.values(d.world.states).some(x=>x===1),'regiões vizinhas só aparecem como desconhecidas');
@@ -490,7 +495,7 @@ try{
    await page.locator('#worldMapBtn').click();
    assert.equal(await page.locator('#worldMapOverlay').isVisible(),true,'mapa abre por toque');
    assert.equal(await page.locator('#mapGraph [data-map-node][data-current="true"]').count(),1,'posição destacada');
-   assert.equal(await page.locator('#mapGraph [data-discovery="2"]').count(),1,'não revela salas não visitadas');
+   assert.equal(await page.locator('#mapGraph [data-discovery="2"]').count(),visitedInArea,'não revela salas não visitadas');
    await page.screenshot({path:resolve(root,'screenshots','etapa27b-mapa-area.png')});
    await page.locator('#worldMapTab').click();
    assert.equal(await page.locator('#worldMapTab').getAttribute('aria-pressed'),'true');
