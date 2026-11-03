@@ -333,6 +333,19 @@ body{display:block;min-height:0}
 @media(max-height:355px){
  .fps-panel{top:calc(env(safe-area-inset-top,0px) + 112px)}
 }
+
+/* Miniaturas e silhuetas das cinco raças no criador. */
+.raceOption.hasPortrait{display:grid;grid-template-columns:52px minmax(0,1fr);grid-template-rows:auto 1fr;
+ column-gap:9px;align-items:center;min-height:80px;text-align:left}
+.raceOption.hasPortrait strong{grid-column:2;grid-row:1;align-self:end}
+.raceOption.hasPortrait span{grid-column:2;grid-row:2;align-self:start;line-height:1.3}
+.racePortrait{width:52px;height:70px;grid-row:1/3;grid-column:1;object-fit:contain;
+ image-rendering:pixelated;image-rendering:crisp-edges;background:linear-gradient(#193844,#0c2731);
+ border:1px solid #7dbbac66;border-radius:7px;flex-shrink:0}
+@media(max-height:380px){
+ .raceOption.hasPortrait{grid-template-columns:40px minmax(0,1fr);min-height:59px;padding:4px 6px;column-gap:6px}
+ .racePortrait{width:40px;height:54px}
+}
 </style></head>
 <body>
 <div id="game" aria-label="RPG isométrico pixel art, etapa vinte e dois">
@@ -890,6 +903,140 @@ const RACE_OPTIONS={
  dwarf:{name:'Anão',hp:.30,mana:-.15,damage:.05,magicDamage:.05,xp:-.15,luck:0,speed:0,dodge:0,effects:['Vida +30%','Dano físico +5%','Dano mágico +5%','Experiência −15%','Mana −15%']},
  halfling:{name:'Pequenino',hp:-.15,mana:0,damage:-.10,magicDamage:0,xp:0,luck:.20,speed:.10,dodge:.18,effects:['Sorte +20%','Movimento +10%','Recarga da esquiva −18%','Vida −15%','Dano físico −10%']}
 };
+
+// SPRITES RACIAIS v1: atlas pixel art gerado uma vez e reutilizado em combate e no criador.
+// Proporções, orelhas, rosto e cores são características VISUAIS provisórias, sem novo lore.
+let RACE_SPRITES=null;
+function makeRaceSprite(id){
+ const cvs=document.createElement('canvas');cvs.width=128;cvs.height=384;
+ const c=cvs.getContext('2d');c.imageSmoothingEnabled=false;
+ const palette={
+  human:{skin:'#dfab80',skinShadow:'#ae735b',hair:'#553c32',cloth:'#3e7d9c',clothHi:'#66b1c9',belt:'#6c5142',pants:'#364c63',boot:'#302e3d',outline:'#182d39',accent:'#c4d9da'},
+  elf:{skin:'#ebcda5',skinShadow:'#b69b79',hair:'#e5d58e',cloth:'#307d67',clothHi:'#6cc8a6',belt:'#c1a36a',pants:'#345e55',boot:'#345245',outline:'#1b3635',accent:'#dcefb9'},
+  orc:{skin:'#82b25c',skinShadow:'#4c784b',hair:'#344d38',cloth:'#7d514b',clothHi:'#b17d62',belt:'#4b3635',pants:'#514e48',boot:'#38393b',outline:'#25322c',accent:'#d2c8a1'},
+  dwarf:{skin:'#d5a071',skinShadow:'#945e42',hair:'#b15a28',cloth:'#596979',clothHi:'#91a6a9',belt:'#6c4c36',pants:'#3a4b57',boot:'#303940',outline:'#283139',accent:'#d7b276'},
+  halfling:{skin:'#e9b48b',skinShadow:'#b77b62',hair:'#a36b3b',cloth:'#57845a',clothHi:'#9bbd70',belt:'#836146',pants:'#8f7b59',boot:'#6a4e3e',outline:'#354138',accent:'#e6c285'}
+ };
+ const p=palette[id]||palette.human;
+ const types={
+  human:{headY:8,headW:11,headH:12,torsoY:21,torsoW:15,torsoH:13,legY:34,footY:43,bootW:7,armW:4},
+  elf:{headY:5,headW:10,headH:12,torsoY:18,torsoW:11,torsoH:17,legY:35,footY:44,bootW:5,armW:3},
+  orc:{headY:8,headW:15,headH:13,torsoY:22,torsoW:22,torsoH:13,legY:35,footY:44,bootW:8,armW:5},
+  dwarf:{headY:13,headW:14,headH:10,torsoY:25,torsoW:21,torsoH:12,legY:37,footY:44,bootW:8,armW:5},
+  halfling:{headY:17,headW:11,headH:11,torsoY:29,torsoW:13,torsoH:9,legY:38,footY:45,bootW:9,armW:3}
+ };
+ const pz=types[id]||types.human;
+ const rect=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
+ const rim=(x,y,w,h,fill)=>{rect(x-1,y-1,w+2,h+2,p.outline);rect(x,y,w,h,fill);};
+ for(let dir=0;dir<8;dir++)for(let frame=0;frame<4;frame++){
+  c.save();c.translate(frame*32,dir*48);
+  const back=(dir===1||dir===2||dir===3);
+  const side=(dir===0||dir===4);
+  const walk=[0,1,0,-1][frame],bounce=frame===1||frame===3?1:0;
+  const torsoX=16-Math.floor(pz.torsoW/2),headX=16-Math.floor(pz.headW/2);
+  const legWidth=id==='orc'||id==='dwarf'?7:id==='halfling'?4:5;
+  // Abertura da capa e pontas distintas do elfo e do pequenino.
+  if(id==='elf'||id==='halfling'){
+   const cc=id==='elf'?'#245a54':'#385f3e';
+   rect(torsoX-2,pz.torsoY+3,pz.torsoW+4,pz.torsoH+14,cc);
+   rect(torsoX-3,pz.footY-6,5,6,id==='elf'?'#367962':'#7a9257');
+   rect(torsoX+pz.torsoW-1,pz.footY-6,5,6,cc);
+  }
+  // Pernas animadas em dois passos.
+  for(let j=0;j<2;j++){
+   const off=(j===0?walk:-walk);
+   const legX=16+(j===0?-7:2)+(id==='orc'||id==='dwarf'?(j===0?-1:1):0);
+   const bottom=pz.footY+off;
+   rim(legX,pz.legY,legWidth,Math.max(3,bottom-pz.legY),p.pants);
+   rim(legX-1,bottom-2,pz.bootW,4,p.boot);
+   rect(legX+1,pz.legY+2,2,Math.max(2,bottom-pz.legY-5),p.clothHi);
+  }
+  // Braços e mãos atrás do tronco.
+  for(let j=0;j<2;j++){
+   const armX=j===0?torsoX-pz.armW:torsoX+pz.torsoW;
+   const ay=pz.torsoY+2+(j===0?walk:-walk);
+   rim(armX,ay,pz.armW,pz.torsoH-2,p.cloth);
+   rect(armX+1,ay+1,Math.max(1,pz.armW-2),3,p.clothHi);
+   rect(armX,ay+pz.torsoH-5,pz.armW,4,p.skin);
+  }
+  // Tórax e detalhes de roupa seguem as proporções de cada espécie.
+  rim(torsoX,pz.torsoY+bounce,pz.torsoW,pz.torsoH,p.cloth);
+  rect(torsoX+2,pz.torsoY+2+bounce,Math.max(3,pz.torsoW-4),3,p.clothHi);
+  rect(torsoX+1,pz.torsoY+pz.torsoH-4+bounce,pz.torsoW-2,3,p.belt);
+  rect(torsoX+Math.floor(pz.torsoW/2)-1,pz.torsoY+pz.torsoH-4+bounce,3,3,p.accent);
+  if(id==='orc'){
+   rect(torsoX-1,pz.torsoY,6,5,p.clothHi);
+   rect(torsoX+pz.torsoW-5,pz.torsoY,6,5,p.clothHi);
+   rect(torsoX+3,pz.torsoY+7,3,5,p.accent);
+  } else if(id==='dwarf'){
+   rect(torsoX+2,pz.torsoY+5,pz.torsoW-4,3,p.accent);
+   rect(torsoX+5,pz.torsoY+2,3,pz.torsoH-5,p.clothHi);
+  } else if(id==='human'){
+   rect(torsoX+Math.floor(pz.torsoW/2)-2,pz.torsoY+3,4,7,p.accent);
+  } else if(id==='elf'){
+   rect(torsoX+4,pz.torsoY+4,3,pz.torsoH-7,p.accent);
+  }else{
+   rect(torsoX+2,pz.torsoY+3,pz.torsoW-4,2,p.accent);
+  }
+  // Orelhas saem do contorno do rosto, para diferenciar a silhueta.
+  if(id==='elf'){
+   rim(headX-6,pz.headY+5,7,3,p.skin);
+   rim(headX+pz.headW-1,pz.headY+5,7,3,p.skin);
+   rect(headX-7,pz.headY+4,3,2,p.skinShadow);
+   rect(headX+pz.headW+4,pz.headY+4,3,2,p.skinShadow);
+  }else if(id==='orc'){
+   rim(headX-3,pz.headY+6,4,5,p.skinShadow);
+   rim(headX+pz.headW-1,pz.headY+6,4,5,p.skinShadow);
+  }
+  // Rosto, cabelo e adereços, respeitando direções frontais e traseiras.
+  rim(headX,pz.headY+bounce,pz.headW,pz.headH,p.skin);
+  rect(headX,pz.headY+bounce,pz.headW,3,p.hair);
+  if(id==='elf'){
+   rect(headX-1,pz.headY+2+bounce,3,12,p.hair);
+   rect(headX+pz.headW-1,pz.headY+2+bounce,3,12,p.hair);
+  }else if(id==='orc'){
+   rect(headX+2,pz.headY+2+bounce,pz.headW-4,3,p.skinShadow);
+   rect(headX+3,pz.headY+4+bounce,pz.headW-6,2,p.hair);
+  }else if(id==='dwarf'){
+   rect(headX-1,pz.headY+bounce,pz.headW+2,4,'#717b83');
+   rect(headX+2,pz.headY-2+bounce,pz.headW-4,3,p.accent);
+  }else if(id==='halfling'){
+   rect(headX-2,pz.headY+1+bounce,4,5,p.hair);
+   rect(headX+pz.headW-2,pz.headY+1+bounce,4,5,p.hair);
+  }
+  if(back){
+   rect(headX+2,pz.headY+4+bounce,pz.headW-4,pz.headH-6,p.hair);
+  }else{
+   const eyeY=pz.headY+(id==='halfling'?6:7)+bounce;
+   rect(headX+(side?Math.floor(pz.headW*.55):2),eyeY,2,2,p.outline);
+   if(!side)rect(headX+pz.headW-4,eyeY,2,2,p.outline);
+   if(id==='orc'){
+    // Presas brancas visíveis acima do maxilar.
+    rect(headX+2,pz.headY+pz.headH-3+bounce,2,4,'#fbefd0');
+    rect(headX+pz.headW-4,pz.headY+pz.headH-3+bounce,2,4,'#fbefd0');
+   }else if(id==='dwarf'){
+    // Barba larga: volume inferior ao queixo, tornando o anão reconhecível.
+    rect(headX+1,pz.headY+pz.headH-3+bounce,pz.headW-2,7,p.hair);
+    rect(headX+3,pz.headY+pz.headH+4+bounce,pz.headW-6,3,p.hair);
+    rect(headX+4,pz.headY+pz.headH-1+bounce,pz.headW-8,2,'#e39a52');
+   }else if(id==='human'||id==='halfling'){
+    rect(headX+Math.floor(pz.headW/2),pz.headY+pz.headH-3+bounce,2,1,p.skinShadow);
+   }
+  }
+  // Destaque final da silhueta: anão compacto, orc largo, pequenino baixo.
+  if(id==='orc')rect(torsoX+3,pz.torsoY+1+bounce,pz.torsoW-6,2,'#c5a477');
+  if(id==='dwarf')rect(headX-1,pz.headY+5+bounce,3,3,p.hair);
+  c.restore();
+ }
+ return cvs;
+}
+function raceSprite(id){
+ if(!RACE_SPRITES)RACE_SPRITES={};
+ const name=Object.prototype.hasOwnProperty.call(RACE_OPTIONS,id)?id:'human';
+ return RACE_SPRITES[name]||(RACE_SPRITES[name]=makeRaceSprite(name));
+}
+function activeRace(){return runState?.active&&RACE_OPTIONS[runState.character?.race]?runState.character.race:'human';}
+
 const DEFAULT_HERO={name:'Aventureiro',race:'',archetype:'',goal:''};
 const LEGACY_UNAPPROVED={archetype:['vanguard','duelist','wanderer'],goal:['sentinel','survivor','explorer']};
 function cleanCharacterField(value,field){
@@ -936,7 +1083,16 @@ function renderCharacterCreator(){
    b.setAttribute('aria-pressed',String(creatorDraft[step.key]===id));
    const name=document.createElement('strong');name.textContent=race.name;
    const detail=document.createElement('span');detail.textContent=step.key==='race'?race.effects.join(' · '):race.weapon+' · '+race.desc;
-   b.append(name,detail);b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
+   b.append(name,detail);
+   if(step.key==='race'){
+    b.classList.add('hasPortrait');
+    const preview=document.createElement('canvas');preview.width=52;preview.height=70;
+    preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
+    const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
+    pc.drawImage(raceSprite(id),0,6*48,32,48,0,0,52,70);
+    b.prepend(preview);
+   }
+   b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
    grid.appendChild(b);
   }
  }else{
@@ -1853,7 +2009,7 @@ function aimVisual(){
 }
 function drawDodgeEchoes(){
  if(settings.reducedMotion||!dodgeEchoes.length)return;
- const img=PIXEL_ART.hero;if(!img?.complete||!img.naturalWidth)return;
+ const img=raceSprite(activeRace());if(!img?.width)return;
  const scale=clamp(sx/36*1.9,1.35,2.7);
  ctx.save();ctx.imageSmoothingEnabled=false;
  for(const a of dodgeEchoes){
@@ -1903,7 +2059,7 @@ function figure(u,team){
  const animFrame=moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0;
  const heading=Math.atan2(u.face.z,u.face.x);
  const direction=((Math.round(heading/ (TAU/8))%8)+8)%8;
- const img=PIXEL_ART[hero?'hero':u.style]||PIXEL_ART.enemy;
+ const img=hero?raceSprite(activeRace()):(PIXEL_ART[u.style]||PIXEL_ART.enemy);
  const atk=hero?u.act:null,attacking=hero?!!atk:u.phase==='strike';
  const progress=hero&&atk?atk.time/atk.move.dur:attacking?1-clamp(u.strike/(u.strikeMax||.3),0,1):0;
  const sw=hero&&atk?swingPose(atk.move,progress):{angle:.0,active:attacking};
