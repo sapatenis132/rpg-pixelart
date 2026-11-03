@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#101f2b"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="screen-orientation" content="landscape"><title>RPG Pixel Art — Etapa 22 revisada | Campanhas Roguelike</title><style>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#101f2b"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="screen-orientation" content="landscape"><title>RPG Pixel Art — Arquétipos v1 | Combate Roguelike</title><style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;--white:#eff8ff;--muted:#a5bbcd}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;min-width:300px;min-height:100%;background:#071018;color:var(--white);overscroll-behavior:none}
@@ -461,6 +461,8 @@ const WEAPON_MOVES={
   HH:ranged('Orbe Concentrado',30,.81,.56,7.5,1,{magic:true,heavyShot:true,knock:1.2}),
   LLH:ranged('Pulso Maior',27,.69,.50,8.4,1,{magic:true,heavyShot:true}),
   LHL:ranged('Pulsos Encadeados',13,.34,.42,11,1,{magic:true}),
+  LLLH:ranged('Orbe da Sequência',31,.73,.54,7.7,1,{magic:true,heavyShot:true,knock:1.2}),
+  HLH:ranged('Orbe de Resposta',27,.67,.50,8.3,1,{magic:true,heavyShot:true}),
   HLL:ranged('Eco Arcano',16,.38,.42,10,1,{magic:true}),
   RIP_L:ranged('Reação Arcana',14,.28,.36,10,1,{magic:true}),
   RIP_H:ranged('Resposta Arcana',25,.50,.46,8,1,{magic:true,heavyShot:true}),
@@ -477,6 +479,8 @@ const WEAPON_MOVES={
   HH:ranged('Cinco Flechas',10,.88,.57,12,5,{heavyShot:true,spread:.14}),
   LLH:ranged('Rajada de Flechas',11,.70,.52,12,3,{heavyShot:true,spread:.13}),
   LHL:ranged('Flecha Guiada',15,.39,.43,13),
+  LLLH:ranged('Rajada Final',12,.76,.54,12,3,{heavyShot:true,spread:.12}),
+  HLH:ranged('Tiro de Retorno',11,.69,.49,12,3,{heavyShot:true,spread:.13}),
   HLL:ranged('Flecha Rápida',13,.36,.42,13),
   RIP_L:ranged('Contraflecha',14,.34,.39,12),
   RIP_H:ranged('Tiro Triplo de Retorno',11,.63,.48,12,3,{heavyShot:true,spread:.14}),
@@ -868,7 +872,7 @@ function clearSave(){try{localStorage.removeItem(RUN_KEY);}catch(e){}}
 function historyLines(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').slice(0,4).map(x=>(x.won?'★ ':'☠ ')+(x.character?.name||'Aventureiro')+' · '+(BIOMES[x.region]?.name||'Campanha')+' · sala '+x.room+' · nível '+x.level).join(' | ');}catch(e){return '';}}
 function campaignOverlay(tag,title,description,actions){const panel=$('campaignOverlay'),slot=$('campaignActions');$('campaignTag').textContent=tag;$('campaignTitle').textContent=title;$('campaignDescription').textContent=description;slot.replaceChildren();for(const a of actions){const b=document.createElement('button');b.textContent=a.label;if(a.secondary)b.classList.add('secondary');b.addEventListener('click',a.action);slot.appendChild(b);}const lines=historyLines();$('campaignHistory').textContent=lines?'Últimas campanhas: '+lines:'';panel.classList.add('open');joyReset();keys.clear();}
 function closeCampaignOverlay(){$('campaignOverlay').classList.remove('open');last=0;frameAccumulator=0;refreshInteractionButton();}
-function showCampaignMenu(){saveCampaign();const saved=loadedRun||readSave();const active=!!runState?.active;campaignOverlay('RAÇAS v1 · ROGUELIKE','Cada vida é uma campanha',active?'Jornada de '+safeCharacter(runState.character).name+'. Objetivo declarado: '+(safeCharacter(runState.character).goal||'a definir')+'. Sair preserva a run; abandonar apaga o personagem.':'Comece em uma região aleatória. Suas habilidades e equipamentos existirão apenas nesta campanha.',[
+function showCampaignMenu(){saveCampaign();const saved=loadedRun||readSave();const active=!!runState?.active;campaignOverlay('RAÇAS E ARQUÉTIPOS v1 · ROGUELIKE','Cada vida é uma campanha',active?'Jornada de '+safeCharacter(runState.character).name+'. Objetivo declarado: '+(safeCharacter(runState.character).goal||'a definir')+'. Sair preserva a run; abandonar apaga o personagem.':'Comece em uma região aleatória. Suas habilidades e equipamentos existirão apenas nesta campanha.',[
  ...(active?[{label:'▶ Continuar campanha',action:()=>closeCampaignOverlay()}]:saved?[{label:'▶ Continuar campanha salva',action:()=>resumeCampaign(saved)}]:[]),
  {label:'✦ Criar personagem · nova campanha',action:()=>{if(active||saved){if(!window.confirm('Abandonar a campanha atual? Todo o progresso desta run será perdido.'))return;}openCharacterCreator();}},
  ...(!active?[{label:'⚔ Laboratório de combate (sem XP)',secondary:true,action:()=>{closeCampaignOverlay();runState=null;eliteMode=false;drill.active=false;reset();openLab();}}]:[])
