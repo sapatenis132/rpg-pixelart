@@ -564,7 +564,10 @@ function fireRangedMove(a){
   const theta=base+(i-(count-1)/2)*spread,dir={x:Math.cos(theta),z:Math.sin(theta)};
   const shotAct={key:a.key,move:m,hit:false,landed:false,slashed:true,hitIds:new Set(),pal:a.pal,group:volley};
   rangedShots.push({x:player.x+dir.x*.58,z:player.z+dir.z*.58,dir,speed:m.speed||10,
-   life:Math.min(1.45,(m.reach||7)/(m.speed||10)+.14),radius:m.heavyShot?(m.magic?.33:.16):(m.magic?.17:.105),magic:!!m.magic,act:shotAct});
+   delay:i*(m.delayStep||0),pierceLeft:Math.max(1,Math.min(3,m.pierce||1)),
+   life:Math.min(1.45,(m.reach||7)/(m.speed||10)+.14),
+   radius:m.largeArrow?.38:m.heavyShot?(m.magic?.32:.16):(m.magic?.17:.105),
+   magic:!!m.magic,largeArrow:!!m.largeArrow,act:shotAct});
  }
  if(rangedShots.length>45)rangedShots.splice(0,rangedShots.length-45);
  a.hit=true;a.launched=true;
@@ -574,12 +577,17 @@ function fireRangedMove(a){
 function updateRangedShots(dt){
  for(const shot of rangedShots){
   if(shot.life<=0)continue;
-  const x=shot.x,z=shot.z,nx=x+shot.dir.x*shot.speed*dt,nz=z+shot.dir.z*shot.speed*dt;
-  shot.x=nx;shot.z=nz;shot.life-=dt;
+  // Tiros escalonados só passam a viajar após o pequeno intervalo de disparo.
+  const travel=dt-(shot.delay||0);
+  shot.delay=Math.max(0,(shot.delay||0)-dt);
+  if(travel<=0)continue;
+  const x=shot.x,z=shot.z,nx=x+shot.dir.x*shot.speed*travel,nz=z+shot.dir.z*shot.speed*travel;
+  shot.x=nx;shot.z=nz;shot.life-=travel;
   for(const foe of living()){
-   if(foe.iframe>0||distanceToSegment(foe.x,foe.z,x,z,nx,nz)>.34+shot.radius)continue;
+   if(foe.iframe>0||shot.act.hitIds.has(foe.id)||distanceToSegment(foe.x,foe.z,x,z,nx,nz)>.34+shot.radius)continue;
    playerHit(true,foe,shot.act);
-   shot.life=0;break;
+   shot.pierceLeft--;
+   if(shot.pierceLeft<=0){shot.life=0;break;}
   }
  }
  for(const shot of rangedShots){
@@ -591,16 +599,33 @@ function updateRangedShots(dt){
 }
 function drawRangedShots(){
  for(const shot of rangedShots){
-  const p=point(shot.x,shot.z),tail=point(shot.x-shot.dir.x*.48,shot.z-shot.dir.z*.48);
+  if(shot.delay>0)continue;
+  const p=point(shot.x,shot.z),tail=point(shot.x-shot.dir.x*(shot.largeArrow?.92:.48),shot.z-shot.dir.z*(shot.largeArrow?.92:.48));
   ctx.save();ctx.imageSmoothingEnabled=false;ctx.lineCap='square';
   if(shot.magic){
    const r=shot.radius>.25?10:5;
    ctx.fillStyle='#555cc7';ctx.fillRect(Math.round(p.x-r-2),Math.round(p.y-22-r-2),2*r+4,2*r+4);
-   ctx.fillStyle=shot.radius>.25?'#bfaaff':'#95c9ff';ctx.fillRect(Math.round(p.x-r),Math.round(p.y-22-r),r*2,r*2);
+   ctx.fillStyle=shot.act.move.fin?'#ebbcff':shot.radius>.25?'#bfaaff':'#95c9ff';
+   ctx.fillRect(Math.round(p.x-r),Math.round(p.y-22-r),r*2,r*2);
    ctx.fillStyle='#f1ffff';ctx.fillRect(Math.round(p.x-2),Math.round(p.y-24),4,4);
+  }else if(shot.largeArrow){
+   // Flecha carregada: comprimento e ponta maiores, colisor ampliado e perfuração real.
+   const dx=p.x-tail.x,dy=p.y-tail.y,mag=Math.hypot(dx,dy)||1,nx=-dy/mag,ny=dx/mag;
+   ctx.strokeStyle='#e2a24e';ctx.lineWidth=6;ctx.beginPath();
+   ctx.moveTo(Math.round(tail.x),Math.round(tail.y-24));ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
+   ctx.strokeStyle='#fff2bd';ctx.lineWidth=3;ctx.beginPath();
+   ctx.moveTo(Math.round(tail.x+dx*.28),Math.round(tail.y+dy*.28-24));
+   ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
+   ctx.fillStyle='#fff5c8';ctx.beginPath();
+   ctx.moveTo(p.x+dx/mag*11,p.y+dy/mag*11-24);
+   ctx.lineTo(p.x-dx/mag*6+nx*7,p.y-dy/mag*6+ny*7-24);
+   ctx.lineTo(p.x-dx/mag*6-nx*7,p.y-dy/mag*6-ny*7-24);ctx.closePath();ctx.fill();
   }else{
-   ctx.strokeStyle='#e8c69a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(Math.round(tail.x),Math.round(tail.y-24));ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
-   ctx.strokeStyle='#f7f8e2';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(Math.round(p.x-shot.dir.x*5),Math.round(p.y-24-shot.dir.z*3));ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
+   ctx.strokeStyle='#e8c69a';ctx.lineWidth=3;ctx.beginPath();
+   ctx.moveTo(Math.round(tail.x),Math.round(tail.y-24));ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
+   ctx.strokeStyle='#f7f8e2';ctx.lineWidth=2;ctx.beginPath();
+   ctx.moveTo(Math.round(p.x-shot.dir.x*5),Math.round(p.y-24-shot.dir.z*3));
+   ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
   }ctx.restore();
  }
 }
@@ -1188,10 +1213,14 @@ function postureDamage(move,key,archetype,target){
  if(move.dash)base=Math.round((base+p.light)*.5);
  // Golpes mais fortes da mesma classe pressionam um pouco mais, sem picos de 95 pontos.
  base+=Math.max(0,Math.min(5,Math.round(((move.dmg||10)-(heavy?20:10))*.13)));
- if(move.ranged&&archetype==='hunter'){
+ if(move.ranged&&(archetype==='hunter'||archetype==='arcanist')){
    const count=Math.max(1,move.shots||1);
-   base=count>=5?30:count>=3?24:base;
-   base/=count; // pressão real apenas dos projéteis que atingirem o alvo.
+   if(archetype==='hunter'){
+    base=move.largeArrow?(move.ext?34:move.fin?30:26):count>=5?30:count>=3?24:base;
+   }else if(count>1){
+    base=move.ext?34:move.fin?29:move.heavyShot?27:count>=3?25:19;
+   }
+   base/=count; // pressão distribuída: só projéteis que atingem gastam postura.
  }
  // Defendendo, o inimigo perde postura mais rápido; chefes têm maior estabilidade.
  const guarding=target.phase==='guard'&&target.guardTime>0;
