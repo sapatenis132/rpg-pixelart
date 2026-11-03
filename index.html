@@ -1763,19 +1763,46 @@ function figure(u,team){
   ctx.fillStyle=hero?'#37a7c4':'#b0716c';ctx.fillRect(-13*s,-30*s,26*s,23*s);
   ctx.fillStyle='#e5b88c';ctx.fillRect(-8*s,-42*s,16*s,14*s);
  }
- // Pixel blade: facing follows combat direction; geometric VFX remain unchanged.
+ // Arma equipada: desenho isométrico específico, sem alterar a sprite base do personagem.
+ const archetype=hero?currentArchetype():'warrior';
  const theta=Math.atan2(point(u.x+u.face.x,u.z+u.face.z).y-y,point(u.x+u.face.x,u.z+u.face.z).x-x);
- const a=theta+(attacking?sw.angle*.7:parrying?-.9:.42),r=attacking?38*s:27*s;
+ const a=theta+(attacking?sw.angle*.7:parrying?-.9:.42);
+ const r=(hero&&archetype==='rebel'?(attacking?22:16):hero&&archetype==='hunter'?28:attacking?38:27)*s;
  const x1=Math.round(Math.cos(a)*13*s),y1=Math.round(-21*s+Math.sin(a)*6*s);
  const x2=Math.round(x1+Math.cos(a)*r),y2=Math.round(y1+Math.sin(a)*r*.66);
- ctx.lineCap='square';ctx.lineWidth=Math.max(3,Math.round(s*3));ctx.strokeStyle=hero?'#d5f6fb':'#ffe9cc';
- ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
- ctx.strokeStyle=hero?'#439fb5':'#a75e5e';ctx.lineWidth=Math.max(1,Math.round(s));
- ctx.beginPath();ctx.moveTo(x1+1,y1+1);ctx.lineTo(x2+1,y2+1);ctx.stroke();
- // Punho e ponta da lâmina desenhados em pixels; mudam junto do ângulo real do corte.
- ctx.fillStyle=hero?'#28627e':'#764850';ctx.fillRect(Math.round(x1-3*s),Math.round(y1-2*s),Math.round(6*s),Math.round(4*s));
- ctx.fillStyle=attacking?(hero?'#ffffff':'#ffefb7'):'#c3dce5';
- ctx.fillRect(Math.round(x2-1.5*s),Math.round(y2-1.5*s),Math.max(2,Math.round(3*s)),Math.max(2,Math.round(3*s)));
+ ctx.lineCap='square';
+ if(hero&&archetype==='hunter'){
+  // Arco: corpo curvo com corda e ponto de encaixe.
+  const bx=x1+Math.cos(a)*11*s,by=y1+Math.sin(a)*8*s;
+  const nx=-Math.sin(a),ny=Math.cos(a);
+  const tx=bx+nx*13*s,ty=by+ny*13*s,ux=bx-nx*13*s,uy=by-ny*13*s;
+  ctx.strokeStyle='#cfaa74';ctx.lineWidth=Math.max(2,Math.round(2.5*s));
+  ctx.beginPath();ctx.moveTo(tx,ty);ctx.quadraticCurveTo(bx+Math.cos(a)*16*s,by+Math.sin(a)*14*s,ux,uy);ctx.stroke();
+  ctx.strokeStyle='#e6e3cb';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(ux,uy);ctx.stroke();
+  if(attacking){ctx.strokeStyle='#fff4cf';ctx.lineWidth=Math.max(1,Math.round(s));ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(x2,y2);ctx.stroke();}
+ }else{
+  ctx.lineWidth=Math.max(3,Math.round(s*(archetype==='rebel'?2.2:3)));
+  ctx.strokeStyle=hero&&archetype==='arcanist'?'#9166ad':hero&&archetype==='rebel'?'#f3f5e0':hero?'#d5f6fb':'#ffe9cc';
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.strokeStyle=hero&&archetype==='arcanist'?'#65477d':hero?'#439fb5':'#a75e5e';ctx.lineWidth=Math.max(1,Math.round(s));
+  ctx.beginPath();ctx.moveTo(x1+1,y1+1);ctx.lineTo(x2+1,y2+1);ctx.stroke();
+  ctx.fillStyle=hero?'#28627e':'#764850';ctx.fillRect(Math.round(x1-3*s),Math.round(y1-2*s),Math.round(6*s),Math.round(4*s));
+  if(hero&&archetype==='arcanist'){
+   ctx.fillStyle=attacking?'#e7f1ff':'#b69aff';ctx.fillRect(Math.round(x2-3*s),Math.round(y2-4*s),Math.round(7*s),Math.round(7*s));
+   ctx.fillStyle='#ffffff';ctx.fillRect(Math.round(x2-1*s),Math.round(y2-2*s),Math.round(2*s),Math.round(2*s));
+  }else{
+   ctx.fillStyle=attacking?(hero?'#ffffff':'#ffefb7'):'#c3dce5';
+   ctx.fillRect(Math.round(x2-1.5*s),Math.round(y2-1.5*s),Math.max(2,Math.round(3*s)),Math.max(2,Math.round(3*s)));
+  }
+ }
+ if(hero&&archetype==='guardian'){
+  // Escudo na outra mão; reage ao bloqueio e parry.
+  const g=(u.guardWindow||0)>0||parrying;
+  const bx=Math.round(-16*s),by=Math.round(-26*s);
+  ctx.fillStyle=g?'#83efc9':'#45788d';ctx.fillRect(bx,by,Math.round(13*s),Math.round(18*s));
+  ctx.fillStyle='#b6eee8';ctx.fillRect(bx+Math.round(2*s),by+Math.round(3*s),Math.round(9*s),Math.round(3*s));
+  ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
+ }
  // Enemy distinctions: defensive shield and elite crown/phase aura.
  if(!hero&&u.style==='guardian'){
   const shieldX=Math.round(-15*s),shieldY=Math.round(-25*s);
