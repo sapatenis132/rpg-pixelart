@@ -1415,17 +1415,27 @@ function enterWorldRoom(id,from=null){
  player.knockX=0;player.knockZ=0;player.invuln=Math.max(player.invuln||0,.55);
  const fromDoor=room.exits.find(e=>e.to===from);
  const point=fromDoor?ROOM_DIRECTIONS[fromDoor.dir]:{dx:0,dz:0};
- player.x=fromDoor?(-point.dx)*(roomGeometry.hw-2.4):0;
- player.z=fromDoor?(-point.dz)*(roomGeometry.hh-2.4):0;
- // A sala de destino usa a entrada oposta à passagem de origem.
- if(fromDoor){player.x=point.dx*(roomGeometry.hw-2.4);player.z=point.dz*(roomGeometry.hh-2.4);}
+ // Surge a dois tiles do portal de retorno, virado para dentro.
+ player.x=fromDoor?point.dx*(roomGeometry.hw-2.4):0;
+ player.z=fromDoor?point.dz*(roomGeometry.hh-2.4):0;
  player.face={x:fromDoor?-point.dx:1,z:fromDoor?-point.dz:0};
  cam.x=player.x;cam.z=player.z;
  if(stored){
   enemies=(stored.enemies||[]).map(e=>({...e,face:e.face||{x:-1,z:0}}));
   if(enemies.some(e=>e.hp>0)){squadRoles();chooseTarget(true);}
- }else if(room.kind==='combat'||room.kind==='boss')spawnWave();
- else{chooseTarget();runState.cleared=true;}
+ }else if(room.kind==='combat'||room.kind==='boss'){
+  spawnWave();
+  // Posiciona os inimigos em tiles realmente transitáveis, sem aprisioná-los.
+  const used=[];
+  for(const e of enemies){
+   if(!worldPassable(e.x,e.z)||used.some(p=>Math.hypot(p.x-e.x,p.z-e.z)<.8)){
+    const offsets=[[2,0],[-2,0],[0,3],[0,-3],[4,0],[-4,0],[0,5],[0,-5],[3,1],[-3,-1]];
+    const found=offsets.find(([x,z])=>worldPassable(x,z)&&Math.hypot(x-player.x,z-player.z)>1.25&&!used.some(p=>Math.hypot(p.x-x,p.z-z)<.8));
+    if(found){e.x=found[0];e.z=found[1];}
+   }
+   used.push({x:e.x,z:e.z});
+  }
+ }else{chooseTarget();runState.cleared=true;}
  world.memories[id]={visited:true,cleared:runState.cleared,
   enemies:enemies.map(e=>({...e})),region:runState.region};
  setCampaignHud();updateEliteUI();hud();saveCampaign();
@@ -2844,6 +2854,19 @@ window.__rpgDebug.spriteHeadRect=(race,dir,frame)=>raceHeadRect(race,dir,frame);
 window.__rpgDebug.weaponJoystickFacing=()=>({...player.weaponFacing||player.face});
 window.__rpgDebug.weaponDisplayFacing=(face,joystick,archetype,progress=.5,attacking=false)=>
  weaponDisplayFacing({face,weaponFacing:joystick},archetype,attacking,false,progress);
+window.__rpgDebug.worldForSeed=seed=>generateWorld(seed);
+window.__rpgDebug.worldRoomShape=room=>{const g=makeRoomGeometry(room);return{width:g.room.width,height:g.room.height,
+ shape:g.room.shape,walkable:g.walkable.size,blocked:g.solid.size,
+ exits:room.exits.map(e=>({dir:e.dir,x:ROOM_DIRECTIONS[e.dir].dx*(g.hw-.72),z:ROOM_DIRECTIONS[e.dir].dz*(g.hh-.72)})),
+ floor:[...g.walkable],solids:[...g.solid]};};
+window.__rpgDebug.worldRoomInfo=()=>roomGeometry?{id:runState.room,halfWidth:roomGeometry.hw,
+ halfHeight:roomGeometry.hh,shape:roomGeometry.room.shape,
+ exits:roomGeometry.room.exits.map(e=>({...e,at:worldExitAt(e)})),
+ walkable:worldPassable(player.x,player.z),camera:{x:cam.x,z:cam.z}}:null;
+window.__rpgDebug.worldTravelNeighbor=dir=>{if(!runState?.world)return false;
+ const e=roomById()?.exits.find(x=>x.dir===dir);
+ if(!e)return false;const from=runState.room;rememberWorldRoom();return enterWorldRoom(e.to,from);};
+window.__rpgDebug.worldSave=()=>saveCampaign();
 window.__rpgDebug.weaponIdlePose=(face,archetype)=>visualWeaponPose(
  {...player,face},archetype,false,0,false,clamp(sx/36*1.9,1.35,2.7),0,null);
 resize();reset();$('drillBehavior').value=drill.behavior;rhythmReadout();loadedRun=readSave();showCampaignMenu();requestAnimationFrame(loop);
