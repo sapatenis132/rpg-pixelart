@@ -932,6 +932,14 @@ const RACE_OPTIONS={
  halfling:{name:'Pequenino',hp:-.15,mana:0,damage:-.10,magicDamage:0,xp:0,luck:.20,speed:.10,dodge:.18,effects:['Sorte +20%','Movimento +10%','Recarga da esquiva −18%','Vida −15%','Dano físico −10%']}
 };
 
+// Referência de proporções comum à criação e ao combate.
+const RACE_SHAPES={
+ human:{headY:8,headW:11,headH:12,torsoY:21,torsoW:15,torsoH:13,legY:34,footY:43,bootW:7,armW:4},
+ elf:{headY:5,headW:10,headH:12,torsoY:18,torsoW:11,torsoH:17,legY:35,footY:44,bootW:5,armW:3},
+ orc:{headY:8,headW:15,headH:13,torsoY:22,torsoW:22,torsoH:13,legY:35,footY:44,bootW:8,armW:5},
+ dwarf:{headY:13,headW:14,headH:10,torsoY:25,torsoW:21,torsoH:12,legY:37,footY:44,bootW:8,armW:5},
+ halfling:{headY:17,headW:11,headH:11,torsoY:29,torsoW:13,torsoH:9,legY:38,footY:45,bootW:9,armW:3}
+};
 // SPRITES RACIAIS v1: atlas pixel art gerado uma vez e reutilizado em combate e no criador.
 // Proporções, orelhas, rosto e cores são características VISUAIS provisórias, sem novo lore.
 let RACE_SPRITES=null;
@@ -946,18 +954,13 @@ function makeRaceSprite(id){
   halfling:{skin:'#e9b48b',skinShadow:'#b77b62',hair:'#a36b3b',cloth:'#57845a',clothHi:'#9bbd70',belt:'#836146',pants:'#8f7b59',boot:'#6a4e3e',outline:'#354138',accent:'#e6c285'}
  };
  const p=palette[id]||palette.human;
- const types={
-  human:{headY:8,headW:11,headH:12,torsoY:21,torsoW:15,torsoH:13,legY:34,footY:43,bootW:7,armW:4},
-  elf:{headY:5,headW:10,headH:12,torsoY:18,torsoW:11,torsoH:17,legY:35,footY:44,bootW:5,armW:3},
-  orc:{headY:8,headW:15,headH:13,torsoY:22,torsoW:22,torsoH:13,legY:35,footY:44,bootW:8,armW:5},
-  dwarf:{headY:13,headW:14,headH:10,torsoY:25,torsoW:21,torsoH:12,legY:37,footY:44,bootW:8,armW:5},
-  halfling:{headY:17,headW:11,headH:11,torsoY:29,torsoW:13,torsoH:9,legY:38,footY:45,bootW:9,armW:3}
- };
- const pz=types[id]||types.human;
+ const pz=RACE_SHAPES[id]||RACE_SHAPES.human;
  const rect=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
  const rim=(x,y,w,h,fill)=>{rect(x-1,y-1,w+2,h+2,p.outline);rect(x,y,w,h,fill);};
  for(let dir=0;dir<8;dir++)for(let frame=0;frame<4;frame++){
   c.save();c.translate(frame*32,dir*48);
+   // Isola cada frame; capas e botas não invadem frames vizinhos.
+   c.beginPath();c.rect(0,0,32,48);c.clip();
   const back=(dir===1||dir===2||dir===3);
   const side=(dir===0||dir===4);
   const walk=[0,1,0,-1][frame],bounce=frame===1||frame===3?1:0;
@@ -966,7 +969,7 @@ function makeRaceSprite(id){
   // Abertura da capa e pontas distintas do elfo e do pequenino.
   if(id==='elf'||id==='halfling'){
    const cc=id==='elf'?'#245a54':'#385f3e';
-   rect(torsoX-2,pz.torsoY+3,pz.torsoW+4,pz.torsoH+14,cc);
+   rect(torsoX-2,pz.torsoY+3,pz.torsoW+4,Math.min(pz.torsoH+14,46-(pz.torsoY+3)),cc);
    rect(torsoX-3,pz.footY-6,5,6,id==='elf'?'#367962':'#7a9257');
    rect(torsoX+pz.torsoW-1,pz.footY-6,5,6,cc);
   }
@@ -1132,7 +1135,8 @@ function renderCharacterCreator(){
     const preview=document.createElement('canvas');preview.width=52;preview.height=70;
     preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
     const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
-    pc.drawImage(raceSprite(id),0,6*48,32,48,0,0,52,70);
+    // Personagem centralizado sem esticar as proporções 32:48 -> 40:60.
+     pc.drawImage(raceSprite(id),0,6*48,32,48,6,5,40,60);
     b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
@@ -2139,12 +2143,14 @@ function figure(u,team){
  lean+=(u.reactionDir||1)*stagger*.08;
   if(hero&&!settings.reducedMotion&&!atk&&!moving&&!parrying&&!dodging)lean+=Math.sin(clock*2.2)*.009;
  ctx.rotate(lean);
- if(img&&(img.naturalWidth||img.width)){
+ let spriteDrawX=0,spriteDrawY=0;
+  if(img&&(img.naturalWidth||img.width)){
    if(!alive)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
    const idle=hero&&!moving&&!atk&&!settings.reducedMotion?Math.max(0,Math.round(Math.sin(clock*2.2)*s*.55)):0;
     const bounce=moving?Math.abs(Math.sin(u.walk||0))*2:idle;
-   ctx.drawImage(img,animFrame*32,direction*48,32,48,Math.round(-16*s),Math.round(-34*s-bounce),Math.round(32*s),Math.round(48*s));
+   spriteDrawX=Math.round(-16*s);spriteDrawY=Math.round(-34*s-bounce);
+    ctx.drawImage(img,animFrame*32,direction*48,32,48,spriteDrawX,spriteDrawY,Math.round(32*s),Math.round(48*s));
    ctx.globalAlpha=1;
  }else{
   ctx.fillStyle=hero?'#37a7c4':'#b0716c';ctx.fillRect(-13*s,-30*s,26*s,23*s);
@@ -2155,7 +2161,8 @@ function figure(u,team){
  const theta=Math.atan2(point(u.x+u.face.x,u.z+u.face.z).y-y,point(u.x+u.face.x,u.z+u.face.z).x-x);
  const a=theta+(attacking?sw.angle*.7:parrying?-.9:.42);
  const r=(hero&&archetype==='rebel'?(attacking?22:16):hero&&archetype==='hunter'?28:attacking?38:27)*s;
- const x1=Math.round(Math.cos(a)*13*s),y1=Math.round(-21*s+Math.sin(a)*6*s);
+ // Empunhadura na mão, abaixo da cabeça (sem afetar alcance ou colisão).
+  const x1=Math.round(Math.cos(a)*16*s),y1=Math.round(-9*s+Math.sin(a)*5*s);
  const x2=Math.round(x1+Math.cos(a)*r),y2=Math.round(y1+Math.sin(a)*r*.66);
  ctx.lineCap='square';
  if(hero&&archetype==='hunter'){
@@ -2182,14 +2189,6 @@ function figure(u,team){
    ctx.fillRect(Math.round(x2-1.5*s),Math.round(y2-1.5*s),Math.max(2,Math.round(3*s)),Math.max(2,Math.round(3*s)));
   }
  }
- if(hero&&archetype==='guardian'){
-  // Escudo na outra mão; reage ao bloqueio e parry.
-  const g=(u.guardWindow||0)>0||parrying;
-  const bx=Math.round(-16*s),by=Math.round(-26*s);
-  ctx.fillStyle=g?'#83efc9':'#45788d';ctx.fillRect(bx,by,Math.round(13*s),Math.round(18*s));
-  ctx.fillStyle='#b6eee8';ctx.fillRect(bx+Math.round(2*s),by+Math.round(3*s),Math.round(9*s),Math.round(3*s));
-  ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
- }
  if(hero&&atk&&sw.active&&!settings.reducedMotion){
    // Brilho visual da ponta da arma: colisão e alcance permanecem iguais.
    ctx.globalAlpha=settings.economy?.22:.48;
@@ -2198,7 +2197,29 @@ function figure(u,team){
    ctx.fillRect(Math.round(x2-spark/2),Math.round(y2-spark/2),spark,spark);
    ctx.globalAlpha=1;
   }
-  // Enemy distinctions: defensive shield and elite crown/phase aura.
+  // A cabeça e as orelhas ficam à frente da lâmina nos quadros em que
+  // ela cruza o rosto; usa os pixels opacos da sprite como oclusão.
+  if(hero&&alive&&img&&(img.naturalWidth||img.width)){
+   const race=activeRace(),head=RACE_SHAPES[race]||RACE_SHAPES.human;
+   const ear=race==='elf'?7:race==='orc'?4:2;
+   const headX=spriteDrawX+Math.round((16-Math.floor(head.headW/2)-ear)*s);
+   const headY=spriteDrawY+Math.round((head.headY-2)*s);
+   const headW=Math.round((head.headW+ear*2)*s);
+   const headH=Math.round((head.headH+4)*s);
+   ctx.save();ctx.beginPath();ctx.rect(headX,headY,headW,headH);ctx.clip();
+   ctx.drawImage(img,animFrame*32,direction*48,32,48,
+    spriteDrawX,spriteDrawY,Math.round(32*s),Math.round(48*s));
+   ctx.restore();
+  }
+  if(hero&&archetype==='guardian'){
+  // Escudo na outra mão; reage ao bloqueio e parry.
+  const g=(u.guardWindow||0)>0||parrying;
+  const bx=Math.round(-16*s),by=Math.round(-26*s);
+  ctx.fillStyle=g?'#83efc9':'#45788d';ctx.fillRect(bx,by,Math.round(13*s),Math.round(18*s));
+  ctx.fillStyle='#b6eee8';ctx.fillRect(bx+Math.round(2*s),by+Math.round(3*s),Math.round(9*s),Math.round(3*s));
+  ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
+ }
+ // Enemy distinctions: defensive shield and elite crown/phase aura.
  if(!hero&&u.style==='guardian'){
   const shieldX=Math.round(-15*s),shieldY=Math.round(-25*s);
   ctx.fillStyle=u.phase==='guard'?'#78f5c7':'#4a8b94';
