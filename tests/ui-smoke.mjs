@@ -104,6 +104,43 @@ try{
   assert.ok(!overlap(boss,fps),'FPS não pode ficar sob o chefe');
   await page.locator('#eliteHud summary').click();
   assert.equal(await page.locator('#eliteHud').evaluate(el=>el.open),true);
+  // Verifica 160 sprites (cinco raças, oito direções, quatro quadros)
+  // e confere a visibilidade dos olhos em todos os perfis.
+  if(width===854&&height===480){
+   const facial=await page.evaluate(()=>{
+    const colors={
+     human:[24,45,57],elf:[27,54,53],orc:[37,50,44],
+     dwarf:[40,49,57],halfling:[53,65,56]
+    };
+    let frameCount=0,eyeCount=0;const errors=[];
+    for(const [race,color] of Object.entries(colors)){
+     const sprite=window.__rpgDebug.spriteAtlas(race),shape=window.__rpgDebug.spriteShape(race);
+     const ctx=sprite.getContext('2d'),hx=16-Math.floor(shape.headW/2);
+     for(let dir=0;dir<8;dir++)for(let frame=0;frame<4;frame++){
+      frameCount++;
+      const px=ctx.getImageData(frame*32,dir*48,32,48).data;
+      let painted=0;for(let k=3;k<px.length;k+=4)if(px[k]>0)painted++;
+      if(painted<150)errors.push({race,dir,frame,reason:'sprite incompleta',painted});
+      if(dir===5||dir===6)continue; // costas: sem olhos
+      const side=dir!==1,left=dir===2||dir===3||dir===4;
+      const ex=side?(left?hx+2:hx+shape.headW-4):hx+2;
+      const ey=shape.headY+(race==='halfling'?6:7)+(frame===1||frame===3?1:0);
+      const idx=(ey*32+ex)*4,rgb=[px[idx],px[idx+1],px[idx+2]];
+      eyeCount++;
+      if(rgb.some((v,i)=>v!==color[i]))errors.push({race,dir,frame,reason:'olho invisível',rgb,expected:color,ex,ey});
+      if(!side){
+       const k=(ey*32+hx+shape.headW-4)*4,rgb2=[px[k],px[k+1],px[k+2]];
+       eyeCount++;
+       if(rgb2.some((v,i)=>v!==color[i]))errors.push({race,dir,frame,reason:'segundo olho invisível',rgb:rgb2,expected:color});
+      }
+     }
+    }
+    return{frameCount,eyeCount,errors};
+   });
+   assert.equal(facial.frameCount,160,'cinco raças, oito direções e quatro quadros');
+   assert.equal(facial.eyeCount,140,'todos os olhos das visões frontais e laterais');
+   assert.deepEqual(facial.errors,[],'olhos e sprite consistentes durante caminhada');
+  }
   // Confere matematicamente que a ponta da arma jamais retorna ao rosto.
   if(width===854&&height===480){
    const poseCheck=await page.evaluate(()=>{
@@ -113,7 +150,8 @@ try{
     for(const archetype of ['warrior','arcanist','guardian','rebel','hunter']){
      for(const face of directions){
       for(let i=-12;i<=12;i++){
-       const pose=window.__rpgDebug.weaponVisualPose(face,archetype,i/10);
+       const progress=(i+12)/24;
+       const pose=window.__rpgDebug.weaponVisualPose(face,archetype,i/10,progress,{impact:.48});
        count++;
        if(!Number.isFinite(pose.x2)||!Number.isFinite(pose.y2)||
          pose.side*(pose.x2-pose.x1)<=0||
@@ -126,6 +164,23 @@ try{
    });
    assert.equal(poseCheck.count,1000);
    assert.deepEqual(poseCheck.failures,[],'a arma deve ficar para fora do rosto em todo o arco');
+  }
+  // Checa movimento real de cajado, arco, espada, escudo e adaga.
+  if(width===854&&height===480){
+   const checks=await page.evaluate(()=>{
+    const d=window.__rpgDebug,face={x:Math.SQRT1_2,z:Math.SQRT1_2};
+    const make=(arch,t)=>d.weaponVisualPose(face,arch,(t-.5)*2,t,{impact:.48,heavyShot:t>.5});
+    const distance=(p,q)=>Math.hypot(p.x2-q.x2,p.y2-q.y2);
+    return{
+     staff:distance(make('arcanist',.2),make('arcanist',.58)),
+     bow:[make('hunter',0).pull,make('hunter',.40).pull,make('hunter',.75).pull],
+     melee:['warrior','guardian','rebel'].map(arch=>({arch,delta:distance(make(arch,.05),make(arch,.85))}))
+    };
+   });
+   assert.ok(checks.staff>12,'cajado deve se mover durante conjuração e disparo');
+   assert.ok(checks.bow[0]<.01&&checks.bow[1]>.9&&checks.bow[2]<.1,
+    'arco deve tensionar, soltar e recuperar a corda');
+   for(const m of checks.melee)assert.ok(m.delta>8,m.arch+' deve ter golpe visível');
   }
   // Testa a renderização das cinco raças usando as cinco armas.
   if(width===854&&height===480){
