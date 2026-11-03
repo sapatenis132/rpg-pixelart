@@ -2036,13 +2036,13 @@ function drawInteractables(){
  const parryBefore=player.parryWindow;player.parryWindow=Math.max(0,player.parryWindow-dt);if(parryBefore>0&&player.parryWindow===0){parryMisses++;if(drill.mode==='parry')drillFailure('Parry antecipado: aguarde mais perto do contato.');}player.parryRecovery=Math.max(0,player.parryRecovery-dt);player.dodgeCooldown=Math.max(0,player.dodgeCooldown-dt);
  if(player.hp>0){
   const v=movement();
-  // As cinco armas acompanham a intenção do joystick, suavizando as diagonais
-  // sem alterar a direção física dos golpes e dos projéteis.
-  const desired=length(v.x,v.z)>.14?v:player.face;
+  // O joystick guia a pose VISUAL das cinco armas em tempo real.
+  // A interpolação angular acompanha as diagonais sem travar o golpe.
+  const desired=length(v.x,v.z)>.08?unit(v.x,v.z):player.face;
   const prev=player.weaponFacing||player.face;
   const oldAngle=Math.atan2(prev.z,prev.x),targetAngle=Math.atan2(desired.z,desired.x);
   const diffAngle=Math.atan2(Math.sin(targetAngle-oldAngle),Math.cos(targetAngle-oldAngle));
-  const newAngle=oldAngle+clamp(diffAngle,-18*dt,18*dt);
+  const newAngle=oldAngle+clamp(diffAngle,-30*dt,30*dt);
   player.weaponFacing={x:Math.cos(newAngle),z:Math.sin(newAngle)};
   if(player.dodge>0){
    player.dodge=Math.max(0,player.dodge-dt);
@@ -2233,44 +2233,47 @@ function drawPixelImpacts(){
  }
  ctx.restore();
 }
-// Pose das armas no primeiro plano: empunhadura estável mesmo durante
-// giros completos. Somente o desenho muda (não altera alcance/dano).
+// Armas em primeiro plano, com empunhadura solta e trajetória orientada
+// pelo joystick. Só modifica o desenho: hitboxes e combos não são alterados.
 function visualWeaponPose(u,archetype,attacking,swingAngle,parrying,scale,progress=0,move=null){
- const foot=point(u.x,u.z),aim=point(u.x+u.face.x,u.z+u.face.z);
- const tilt=clamp((aim.y-foot.y)/Math.max(1,sy),-1.4,1.4)*.105;
- // Direção contínua do joystick no plano isométrico (sem saltos nos octantes).
  const facing=unit(u.face.x,u.face.z);
  const screenX=(facing.x-facing.z)*Math.SQRT1_2;
  const screenY=(facing.x+facing.z)*Math.SQRT1_2;
- const joystickTilt=screenY*.66+screenX*.29;
- const side=1; // preserva a arma na camada da frente
+ // Arco amplo (e contínuo), permitindo varrer do alto à frente/baixo.
+ const joystickTilt=screenY*.90+screenX*.40;
+ const side=1; // mantém a arma acima da sprite sem atravessar a cabeça
  const t=clamp(progress,0,1),impact=clamp(move?.impact||.48,.25,.70);
  const wind=smooth01(t/Math.max(.15,impact*.83));
  const release=smooth01((t-impact*.78)/Math.max(.14,impact*.45));
  const settle=smooth01((t-impact-.15)/Math.max(.17,.85-impact));
- const swing=attacking?clamp(swingAngle||0,-1.2,1.2):0;
- let a=-.45+tilt;
+ const strikeEnvelope=attacking?Math.pow(Math.sin(Math.PI*t),.7):0;
+ const swing=attacking?clamp(swingAngle||0,-1.2,1.2)*strikeEnvelope:0;
+ let a=-.43;
  if(archetype==='arcanist'){
-  // Cajado acompanha joystick e preserva a elevação, disparo e recuo.
-  a=-.70+joystickTilt*.78+(attacking?-.42*wind+.92*release-.50*settle:0);
+  // Levanta a gema para carregar, dispara e recua suavemente.
+  a=-.66+joystickTilt*.96+
+   (attacking?(-.44*wind+.96*release-.52*settle):0);
  }else if(archetype==='hunter'){
-  // Arco acompanha joystick, enquanto a corda tensiona e libera.
-  a=-.28+joystickTilt*.78+(attacking?-.14*wind+.19*release-.05*settle:0);
+  // Arco segue a mão: a corda é tensionada independentemente do giro.
+  a=-.31+joystickTilt*.94+
+   (attacking?(-.14*wind+.20*release-.06*settle):0);
  }else if(archetype==='rebel'){
-  a=-.45+joystickTilt*.78+(attacking?swing*.65:parrying?-.20:0);
+  a=-.40+joystickTilt*.97+(attacking?swing*.82:parrying?-.18:0);
  }else if(archetype==='guardian'){
-  a=-.48+joystickTilt*.78+(attacking?swing*.58:parrying?-.27:0);
+  a=-.45+joystickTilt*.94+(attacking?swing*.76:parrying?-.24:0);
  }else{
-  a=-.46+joystickTilt*.82+(attacking?swing*.68:parrying?-.25:0);
+  a=-.43+joystickTilt*1.02+(attacking?swing*.86:parrying?-.23:0);
  }
- a=clamp(a,-1.28,.46);
+ // A ponta pode subir ou descer com liberdade, mas nunca aponta para
+ // dentro da cabeça: o cabo permanece na mão lateral, à frente do corpo.
+ a=clamp(a,-1.42,.73);
  const extent=archetype==='rebel'?(attacking?22:17):
   archetype==='hunter'?27:archetype==='arcanist'?(attacking?36:32):
   attacking?35:28;
  const r=extent*scale;
- // A empunhadura acompanha o joystick em todos os arquétipos.
- const x1=Math.round((16+screenX*2.5)*scale);
- const y1=Math.round((-18+screenY*3.2)*scale);
+ const handShift=attacking?Math.sin(Math.PI*t):0;
+ const x1=Math.round((17+screenX*4.1+handShift*1.5)*scale);
+ const y1=Math.round((-19+screenY*5.3-handShift*(archetype==='arcanist'?2:1))*scale);
  const x2=Math.round(x1+Math.cos(a)*r);
  const y2=Math.round(y1+Math.sin(a)*r*.66);
  const pull=archetype==='hunter'&&attacking?
@@ -2278,6 +2281,20 @@ function visualWeaponPose(u,archetype,attacking,swingAngle,parrying,scale,progre
    1-smooth01((t-impact)/.12)):0;
  const charge=archetype==='arcanist'&&attacking?Math.max(0,wind*(1-settle*.8)):0;
  return{side,a,r,x1,y1,x2,y2,pull,charge,progress:t,impact};
+}
+// Durante o golpe, só a parte central da pose se aproxima da direção
+// física do ataque. O joystick continua influenciando o visual o tempo todo.
+function weaponDisplayFacing(u,archetype,attacking,parrying,progress){
+ const hand=unit((u.weaponFacing||u.face).x,(u.weaponFacing||u.face).z);
+ const real=unit(u.face.x,u.face.z);
+ const t=clamp(progress,0,1);
+ const aimWeight=attacking?
+  Math.sin(Math.PI*t)*(archetype==='arcanist'||archetype==='hunter'?.62:.38):
+  parrying?.18:0;
+ const start=Math.atan2(hand.z,hand.x),end=Math.atan2(real.z,real.x);
+ const delta=Math.atan2(Math.sin(end-start),Math.cos(end-start));
+ const angle=start+delta*aimWeight;
+ return{x:Math.cos(angle),z:Math.sin(angle)};
 }
 function figure(u,team){
  if(!u)return;
@@ -2323,9 +2340,10 @@ function figure(u,team){
  }
  // A arma é desenhada sempre à frente, do lado externo do corpo.
  const archetype=hero?currentArchetype():'warrior';
- // Todas as armas seguem o joystick ao caminhar ou paradas.
- // Durante ataque a pose segue a direção física para não desalinhar tiros.
- const drawFacing=hero&&!attacking&&!parrying?(u.weaponFacing||u.face):u.face;
+ // A mão acompanha o joystick mesmo durante o ataque; no impacto,
+ // o movimento se aproxima suavemente da direção física do golpe.
+ const drawFacing=hero?
+  weaponDisplayFacing(u,archetype,attacking,parrying,progress):u.face;
  const pose=visualWeaponPose({...u,face:drawFacing},archetype,attacking,sw.angle,parrying,s,progress,atk?.move);
   const {a,r,x1,y1,x2,y2,side}=pose;
  ctx.lineCap='square';
@@ -2631,6 +2649,8 @@ window.__rpgDebug.spriteFacings=()=>RACE_FACINGS.map(v=>({...v}));
 window.__rpgDebug.spriteFaceEyes=(race,dir,frame)=>raceEyePositions(race,dir,frame);
 window.__rpgDebug.spriteHeadRect=(race,dir,frame)=>raceHeadRect(race,dir,frame);
 window.__rpgDebug.weaponJoystickFacing=()=>({...player.weaponFacing||player.face});
+window.__rpgDebug.weaponDisplayFacing=(face,joystick,archetype,progress=.5,attacking=false)=>
+ weaponDisplayFacing({face,weaponFacing:joystick},archetype,attacking,false,progress);
 resize();reset();$('drillBehavior').value=drill.behavior;rhythmReadout();loadedRun=readSave();showCampaignMenu();requestAnimationFrame(loop);
 })();
 
