@@ -961,8 +961,10 @@ function makeRaceSprite(id){
   c.save();c.translate(frame*32,dir*48);
    // Isola cada frame; capas e botas não invadem frames vizinhos.
    c.beginPath();c.rect(0,0,32,48);c.clip();
-  const back=(dir===1||dir===2||dir===3);
-  const side=(dir===0||dir===4);
+  // +x/+z aponta para frente da camera (linha 1); cinco perfis com um olho.
+  const back=(dir===5||dir===6);
+  const side=dir!==1&&!back;
+  const facingLeft=(dir===2||dir===3||dir===4);
   const walk=[0,1,0,-1][frame],bounce=frame===1||frame===3?1:0;
   const torsoX=16-Math.floor(pz.torsoW/2),headX=16-Math.floor(pz.headW/2);
   const legWidth=id==='orc'||id==='dwarf'?7:id==='halfling'?4:5;
@@ -1039,7 +1041,8 @@ function makeRaceSprite(id){
    rect(headX+2,pz.headY+4+bounce,pz.headW-4,pz.headH-6,p.hair);
   }else{
    const eyeY=pz.headY+(id==='halfling'?6:7)+bounce;
-   rect(headX+(side?Math.floor(pz.headW*.55):2),eyeY,2,2,p.outline);
+   const eyeX=side?(facingLeft?headX+2:headX+pz.headW-4):headX+2;
+   rect(eyeX,eyeY,2,2,p.outline);
    if(!side)rect(headX+pz.headW-4,eyeY,2,2,p.outline);
    if(id==='orc'){
     // Presas brancas visíveis acima do maxilar.
@@ -1047,8 +1050,8 @@ function makeRaceSprite(id){
     rect(headX+pz.headW-4,pz.headY+pz.headH-3+bounce,2,4,'#fbefd0');
    }else if(id==='dwarf'){
     // Barba larga: volume inferior ao queixo, tornando o anão reconhecível.
-    rect(headX+1,pz.headY+pz.headH-3+bounce,pz.headW-2,7,p.hair);
-    rect(headX+3,pz.headY+pz.headH+4+bounce,pz.headW-6,3,p.hair);
+    rect(headX+1,pz.headY+pz.headH+bounce,pz.headW-2,6,p.hair);
+    rect(headX+3,pz.headY+pz.headH+5+bounce,pz.headW-6,3,p.hair);
     rect(headX+4,pz.headY+pz.headH-1+bounce,pz.headW-8,2,'#e39a52');
    }else if(id==='human'||id==='halfling'){
     rect(headX+Math.floor(pz.headW/2),pz.headY+pz.headH-3+bounce,2,1,p.skinShadow);
@@ -2108,22 +2111,44 @@ function drawPixelImpacts(){
  }
  ctx.restore();
 }
-// Geometria visual da arma: a ponta percorre somente o lado externo
-// da sprite. Não altera colisão, alcance, combos ou dano.
-function visualWeaponPose(u,archetype,attacking,swingAngle,parrying,scale){
+// Pose das armas no primeiro plano: empunhadura estável mesmo durante
+// giros completos. Somente o desenho muda (não altera alcance/dano).
+function visualWeaponPose(u,archetype,attacking,swingAngle,parrying,scale,progress=0,move=null){
  const foot=point(u.x,u.z),aim=point(u.x+u.face.x,u.z+u.face.z);
- const side=aim.x<foot.x?-1:1;
- const tilt=clamp((aim.y-foot.y)/Math.max(1,sx),-.65,.65)*.20;
- const swing=attacking?clamp(swingAngle||0,-1.2,1.2):parrying?-.32:0;
- const a=side>0?(-.32+tilt+swing*.48):(PI+.32+tilt-swing*.48);
- const extent=archetype==='rebel'?(attacking?21:16):
-  archetype==='hunter'?25:archetype==='arcanist'?(attacking?34:30):
-  attacking?34:27;
+ const tilt=clamp((aim.y-foot.y)/Math.max(1,sy),-1.4,1.4)*.105;
+ const side=1; // deixa a arma no mesmo lado VISUAL, sem troca instantânea
+ const t=clamp(progress,0,1),impact=clamp(move?.impact||.48,.25,.70);
+ const wind=smooth01(t/Math.max(.15,impact*.83));
+ const release=smooth01((t-impact*.78)/Math.max(.14,impact*.45));
+ const settle=smooth01((t-impact-.15)/Math.max(.17,.85-impact));
+ const swing=attacking?clamp(swingAngle||0,-1.2,1.2):0;
+ let a=-.45+tilt;
+ if(archetype==='arcanist'){
+  // Cajado: eleva a gema, projeta o feitiço, sofre recuo e repousa.
+  a=-.70+tilt+(attacking?-.42*wind+.92*release-.50*settle:0);
+ }else if(archetype==='hunter'){
+  // Arco: corpo acompanha a mira, corda é responsável pelo movimento forte.
+  a=-.28+tilt+(attacking?-.14*wind+.19*release-.05*settle:0);
+ }else if(archetype==='rebel'){
+  a=-.43+tilt+(attacking?swing*.65:parrying?-.20:0);
+ }else if(archetype==='guardian'){
+  a=-.46+tilt+(attacking?swing*.58:parrying?-.27:0);
+ }else{
+  a=-.46+tilt+(attacking?swing*.68:parrying?-.25:0);
+ }
+ a=clamp(a,-1.24,.45);
+ const extent=archetype==='rebel'?(attacking?22:17):
+  archetype==='hunter'?27:archetype==='arcanist'?(attacking?36:32):
+  attacking?35:28;
  const r=extent*scale;
- const x1=Math.round(side*14*scale),y1=Math.round(-18*scale);
+ const x1=Math.round(16*scale),y1=Math.round(-18*scale);
  const x2=Math.round(x1+Math.cos(a)*r);
  const y2=Math.round(y1+Math.sin(a)*r*.66);
- return{side,a,r,x1,y1,x2,y2};
+ const pull=archetype==='hunter'&&attacking?
+  (t<impact?smooth01(t/Math.max(.08,impact*.86)):
+   1-smooth01((t-impact)/.12)):0;
+ const charge=archetype==='arcanist'&&attacking?Math.max(0,wind*(1-settle*.8)):0;
+ return{side,a,r,x1,y1,x2,y2,pull,charge,progress:t,impact};
 }
 function figure(u,team){
  if(!u)return;
@@ -2155,7 +2180,7 @@ function figure(u,team){
  lean+=dodging?.09:0;
  lean+=(u.reactionDir||1)*stagger*.08;
   if(hero&&!settings.reducedMotion&&!atk&&!moving&&!parrying&&!dodging)lean+=Math.sin(clock*2.2)*.009;
- ctx.rotate(lean);
+ ctx.rotate(hero?0:lean); // evita flicker por interpolação da sprite no giro
  if(img&&(img.naturalWidth||img.width)){
    if(!alive)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
@@ -2169,31 +2194,65 @@ function figure(u,team){
  }
  // A arma é desenhada sempre à frente, do lado externo do corpo.
  const archetype=hero?currentArchetype():'warrior';
- const {a,r,x1,y1,x2,y2,side}=visualWeaponPose(u,archetype,attacking,sw.angle,parrying,s);
+ const pose=visualWeaponPose(u,archetype,attacking,sw.angle,parrying,s,progress,atk?.move);
+  const {a,r,x1,y1,x2,y2,side}=pose;
  ctx.lineCap='square';
  if(hero&&archetype==='hunter'){
-  // Arco: corpo curvo com corda e ponto de encaixe.
-  const bx=x1+Math.cos(a)*11*s,by=y1+Math.sin(a)*8*s;
-  const nx=-Math.sin(a),ny=Math.cos(a);
-  const tx=bx+nx*13*s,ty=by+ny*13*s,ux=bx-nx*13*s,uy=by-ny*13*s;
-  ctx.strokeStyle='#cfaa74';ctx.lineWidth=Math.max(2,Math.round(2.5*s));
-  ctx.beginPath();ctx.moveTo(tx,ty);ctx.quadraticCurveTo(bx+Math.cos(a)*16*s,by+Math.sin(a)*14*s,ux,uy);ctx.stroke();
-  ctx.strokeStyle='#e6e3cb';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(ux,uy);ctx.stroke();
-  if(attacking){ctx.strokeStyle='#fff4cf';ctx.lineWidth=Math.max(1,Math.round(s));ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(x2,y2);ctx.stroke();}
- }else{
-  ctx.lineWidth=Math.max(3,Math.round(s*(archetype==='rebel'?2.2:3)));
-  ctx.strokeStyle=hero&&archetype==='arcanist'?'#9166ad':hero&&archetype==='rebel'?'#f3f5e0':hero?'#d5f6fb':'#ffe9cc';
-  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-  ctx.strokeStyle=hero&&archetype==='arcanist'?'#65477d':hero?'#439fb5':'#a75e5e';ctx.lineWidth=Math.max(1,Math.round(s));
-  ctx.beginPath();ctx.moveTo(x1+1,y1+1);ctx.lineTo(x2+1,y2+1);ctx.stroke();
-  ctx.fillStyle=hero?'#28627e':'#764850';ctx.fillRect(Math.round(x1-3*s),Math.round(y1-2*s),Math.round(6*s),Math.round(4*s));
-  if(hero&&archetype==='arcanist'){
-   ctx.fillStyle=attacking?'#e7f1ff':'#b69aff';ctx.fillRect(Math.round(x2-3*s),Math.round(y2-4*s),Math.round(7*s),Math.round(7*s));
-   ctx.fillStyle='#ffffff';ctx.fillRect(Math.round(x2-1*s),Math.round(y2-2*s),Math.round(2*s),Math.round(2*s));
-  }else{
-   ctx.fillStyle=attacking?(hero?'#ffffff':'#ffefb7'):'#c3dce5';
-   ctx.fillRect(Math.round(x2-1.5*s),Math.round(y2-1.5*s),Math.max(2,Math.round(3*s)),Math.max(2,Math.round(3*s)));
+  // O arco acompanha a mira; durante o disparo, a corda recua e solta.
+  const dx=Math.cos(a),dy=Math.sin(a)*.66,nx=-dy,ny=dx;
+  const bx=x1+dx*11*s,by=y1+dy*11*s;
+  const tipX=bx+nx*13*s,tipY=by+ny*13*s;
+  const lowerX=bx-nx*13*s,lowerY=by-ny*13*s;
+  ctx.strokeStyle='#674830';ctx.lineWidth=Math.max(3,Math.round(3*s));
+  ctx.beginPath();ctx.moveTo(tipX,tipY);
+  ctx.quadraticCurveTo(bx+dx*17*s,by+dy*17*s,lowerX,lowerY);ctx.stroke();
+  ctx.strokeStyle='#d7b47c';ctx.lineWidth=Math.max(1.5,Math.round(s));
+  ctx.beginPath();ctx.moveTo(tipX,tipY);
+  ctx.quadraticCurveTo(bx+dx*17*s,by+dy*17*s,lowerX,lowerY);ctx.stroke();
+  const drawX=bx-dx*pose.pull*12*s,drawY=by-dy*pose.pull*12*s;
+  ctx.strokeStyle='#f5edcb';ctx.lineWidth=Math.max(1,Math.round(s*.7));
+  ctx.beginPath();ctx.moveTo(tipX,tipY);ctx.lineTo(drawX,drawY);ctx.lineTo(lowerX,lowerY);ctx.stroke();
+  if(attacking&&progress<pose.impact){
+   ctx.strokeStyle=atk?.move?.largeArrow?'#ffe2a7':'#e5ddc6';
+   ctx.lineWidth=Math.max(1,Math.round((atk?.move?.largeArrow?2:1)*s));
+   ctx.beginPath();ctx.moveTo(drawX,drawY);ctx.lineTo(x2+dx*5*s,y2+dy*5*s);ctx.stroke();
+   ctx.fillStyle='#fff0d0';
+   ctx.fillRect(Math.round(x2+dx*5*s-2*s),Math.round(y2+dy*5*s-2*s),Math.round(4*s),Math.round(4*s));
   }
+ }else if(hero&&archetype==='arcanist'){
+  // Cajado independente da espada: haste, cabo, anéis e orbe.
+  ctx.lineWidth=Math.max(3,Math.round(3.4*s));ctx.strokeStyle='#493342';
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.lineWidth=Math.max(1.5,Math.round(1.25*s));ctx.strokeStyle='#9b6b83';
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  const dx=x2-x1,dy=y2-y1;
+  ctx.strokeStyle='#dbb88d';ctx.lineWidth=Math.max(2,Math.round(2*s));
+  for(const t of [.19,.26,.33]){
+   const xx=x1+dx*t,yy=y1+dy*t;
+   ctx.beginPath();ctx.moveTo(xx,yy-2*s);ctx.lineTo(xx,yy+2*s);ctx.stroke();
+  }
+  const gem=Math.round((6+(atk?.move?.heavyShot?2:0)+pose.charge*2)*s);
+  const gx=Math.round(x2),gy=Math.round(y2);
+  ctx.fillStyle='#462a75';ctx.fillRect(Math.round(gx-gem/2-2),Math.round(gy-gem/2-2),gem+4,gem+4);
+  ctx.fillStyle=attacking&&progress<pose.impact?'#b5bfff':'#9f88e2';
+  ctx.fillRect(Math.round(gx-gem/2),Math.round(gy-gem/2),gem,gem);
+  ctx.fillStyle='#f9fcff';ctx.fillRect(gx-Math.round(s),gy-Math.round(s),Math.max(2,Math.round(2*s)),Math.max(2,Math.round(2*s)));
+ }else{
+  // Espada, escudo e adaga: empunhadura, guarda e lâmina independentes.
+  const dagger=hero&&archetype==='rebel';
+  ctx.lineWidth=Math.max(3,Math.round(s*(dagger?2.3:3.2)));
+  ctx.strokeStyle=dagger?'#e0e7ea':hero?'#d9f4fa':'#ffdec8';
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.strokeStyle=dagger?'#758f9e':hero?'#4da9be':'#a75e5e';
+  ctx.lineWidth=Math.max(1,Math.round(s));
+  ctx.beginPath();ctx.moveTo(x1+1,y1+1);ctx.lineTo(x2+1,y2+1);ctx.stroke();
+  ctx.fillStyle=dagger?'#4a3546':hero?'#304c62':'#764850';
+  ctx.fillRect(Math.round(x1-3*s),Math.round(y1-2*s),Math.round(6*s),Math.round(4*s));
+  const ll=Math.hypot(x2-x1,y2-y1)||1,dx=(x2-x1)/ll,dy=(y2-y1)/ll;
+  ctx.strokeStyle=dagger?'#c1a0bb':'#d5b678';ctx.lineWidth=Math.max(2,Math.round(2*s));
+  ctx.beginPath();ctx.moveTo(x1-dy*4*s,y1+dx*4*s);ctx.lineTo(x1+dy*4*s,y1-dx*4*s);ctx.stroke();
+  ctx.fillStyle=attacking?'#ffffff':'#d9eaf1';
+  ctx.fillRect(Math.round(x2-1.5*s),Math.round(y2-1.5*s),Math.max(2,Math.round(3*s)),Math.max(2,Math.round(3*s)));
  }
  if(hero&&atk&&sw.active&&!settings.reducedMotion){
    // Brilho visual da ponta da arma: colisão e alcance permanecem iguais.
@@ -2432,8 +2491,10 @@ $('eliteBtn').addEventListener('click',toggleElite);$('labBtn').addEventListener
 $('creatorCancel').addEventListener('click',cancelCharacterCreator);$('creatorBack').addEventListener('click',()=>{if(creatorStep===0)cancelCharacterCreator();else{creatorStep--;renderCharacterCreator();}});$('creatorNext').addEventListener('click',advanceCharacterCreator);$('enemyPicker').addEventListener('click',switchFoe);$('targetPicker').addEventListener('click',cycleTarget);$('aimToggle').addEventListener('click',toggleAim);$('reset').addEventListener('click',showCampaignMenu);$('help').addEventListener('click',()=>{keys.clear();joyReset();renderWeaponCombos();guide.classList.add('open');});$('closeGuide').addEventListener('click',()=>guide.classList.remove('open'));guide.addEventListener('pointerdown',e=>{if(e.target===guide)guide.classList.remove('open');});document.addEventListener('visibilitychange',()=>{last=0;frameAccumulator=0;if(document.hidden){joyReset();keys.clear();saveCampaign();}});
 // Exposed read-only state for automated interaction tests and later development stages.
 window.__rpgDebug={snapshot:()=>({race:activeRace(),padSize:settings.padSize,weapon:currentArchetype(),projectiles:rangedShots.map(p=>({x:p.x,z:p.z,magic:p.magic,delay:p.delay,pierce:p.pierceLeft,largeArrow:p.largeArrow,shots:p.act.move.shots||1})),interactions:{nearest:nearestInteractable?.id||null,last:lastInteractEvent,objects:interactables.map(o=>({id:o.id,kind:o.kind,x:o.x,z:o.z}))},run:runState?JSON.parse(JSON.stringify(runState)):null,bonuses:heroBonuses(),progression:JSON.parse(JSON.stringify(progress)),eliteMode,eliteVictory,boss:enemies.find(e=>e.style==='elite')?(()=>{const e=enemies.find(e=>e.style==='elite');return{stage:e.bossStage,pattern:e.bossPattern,weak:e.bossWeak,queue:[...(e.bossQueue||[])],hp:e.hp,phase:e.phase,type:e.type,balance:e.balance,wind:e.wind}})():null,drill:{active:drill.active,mode:drill.mode,foe:drill.foe,behavior:drill.behavior,score:drill.score,errors:drill.errors,done:drill.done,unique:[...drill.unique]},difficulty:settings.difficulty,balanceProfile:{...profile()},parryAttempts,parryMisses,dodgeSaves,totalSwings,successfulSwings,maxChain,accuracy:trainingAccuracy(),dps:dps(),lastWave,hp:player.hp,mp:player.mp,x:player.x,z:player.z,seq:player.seq,attack:player.act?.move.name||null,buffer:player.buffer,bufferTime:player.bufferTime,attackLock:player.attackLock,comboWindow:attackWindow(player.act),acceptedInputs,rejectedInputs,simultaneousInputs,bossAdaptations:enemies.find(e=>e.style==='elite')?.bossAdaptiveCount||0,aimAssist,selectedEnemy,squadSize,focusId,tactics:settings.tactics,attackers:activeAttackers(),totalFlanks,totalCovers,totalPunishes,peakAttackers,foes:enemies.map(e=>({id:e.id,style:e.style,hp:e.hp,phase:e.phase,x:e.x,z:e.z,stun:e.stun,wind:e.wind,role:e.role,guardAlly:e.guardAlly,flankCooldown:e.flankCooldown,coverCooldown:e.coverCooldown})),style:enemy?.style,enemyGuard:enemy?.guardTime,enemyEvade:enemy?.evade,enemyWind:enemy?.wind,enemyAttack:enemy?.type,enemyIframe:enemy?.iframe,assisted:player.assist,face:{...player.face},parryWindow:player.parryWindow,parryCooldown:player.parryCooldown,riposte:player.riposte,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,invuln:player.invuln,enemyHp:enemy?.hp,enemyBalance:enemy?.balance,enemyAir:enemy?.air,enemyDown:enemy?.downTimer,enemyGetup:enemy?.getup,chainReady:player.chainReady,dodgeFollowup:player.dodgeFollowup,enemyPhase:enemy?.phase,enemyType:enemy?.type,kills,settings:{...settings},fps:actualFps,cameraZoom:cam.zoom,hits:totalHits,parries:totalParries,dodges:totalDodges,damageDealt:totalDamage,damageTaken:totalTaken,precisionHits,precisionMisses,weaponSwing:player.act?swingPose(player.act.move,player.act.time/player.act.move.dur).angle:null,paused:options.classList.contains('open')||guide.classList.contains('open')||$('drillPanel').classList.contains('open'),screenFlash,flashCount:flashes.length,specialCount:specials.length,pixelImpactCount:pixelHits.length,dodgeEchoCount:dodgeEchoes.length,specialTypes:specials.map(f=>f.kind)}),newCampaign,openCharacterCreator,resumeCampaign,showCampaignMenu,showAbilityChoices,checkCampaignVictory,debugKill:()=>{if(runState?.active){player.hp=0;endCampaign('Derrotado em combate');}},debugClearRoom:()=>{if(runState?.active){enemies.forEach(e=>{e.hp=0;e.phase='dead'});onRoomCleared();}},gainXP:amount=>{progress.xp+=Math.max(0,Math.round(amount));while(progress.level<LEVEL_LIMIT&&progress.xp>=xpToNext(progress.level)){progress.xp-=xpToNext(progress.level);progress.level++;progress.points++;}if(progress.level>=LEVEL_LIMIT)progress.xp=0;saveProgress();progressionUI();showAbilityChoices();},buyTalent,action:kind=>kind==='parry'?parry():kind==='dodge'?dodge():attack(kind),toggleAim,reset,toggleElite,switchFoe,cycleTarget,openOptions,closeOptions,chooseFoe:i=>{squadSize=1;selectedEnemy=((i%3)+3)%3;reset();},chooseSquad:n=>{squadSize=[1,3,5].includes(n)?n:3;reset();},debugSet:(changes)=>{if(enemy)Object.assign(enemy,changes.enemy||{});Object.assign(player,changes.player||{});},debugSetFoes:arr=>{arr.forEach((c,i)=>{if(enemies[i])Object.assign(enemies[i],c)});chooseTarget();},setTactics:on=>{settings.tactics=!!on;for(const e of enemies)e.guardAlly=null;updateSettings();tacticalReadout();},testTick:dt=>update(dt),setDifficulty,finishWave:waveFinished,openLab,closeLab,startLab,exitLab,repositionLab,chooseDrill:(mode,behavior,foe)=>{labSetMode(mode);if(behavior)$('drillBehavior').value=behavior;if(foe!==undefined)$('drillFoe').value=foe;startLab();},drillEvent};
-window.__rpgDebug.weaponVisualPose=(face,archetype,swingAngle=0)=>visualWeaponPose(
- {...player,face},archetype,true,swingAngle,false,clamp(sx/36*1.9,1.35,2.7));
+window.__rpgDebug.weaponVisualPose=(face,archetype,swingAngle=0,progress=.5,move=null)=>visualWeaponPose(
+ {...player,face},archetype,true,swingAngle,false,clamp(sx/36*1.9,1.35,2.7),progress,move);
+window.__rpgDebug.spriteAtlas=race=>raceSprite(race);
+window.__rpgDebug.spriteShape=race=>RACE_SHAPES[race];
 resize();reset();$('drillBehavior').value=drill.behavior;rhythmReadout();loadedRun=readSave();showCampaignMenu();requestAnimationFrame(loop);
 })();
 
