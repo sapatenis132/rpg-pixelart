@@ -708,6 +708,7 @@ function updateRangedShots(dt){
   if(travel<=0)continue;
   const x=shot.x,z=shot.z,nx=x+shot.dir.x*shot.speed*travel,nz=z+shot.dir.z*shot.speed*travel;
   shot.x=nx;shot.z=nz;shot.life-=travel;
+  if(runState?.world&&!worldPassable(nx,nz)){shot.life=0;continue;}
   for(const foe of living()){
    if(foe.iframe>0||shot.act.hitIds.has(foe.id)||distanceToSegment(foe.x,foe.z,x,z,nx,nz)>.34+shot.radius)continue;
    playerHit(true,foe,shot.act);
@@ -717,7 +718,7 @@ function updateRangedShots(dt){
   }
  }
  for(const shot of rangedShots){
-  if(shot.accounted||shot.life>0&&Math.abs(shot.x)<9&&Math.abs(shot.z)<9)continue;
+  if(shot.accounted||shot.life>0&&(runState?.world?worldPassable(shot.x,shot.z):Math.abs(shot.x)<9&&Math.abs(shot.z)<9))continue;
   shot.accounted=true;const group=shot.act?.group;
   if(group&&--group.pending===0&&!group.landed)precisionMisses++;
  }
@@ -1593,7 +1594,7 @@ function enterWorldRoom(id,from=null){
  selectedEnemy=Math.floor(seeded(world.seed,id*17)*3);
  enemies=[];respawn=0;player.act=null;player.buffer=null;player.seq='';player.seqTimer=0;
  player.dodge=0;player.parryWindow=0;player.attackLock=0;player.velX=0;player.velZ=0;
- player.knockX=0;player.knockZ=0;player.invuln=Math.max(player.invuln||0,.55);
+ player.knockX=0;player.knockZ=0;player.meleeGuard=0;player.invuln=Math.max(player.invuln||0,.55);
  const fromDoor=room.exits.find(e=>e.to===from);
  const point=fromDoor?ROOM_DIRECTIONS[fromDoor.dir]:{dx:0,dz:0};
  // Surge a dois tiles do portal de retorno, virado para dentro.
@@ -1800,7 +1801,7 @@ function makeEnemy(styleIndex=selectedEnemy){
  const profile=FOES[styleIndex];return{x:profile.id==='berserker'?3.60:2.45,z:-.8,hp:Math.round(profile.life*BALANCE[settings.difficulty].enemyHp),maxHp:Math.round(profile.life*BALANCE[settings.difficulty].enemyHp),balance:profile.balance,maxBalance:profile.balance,balanceTimer:0,face:{x:-1,z:0},phase:'chase',wind:0,windMax:.75,strike:0,strikeMax:0,recover:0,cooldown:(profile.id==='berserker'?.50:1.1)*BALANCE[settings.difficulty].cooldown,stun:0,flash:0,knockX:0,knockZ:0,walk:0,hit:false,attackCount:0,type:'light',style:profile.id,title:profile.title,color:profile.color,aiSpeed:profile.speed,preferred:profile.reach,air:0,airVel:0,downTimer:0,downTotal:0,getup:0,launchCount:0,reaction:0,reactionDir:1,moveMagnitude:0,guardTime:0,guardCooldown:1.8,evade:0,evadeCooldown:1.6,iframe:0,side:1,feintCount:0,choice:styleIndex};
 }
 
-function reset(){clearInteractables();projectileEpoch++;rangedShots=[];eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);$('eliteBtn').textContent=eliteMode?'↩ ARENA':'♛ ELITE';if(drill.active){drill.score=0;drill.errors=0;drill.unique=new Set();drill.done=false;drill.attacks=0;drill.last='Objetivo iniciado · observe os golpes';}totalFlanks=0;totalCovers=0;totalPunishes=0;peakAttackers=0;lastTacticBanner=-10;lastAttackOrdered=-10;lastAttackInput=-10;rejectedInputs=0;simultaneousInputs=0;acceptedInputs=0;precisionHits=0;precisionMisses=0;parryAttempts=0;parryMisses=0;dodgeSaves=0;totalSwings=0;successfulSwings=0;maxChain=0;damageTimeline=[];lastWave=null;waveStart=0;waveStartDamage=0;waveStartTaken=0;waveStartParries=0;waveStartSwings=0;waveStartSuccess=0;totalHits=0;totalDamage=0;totalParries=0;totalDodges=0;totalTaken=0;player={x:0,z:0,hp:100+8*progress.ranks.vigor+heroBonuses().hp,maxHp:100+8*progress.ranks.vigor+heroBonuses().hp,mp:60+heroBonuses().mana,maxMp:60+heroBonuses().mana,face:{x:1,z:0},assist:false,act:null,buffer:null,bufferTime:0,attackLock:0,seq:'',seqTimer:0,chainReady:false,dodgeFollowup:0,dodgeChain:false,parryWindow:0,parryRecovery:0,parryCooldown:0,guardWindow:0,riposte:0,invuln:0,dodge:0,dodgeCooldown:0,dodgeDir:{x:0,z:0},velX:0,velZ:0,flash:0,walk:0,knockX:0,knockZ:0,reaction:0,reactionDir:1,moveMagnitude:0};enemy=null;nextEnemyId=0;wavesCleared=0;cam={x:0,z:0,zoom:1};particles=[];texts=[];arcs=[];rings=[];flashes=[];specials=[];pixelHits=[];dodgeEchoes=[];dodgeEchoClock=0;clock=0;shake=0;hitStop=0;screenFlash=0;kills=0;respawn=0;bannerTime=0;noticeTime=0;banner.classList.remove('visible');hintUI.textContent=eliteMode?'Dourado: parry · Vermelho: esquiva':'Ajuste a dificuldade em ⚖ · confira o relatório em ⚙';spawnWave();updateSettings();hud();if(drill.active){drill.start=clock;game.classList.add('in-drill');}drillRefresh();}
+function reset(){clearInteractables();projectileEpoch++;rangedShots=[];eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);$('eliteBtn').textContent=eliteMode?'↩ ARENA':'♛ ELITE';if(drill.active){drill.score=0;drill.errors=0;drill.unique=new Set();drill.done=false;drill.attacks=0;drill.last='Objetivo iniciado · observe os golpes';}totalFlanks=0;totalCovers=0;totalPunishes=0;peakAttackers=0;lastTacticBanner=-10;lastAttackOrdered=-10;lastAttackInput=-10;rejectedInputs=0;simultaneousInputs=0;acceptedInputs=0;precisionHits=0;precisionMisses=0;parryAttempts=0;parryMisses=0;dodgeSaves=0;totalSwings=0;successfulSwings=0;maxChain=0;damageTimeline=[];lastWave=null;waveStart=0;waveStartDamage=0;waveStartTaken=0;waveStartParries=0;waveStartSwings=0;waveStartSuccess=0;totalHits=0;totalDamage=0;totalParries=0;totalDodges=0;totalTaken=0;player={x:0,z:0,meleeGuard:0,hp:100+8*progress.ranks.vigor+heroBonuses().hp,maxHp:100+8*progress.ranks.vigor+heroBonuses().hp,mp:60+heroBonuses().mana,maxMp:60+heroBonuses().mana,face:{x:1,z:0},assist:false,act:null,buffer:null,bufferTime:0,attackLock:0,seq:'',seqTimer:0,chainReady:false,dodgeFollowup:0,dodgeChain:false,parryWindow:0,parryRecovery:0,parryCooldown:0,guardWindow:0,riposte:0,invuln:0,dodge:0,dodgeCooldown:0,dodgeDir:{x:0,z:0},velX:0,velZ:0,flash:0,walk:0,knockX:0,knockZ:0,reaction:0,reactionDir:1,moveMagnitude:0};enemy=null;nextEnemyId=0;wavesCleared=0;cam={x:0,z:0,zoom:1};particles=[];texts=[];arcs=[];rings=[];flashes=[];specials=[];pixelHits=[];dodgeEchoes=[];dodgeEchoClock=0;clock=0;shake=0;hitStop=0;screenFlash=0;kills=0;respawn=0;bannerTime=0;noticeTime=0;banner.classList.remove('visible');hintUI.textContent=eliteMode?'Dourado: parry · Vermelho: esquiva':'Ajuste a dificuldade em ⚖ · confira o relatório em ⚙';spawnWave();updateSettings();hud();if(drill.active){drill.start=clock;game.classList.add('in-drill');}drillRefresh();}
 function updateFoePicker(){const b=$('enemyPicker');b.textContent=`⚔ ARENA: ${squadSize===1?'DUELO':squadSize+' INIMIGOS'} ↻`;b.style.color='#8cefe4';$('targetPicker').textContent='◎ FOCO: '+(enemy?.name||enemy?.title||'—');}
 function switchFoe(){if(runState?.active)return;changeMode();}
 function note(main,sub='',duration=1){banner.replaceChildren(document.createTextNode(main));if(sub){const sm=document.createElement('small');sm.textContent=sub;banner.append(sm);}banner.classList.add('visible');bannerTime=duration;}
@@ -1973,6 +1974,24 @@ sfx('parry');player.parryWindow=0;player.parryRecovery=.08;player.parryCooldown=
 // POSTURA v2: pressão por arma e por golpe, independente do dano de vida.
 // Rajadas dividem um orçamento de pressão entre as flechas para evitar que um pesado
 // com cinco projéteis quebre a guarda cinco vezes mais rápido que o disparo triplo.
+
+// Risco/recompensa: combatentes próximos conservam mobilidade enquanto golpeiam.
+// Arco e cajado continuam fortes à distância, mas precisam se comprometer com o tiro.
+const COMBAT_MOVE_FACTORS={
+ warrior:{light:.98,heavy:.77},
+ guardian:{light:.94,heavy:.72},
+ rebel:{light:1.04,heavy:.85},
+ arcanist:{light:.76,heavy:.53},
+ hunter:{light:.79,heavy:.55}
+};
+function combatMoveFactor(archetype,act){
+ if(!act)return 1;
+ const p=COMBAT_MOVE_FACTORS[archetype]||COMBAT_MOVE_FACTORS.warrior;
+ return act.key.includes('H')?p.heavy:p.light;
+}
+function isMeleeArchetype(archetype=currentArchetype()){
+ return archetype==='warrior'||archetype==='guardian'||archetype==='rebel';
+}
 const POSTURE_PROFILES={
  warrior:{light:13,heavy:24,fin:34,break:36,rip:29,ext:41},
  guardian:{light:11,heavy:25,fin:32,break:38,rip:27,ext:45},
@@ -2026,6 +2045,10 @@ function playerHit(contact=false,target=null,externalAct=null){
    if(m.streak>=3){enemy.bossAdapt=1.6;enemy.bossAdaptiveCount++;m.streak=0;floating('PADRÃO LIDO!',enemy.x,enemy.z,'#ffd19a',14);}}
  }a.landed=true;if(move.ranged&&a.group)a.group.landed=true;
  if(a.hitIds.size>=2)floating('MULTIACERTO x'+a.hitIds.size,player.x,player.z,'#b3ffe3',15);
+ // Um acerto real de curto alcance concede proteção parcial e brevíssima.
+ // Não é invulnerabilidade e só suporta um impacto, preservando risco e parry.
+ if(!move.ranged&&isMeleeArchetype()&&d<=Math.max(2.1,move.reach+.3))
+  player.meleeGuard=Math.max(player.meleeGuard||0,move.fin?.46:.27);
  const guarding=enemy.phase==='guard'&&enemy.guardTime>0;
  const airborne=enemy.air>.05,downed=enemy.downTimer>0;
  const multiplier=move.execute&&downed?1.42:move.airBonus&&airborne?1.35:1;
@@ -2084,7 +2107,11 @@ function enemyDamage(){
  const baseDamage=enemy.style==='elite'?(enemy.type==='crush'?26:enemy.type==='thrust'?16:enemy.type==='dash'?18:14):enemy.type==='rush'?20:enemy.type==='heavy'?18:enemy.type==='quick'?10:12;const rawDamage=Math.max(1,Math.round(baseDamage*profile().enemyDamage*(1-.025*progress.ranks.ward)));
  const toward=unit(enemy.x-player.x,enemy.z-player.z),frontal=player.face.x*toward.x+player.face.z*toward.z;
  const shielded=currentArchetype()==='guardian'&&(player.guardWindow||0)>0&&frontal>.12&&!(enemy.style==='elite'&&enemy.type==='crush');
- const damage=shielded?Math.max(1,Math.round(rawDamage*.40)):rawDamage;
+ const engaged=!shielded&&isMeleeArchetype()&&(player.meleeGuard||0)>0&&frontal>-.15;
+ const damage=shielded?Math.max(1,Math.round(rawDamage*.40)):
+  engaged?Math.max(1,Math.round(rawDamage*.78)):rawDamage;
+ if(engaged)floating('APARO −'+(rawDamage-damage),player.x,player.z,'#9eead4',13);
+ player.meleeGuard=0;
  if(shielded){floating('ESCUDO! −'+(rawDamage-damage),player.x,player.z,'#a5ffe5',15);pixelImpact(player.x,player.z,'#8cffe2','guard',.75);player.guardWindow=0;sfx('guard');}
  player.hp=Math.max(drill.active?1:0,player.hp-damage);if(drill.active&&player.hp<=20){player.hp=100;drillFailure('Recebeu golpes; vida restaurada para continuar.');}totalTaken+=damage;sfx('hurt');player.flash=.27;player.reaction=.30;player.reactionDir=enemy.face.x*player.face.z-enemy.face.z*player.face.x<0?-1:1;player.invuln=profile().postHitIframes;
  player.knockX+=vec.x*3.9;player.knockZ+=vec.z*3.9;player.act=null;player.buffer=null;player.bufferTime=0;player.seq='';player.seqTimer=0;player.chainReady=false;player.dodgeChain=false;player.dodgeFollowup=0;player.riposte=0;
@@ -2416,7 +2443,7 @@ function drawInteractables(){
  for(const p of pixelHits)p.life-=dt;pixelHits=pixelHits.filter(p=>p.life>0);
  for(const g of dodgeEchoes)g.life-=dt;dodgeEchoes=dodgeEchoes.filter(g=>g.life>0);
  screenFlash=Math.max(0,screenFlash-dt*2.5);
- player.reaction=Math.max(0,(player.reaction||0)-dt);player.flash=Math.max(0,player.flash-dt);player.invuln=Math.max(0,player.invuln-dt);player.seqTimer=Math.max(0,player.seqTimer-dt);if(player.seqTimer===0)player.chainReady=false;player.dodgeFollowup=Math.max(0,player.dodgeFollowup-dt);if(player.dodgeFollowup===0)player.dodgeChain=false;player.riposte=Math.max(0,player.riposte-dt);player.parryCooldown=Math.max(0,player.parryCooldown-dt);player.guardWindow=Math.max(0,(player.guardWindow||0)-dt);player.attackLock=Math.max(0,player.attackLock-dt);
+ player.meleeGuard=Math.max(0,(player.meleeGuard||0)-dt);player.reaction=Math.max(0,(player.reaction||0)-dt);player.flash=Math.max(0,player.flash-dt);player.invuln=Math.max(0,player.invuln-dt);player.seqTimer=Math.max(0,player.seqTimer-dt);if(player.seqTimer===0)player.chainReady=false;player.dodgeFollowup=Math.max(0,player.dodgeFollowup-dt);if(player.dodgeFollowup===0)player.dodgeChain=false;player.riposte=Math.max(0,player.riposte-dt);player.parryCooldown=Math.max(0,player.parryCooldown-dt);player.guardWindow=Math.max(0,(player.guardWindow||0)-dt);player.attackLock=Math.max(0,player.attackLock-dt);
  if(player.buffer){player.bufferTime-=dt;if(player.bufferTime<=0){player.buffer=null;player.bufferTime=0;}}
  const parryBefore=player.parryWindow;player.parryWindow=Math.max(0,player.parryWindow-dt);if(parryBefore>0&&player.parryWindow===0){parryMisses++;if(drill.mode==='parry')drillFailure('Parry antecipado: aguarde mais perto do contato.');}player.parryRecovery=Math.max(0,player.parryRecovery-dt);player.dodgeCooldown=Math.max(0,player.dodgeCooldown-dt);
  if(player.hp>0){
@@ -2446,7 +2473,7 @@ function drawInteractables(){
    }
    if(player.dodge===0&&player.buffer&&player.bufferTime>0){const type=player.buffer;player.buffer=null;player.bufferTime=0;startAttack(type);}
   }else{
-   const speed=3.95*(1+.02*progress.ranks.mobility+heroBonuses().speed)*(player.parryRecovery>0?.74:player.act?(player.act.key.includes('H')?.59:.89):1);
+   const speed=3.95*(1+.02*progress.ranks.mobility+heroBonuses().speed)*(player.parryRecovery>0?.74:combatMoveFactor(currentArchetype(),player.act));
    // Fast start, controlled stop: joystick never feels sluggish or slippery.
    const response=length(v.x,v.z)>.01?20:27;
    player.velX=mix(player.velX,v.x*speed,1-Math.exp(-response*dt));
@@ -3040,6 +3067,8 @@ window.__rpgDebug.spriteHeadRect=(race,dir,frame)=>raceHeadRect(race,dir,frame);
 window.__rpgDebug.weaponJoystickFacing=()=>({...player.weaponFacing||player.face});
 window.__rpgDebug.weaponDisplayFacing=(face,joystick,archetype,progress=.5,attacking=false)=>
  weaponDisplayFacing({face,weaponFacing:joystick},archetype,attacking,false,progress);
+window.__rpgDebug.combatMoveFactor=combatMoveFactor;
+window.__rpgDebug.combatProfile=()=>({archetype:currentArchetype(),meleeGuard:player.meleeGuard||0});
 window.__rpgDebug.mapData=(tab='area')=>mapData(tab);window.__rpgDebug.openWorldMap=openWorldMap;window.__rpgDebug.closeWorldMap=closeWorldMap;
 window.__rpgDebug.worldForSeed=seed=>generateWorld(seed);
 window.__rpgDebug.worldRoomShape=room=>{const g=makeRoomGeometry(room);return{width:g.room.width,height:g.room.height,
