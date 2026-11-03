@@ -347,6 +347,26 @@ body{display:block;min-height:0}
  .racePortrait{width:40px;height:54px}
 }
 
+/* Etapa 24: ergonomia ambidestra mantendo as hitboxes originais. */
+#game.left-handed #joystick:not(.floating){left:auto;right:calc(env(safe-area-inset-right,0px) + 20px)}
+#game.left-handed .buttons{left:calc(env(safe-area-inset-left,0px) + 19px);right:auto;transform-origin:bottom left}
+#game.left-handed #heavy{left:auto;right:52px}
+#game.left-handed #light{left:9px;right:auto}
+#game.left-handed #parry{left:auto;right:18px}
+#game.left-handed #dodge{left:24px;right:auto}
+#game.left-handed #labRecenter{right:auto;left:calc(env(safe-area-inset-left,0px) + 120px)}
+#joystick.floating{right:auto}
+#joystick:focus-visible,.action:focus-visible,.pad-choices button:focus-visible,.switch:focus-visible{outline:2px solid #e5fff0;outline-offset:3px}
+@media(max-width:740px) and (orientation:landscape){
+ #game.left-handed #joystick:not(.floating){right:8px}
+ #game.left-handed .buttons{left:6px}
+}
+@media(max-height:440px){
+ #game.left-handed #joystick:not(.floating){right:calc(env(safe-area-inset-right,0px) + 12px)}
+}
+@media(max-height:380px) and (orientation:landscape){
+ #game.left-handed #labRecenter{left:calc(env(safe-area-inset-left,0px) + 94px)}
+}
 /* Interação contextual também recebe área de toque mais confortável. */
 #interactBtn{min-height:46px;font-size:13px}
 </style></head>
@@ -395,7 +415,9 @@ body{display:block;min-height:0}
        <button type="button" data-pad-size="medium">Normal</button>
        <button type="button" data-pad-size="large">Grande</button>
       </div></div>
-      <div class="option-row"><div><b>Efeitos sonoros</b><small>Sons procedurais, sem arquivos externos. Ativados após um toque.</small></div><button id="soundToggle" class="switch" aria-pressed="true">LIGADO</button></div>
+      <div class="option-row"><div><b>Modo canhoto</b><small>Inverte os lados do joystick e dos botões de combate.</small></div><button id="handedToggle" class="switch" aria-pressed="false">DESLIGADO</button></div>
+       <div class="option-row"><div><b>Joystick flutuante</b><small>Inicie o movimento tocando no lado livre da arena.</small></div><button id="floatingToggle" class="switch" aria-pressed="true">LIGADO</button></div>
+       <div class="option-row"><div><b>Efeitos sonoros</b><small>Sons procedurais, sem arquivos externos. Ativados após um toque.</small></div><button id="soundToggle" class="switch" aria-pressed="true">LIGADO</button></div>
       <div class="option-row"><div><b>Vibração</b><small>Funciona somente em navegadores e aparelhos compatíveis.</small></div><button id="hapticToggle" class="switch" aria-pressed="true">LIGADO</button></div>
       <div class="option-row"><div><b>Câmera adaptativa</b><small>Enquadra você e as ameaças ao redor.</small></div><button id="cameraToggle" class="switch" aria-pressed="true">LIGADO</button></div>
       <div class="option-row"><div><b>Reduzir movimento</b><small>Desativa tremores de câmera e flashes de tela.</small></div><button id="motionToggle" class="switch" aria-pressed="false">DESLIGADO</button></div>
@@ -1029,7 +1051,19 @@ function makeRaceSprite(id){
     rect(headX+Math.floor(pz.headW/2),pz.headY+pz.headH-3+bounce,2,1,p.skinShadow);
    }
   }
-  // Destaque final da silhueta: anão compacto, orc largo, pequenino baixo.
+  // Bordas de roupa, costuras e ornamentos específicos, em pixels.
+   rect(torsoX+2,pz.torsoY+pz.torsoH-2+bounce,Math.max(2,pz.torsoW-4),1,p.clothHi);
+   rect(torsoX+pz.torsoW-3,pz.torsoY+5+bounce,2,Math.max(3,pz.torsoH-9),p.belt);
+   if(back)rect(torsoX+3,pz.torsoY+5+bounce,Math.max(3,pz.torsoW-6),2,p.belt);
+   else if(id==='elf')rect(torsoX+2,pz.torsoY+7+bounce,2,Math.max(2,pz.torsoH-10),p.accent);
+   else if(id==='orc'){
+    rect(torsoX+4,pz.torsoY+6+bounce,3,3,p.skinShadow);
+    rect(torsoX+pz.torsoW-7,pz.torsoY+6+bounce,3,3,p.skinShadow);
+   }else if(id==='dwarf'){
+    rect(torsoX+3,pz.torsoY+4+bounce,3,3,p.accent);
+    rect(torsoX+pz.torsoW-6,pz.torsoY+4+bounce,3,3,p.accent);
+   }else if(id==='halfling')rect(torsoX+3,pz.torsoY+4+bounce,pz.torsoW-6,2,p.accent);
+   // Destaque final da silhueta: anão compacto, orc largo, pequenino baixo.
   if(id==='orc')rect(torsoX+3,pz.torsoY+1+bounce,pz.torsoW-6,2,'#c5a477');
   if(id==='dwarf')rect(headX-1,pz.headY+5+bounce,3,3,p.hair);
   c.restore();
@@ -1185,18 +1219,20 @@ function showAbilityChoices(){if(!runState?.active||progress.points<=0)return;co
  if(!Array.isArray(runState.offers)||runState.offers.length!==Math.min(3,available.length)||runState.offers.some(k=>!available.includes(k))){const shuffled=[...available].sort((a,b)=>seeded(runState.seed,progress.level*101+a.length+a.charCodeAt(0))-seeded(runState.seed,progress.level*101+b.length+b.charCodeAt(0)));runState.offers=shuffled.slice(0,3);}offeredChoices=runState.offers;
  const grid=$('abilityGrid');grid.replaceChildren();for(const k of offeredChoices){const a=ABILITIES[k],button=document.createElement('button');const name=document.createElement('b');name.textContent=a.title+' '+(progress.ranks[k]?'II+':'I');const desc=document.createElement('span');desc.textContent=a.desc;const rank=document.createElement('small');rank.textContent=a.tag+' · NÍVEL '+progress.ranks[k]+'/'+TALENT_LIMIT;button.append(name,desc,rank);button.addEventListener('click',()=>{if(!runState?.active||!offeredChoices.includes(k))return;const success=buyTalent(k,true);if(!success)return;runState.offers=[];saveCampaign();$('abilityOverlay').classList.remove('open');if(progress.points>0)showAbilityChoices();else if(runState.cleared)showRoomExit();});grid.append(button);} $('abilityOverlay').classList.add('open');saveCampaign();}
 
-const defaults={sound:true,haptics:true,dynamicCamera:true,reducedMotion:false,economy:false,sensitivity:1,showFps:false,showReach:false,tactics:true,difficulty:'balanced',padSize:'medium'};
+const defaults={sound:true,haptics:true,dynamicCamera:true,reducedMotion:false,economy:false,sensitivity:1,showFps:false,showReach:false,tactics:true,difficulty:'balanced',padSize:'medium',leftHanded:false,floatingJoystick:true};
 let settings={...defaults};
 try{const previous=JSON.parse(localStorage.getItem('iso_rpg_etapa8_settings')||'{}');if(previous&&typeof previous==='object')settings={...defaults,...previous};}catch(e){}
 settings.sensitivity=clamp(Number(settings.sensitivity)||1,.65,1.40);if(!BALANCE[settings.difficulty])settings.difficulty='balanced';
 if(!['small','medium','large'].includes(settings.padSize))settings.padSize='medium';
+settings.leftHanded=settings.leftHanded===true;
+settings.floatingJoystick=settings.floatingJoystick!==false;
 let audioContext=null,noiseBuffer=null;
 let totalHits=0,totalDamage=0,totalParries=0,totalDodges=0,totalTaken=0;
 let frameAccumulator=0,fpsFrames=0,fpsTime=0,actualFps=0,lastRender=0;
 const options=$('options'),stats=$('trainingStats');
 function saveSettings(){try{localStorage.setItem('iso_rpg_etapa8_settings',JSON.stringify(settings));}catch(e){}}
 function updateSettings(){
- for(const [id,key] of [['soundToggle','sound'],['hapticToggle','haptics'],['cameraToggle','dynamicCamera'],['motionToggle','reducedMotion'],['economyToggle','economy'],['fpsToggle','showFps'],['reachToggle','showReach'],['tacticsToggle','tactics']]){
+ for(const [id,key] of [['soundToggle','sound'],['hapticToggle','haptics'],['cameraToggle','dynamicCamera'],['motionToggle','reducedMotion'],['economyToggle','economy'],['fpsToggle','showFps'],['reachToggle','showReach'],['tacticsToggle','tactics'],['handedToggle','leftHanded'],['floatingToggle','floatingJoystick']]){
   const b=$(id);b.textContent=settings[key]?'LIGADO':'DESLIGADO';b.setAttribute('aria-pressed',String(!!settings[key]));b.classList.toggle('enabled',!!settings[key]);
  }
  $('sensitivity').value=String(settings.sensitivity);$('sensitivityNumber').textContent=Math.round(settings.sensitivity*100)+'%';
@@ -1207,10 +1243,11 @@ function updateSettings(){
   btn.classList.toggle('selected',on);btn.setAttribute('aria-pressed',String(on));
  }
  $('padSizeLabel').textContent=({small:'PEQUENO',medium:'NORMAL',large:'GRANDE'})[settings.padSize]||'NORMAL';
+  game.classList.toggle('left-handed',settings.leftHanded);
  $('fpsPanel').style.display=settings.showFps?'block':'none';updateDifficultyUI();updateTrainingReadout();
  stats.textContent=`Alvos atingidos: ${totalHits}  •  Dano: ${totalDamage}  •  Parries: ${totalParries}  •  Esquivas: ${totalDodges}  •  Flancos: ${totalFlanks}  •  Coberturas: ${totalCovers}  •  Contra-ataques: ${totalPunishes}  •  Ondas: ${wavesCleared}  •  Precisão: ${trainingAccuracy()}%  •  Parries tentados: ${parryAttempts}  •  Falhas no parry: ${parryMisses}  •  Esquivas eficazes: ${dodgeSaves}  •  Maior combo: ${maxChain}`;
 }
-function toggleSetting(key){settings[key]=!settings[key];if(key==='tactics'){for(const e of living()){e.guardAlly=null;e.flankComplete=0;e.flankCooldown=0;e.guardCounter=0;}label(settings.tactics?'TÁTICA DE GRUPO ATIVADA':'IA CLÁSSICA ATIVADA',1.2);tacticalReadout();}if(key==='economy')resize();if(key==='sound'&&settings.sound)unlockAudio();saveSettings();updateSettings();}
+function toggleSetting(key){settings[key]=!settings[key];if(key==='leftHanded'||key==='floatingJoystick')joyReset();if(key==='tactics'){for(const e of living()){e.guardAlly=null;e.flankComplete=0;e.flankCooldown=0;e.guardCounter=0;}label(settings.tactics?'TÁTICA DE GRUPO ATIVADA':'IA CLÁSSICA ATIVADA',1.2);tacticalReadout();}if(key==='economy')resize();if(key==='sound'&&settings.sound)unlockAudio();saveSettings();updateSettings();}
 function openOptions(){keys.clear();joyReset();updateSettings();guide.classList.remove('open');options.classList.add('open');frameAccumulator=0;}
 function closeOptions(){options.classList.remove('open');last=0;frameAccumulator=0;}
 function unlockAudio(){if(!settings.sound)return;try{
@@ -2072,7 +2109,11 @@ function figure(u,team){
  const hero=team==='player',alive=u.hp>0;
  const foot=point(u.x,u.z),x=Math.round(foot.x),y=Math.round(foot.y),air=hero?0:(u.air||0);
  const moving=(u.moveMagnitude||0)>.13;
- const animFrame=moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0;
+ // Animação de preparação, impacto e recuperação sem alterar a física.
+  const actionProgress=hero&&u.act?clamp(u.act.time/u.act.move.dur,0,1):0;
+  const animFrame=hero&&u.act
+   ?(actionProgress<u.act.move.impact*.72?1:actionProgress<u.act.move.impact+.16?3:2)
+   :moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0;
  const heading=Math.atan2(u.face.z,u.face.x);
  const direction=((Math.round(heading/ (TAU/8))%8)+8)%8;
  const img=hero?raceSprite(activeRace()):(PIXEL_ART[u.style]||PIXEL_ART.enemy);
@@ -2090,15 +2131,19 @@ function figure(u,team){
  if(air>0){ctx.strokeStyle='#e8a965';ctx.lineWidth=2;ctx.strokeRect(x-18*s,y-7,36*s,14);}
  const anticipation=hero&&atk&&progress<atk.move.impact*.9;
  const poseShift=hero&&atk?(anticipation?-Math.round(3*s):progress<.77?Math.round(4*s):0):0;
- ctx.translate(x+Math.round(u.face.x*poseShift),y-Math.round(air*31)+Math.round((anticipation?2:0)*s));
+ const brace=hero&&(parrying||anticipation)?Math.round(1.4*s):0;
+  const surge=hero&&atk&&!anticipation&&progress<.78?Math.round(2*s):0;
+  ctx.translate(x+Math.round(u.face.x*poseShift),y-Math.round(air*31)+brace-surge+Math.round((anticipation?2:0)*s));
  let lean=attacking?(progress<.25?-.10:progress<.72?.21:-.045):0;
  lean+=dodging?.09:0;
  lean+=(u.reactionDir||1)*stagger*.08;
+  if(hero&&!settings.reducedMotion&&!atk&&!moving&&!parrying&&!dodging)lean+=Math.sin(clock*2.2)*.009;
  ctx.rotate(lean);
  if(img&&(img.naturalWidth||img.width)){
    if(!alive)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
-   const bounce=moving?Math.abs(Math.sin(u.walk||0))*2:0;
+   const idle=hero&&!moving&&!atk&&!settings.reducedMotion?Math.max(0,Math.round(Math.sin(clock*2.2)*s*.55)):0;
+    const bounce=moving?Math.abs(Math.sin(u.walk||0))*2:idle;
    ctx.drawImage(img,animFrame*32,direction*48,32,48,Math.round(-16*s),Math.round(-34*s-bounce),Math.round(32*s),Math.round(48*s));
    ctx.globalAlpha=1;
  }else{
@@ -2145,7 +2190,15 @@ function figure(u,team){
   ctx.fillStyle='#b6eee8';ctx.fillRect(bx+Math.round(2*s),by+Math.round(3*s),Math.round(9*s),Math.round(3*s));
   ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
  }
- // Enemy distinctions: defensive shield and elite crown/phase aura.
+ if(hero&&atk&&sw.active&&!settings.reducedMotion){
+   // Brilho visual da ponta da arma: colisão e alcance permanecem iguais.
+   ctx.globalAlpha=settings.economy?.22:.48;
+   ctx.fillStyle=archetype==='arcanist'?'#b5cfff':archetype==='hunter'?'#ffe0a2':'#f6ffff';
+   const spark=Math.max(2,Math.round(2*s));
+   ctx.fillRect(Math.round(x2-spark/2),Math.round(y2-spark/2),spark,spark);
+   ctx.globalAlpha=1;
+  }
+  // Enemy distinctions: defensive shield and elite crown/phase aura.
  if(!hero&&u.style==='guardian'){
   const shieldX=Math.round(-15*s),shieldY=Math.round(-25*s);
   ctx.fillStyle=u.phase==='guard'?'#78f5c7':'#4a8b94';
@@ -2327,7 +2380,7 @@ function loop(ts){
  requestAnimationFrame(loop);
 }
 function joyMove(e){const r=joy.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),rad=r.width*.36,n=length(dx,dy),scale=Math.min(n,rad)/(n||1),x=dx*scale,y=dy*scale;stick.style.transform=`translate(${x}px,${y}px)`;input.x=clamp((x/rad)*settings.sensitivity,-1,1);input.y=clamp((y/rad)*settings.sensitivity,-1,1);}
-function joyReset(){joyId=null;joyCapture=null;input.x=input.y=0;stick.style.transform='translate(0,0)';joy.classList.remove('floating');joy.style.left='';joy.style.top='';joy.style.bottom='';}
+function joyReset(){joyId=null;joyCapture=null;input.x=input.y=0;stick.style.transform='translate(0,0)';joy.classList.remove('floating');joy.style.left='';joy.style.right='';joy.style.top='';joy.style.bottom='';}
 function joyEnd(e){if(e.pointerId!==joyId)return;joyReset();}
 joy.addEventListener('pointerdown',e=>{e.preventDefault();if(joyId!==null)return;joyId=e.pointerId;joyCapture=joy;try{joy.setPointerCapture(e.pointerId)}catch(err){}joyMove(e);});
 joy.addEventListener('pointermove',e=>{if(joyCapture===joy&&e.pointerId===joyId)joyMove(e);});
@@ -2335,11 +2388,16 @@ for(const evt of ['pointerup','pointercancel','lostpointercapture'])joy.addEvent
 game.addEventListener('pointerdown',e=>{
  if(e.pointerType==='mouse'||joyId!==null||e.target!==canvas||guide.classList.contains('open')||options.classList.contains('open')||$('drillPanel').classList.contains('open'))return;
  const r=game.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
- if(x>r.width*.45||y<r.height*.38)return;
+ if(!settings.floatingJoystick||y<r.height*.38)return;
+  if(settings.leftHanded?x<r.width*.55:x>r.width*.45)return;
  e.preventDefault();joyId=e.pointerId;joyCapture=game;
  const jw=joy.getBoundingClientRect().width,jh=joy.getBoundingClientRect().height;
- const cx=clamp(x,jw*.51+4,Math.min(r.width*.45,r.width-jw*.51-4)),cy=clamp(y,jh*.54+5,r.height-jh*.54-10);
- joy.classList.add('floating');joy.style.left=cx+'px';joy.style.top=cy+'px';joy.style.bottom='auto';try{game.setPointerCapture(e.pointerId)}catch(err){}joyMove(e);
+ const minX=jw*.51+4,maxX=r.width-jw*.51-4;
+  const cx=settings.leftHanded
+    ?clamp(x,Math.max(r.width*.55,minX),maxX)
+    :clamp(x,minX,Math.min(r.width*.45,maxX));
+  const cy=clamp(y,jh*.54+5,r.height-jh*.54-10);
+ joy.classList.add('floating');joy.style.right='auto';joy.style.left=cx+'px';joy.style.top=cy+'px';joy.style.bottom='auto';try{game.setPointerCapture(e.pointerId)}catch(err){}joyMove(e);
 });
 game.addEventListener('pointermove',e=>{if(joyCapture===game&&e.pointerId===joyId)joyMove(e);});
 for(const evt of ['pointerup','pointercancel','lostpointercapture'])game.addEventListener(evt,e=>{if(joyCapture===game)joyEnd(e);});
@@ -2353,7 +2411,7 @@ for(const btn of document.querySelectorAll('[data-talent]'))btn.addEventListener
 $('settingsBtn').addEventListener('click',openOptions);$('difficultyBtn').addEventListener('click',cycleDifficulty);for(const btn of document.querySelectorAll('#difficultyChoices button'))btn.addEventListener('click',()=>setDifficulty(btn.dataset.mode));
 $('closeOptions').addEventListener('click',closeOptions);$('resumeOptions').addEventListener('click',closeOptions);
 options.addEventListener('pointerdown',e=>{if(e.target===options)closeOptions();});
-for(const [id,key] of [['soundToggle','sound'],['hapticToggle','haptics'],['cameraToggle','dynamicCamera'],['motionToggle','reducedMotion'],['economyToggle','economy'],['fpsToggle','showFps'],['reachToggle','showReach'],['tacticsToggle','tactics']])$(''+id).addEventListener('click',()=>toggleSetting(key));
+for(const [id,key] of [['soundToggle','sound'],['hapticToggle','haptics'],['cameraToggle','dynamicCamera'],['motionToggle','reducedMotion'],['economyToggle','economy'],['fpsToggle','showFps'],['reachToggle','showReach'],['tacticsToggle','tactics'],['handedToggle','leftHanded'],['floatingToggle','floatingJoystick']])$(''+id).addEventListener('click',()=>toggleSetting(key));
 for(const b of document.querySelectorAll('[data-pad-size]'))b.addEventListener('click',()=>{settings.padSize=b.dataset.padSize;saveSettings();updateSettings();});
 $('sensitivity').addEventListener('input',e=>{settings.sensitivity=clamp(Number(e.target.value),.65,1.40);saveSettings();updateSettings();});
 $('eliteBtn').addEventListener('click',toggleElite);$('labBtn').addEventListener('click',openLab);$('closeLab').addEventListener('click',closeLab);$('startLab').addEventListener('click',startLab);$('repeatLab').addEventListener('click',()=>{if(drill.active)startLab();else startLab();});$('returnArena').addEventListener('click',exitLab);$('labRecenter').addEventListener('click',repositionLab);$('drillMode').addEventListener('change',e=>labSetMode(e.target.value));$('drillBehavior').addEventListener('change',e=>{$('labDescription').textContent=DRILLS[$('drillMode').value].description+'  ·  Comportamento selecionado: '+e.target.selectedOptions[0].textContent;});$('drillFoe').addEventListener('change',()=>{});$('drillPanel').addEventListener('pointerdown',e=>{if(e.target===$('drillPanel'))closeLab();});

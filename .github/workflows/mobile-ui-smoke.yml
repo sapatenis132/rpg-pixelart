@@ -1,0 +1,28 @@
+name: Mobile UI smoke tests
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/etapa24-visuais-controles-ambidestros
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Validate game on 5 landscape mobile viewports
+        run: node tests/ui-smoke.mjs
+      - name: Save screenshots even if checks fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ui-screenshots
+          path: screenshots/
+          if-no-files-found: ignore
