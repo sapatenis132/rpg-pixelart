@@ -2189,7 +2189,15 @@ function figure(u,team){
    ctx.fillRect(Math.round(x2-1.5*s),Math.round(y2-1.5*s),Math.max(2,Math.round(3*s)),Math.max(2,Math.round(3*s)));
   }
  }
- // A cabeça e as orelhas ficam à frente da lâmina nos quadros em que
+ if(hero&&atk&&sw.active&&!settings.reducedMotion){
+   // Brilho visual da ponta da arma: colisão e alcance permanecem iguais.
+   ctx.globalAlpha=settings.economy?.22:.48;
+   ctx.fillStyle=archetype==='arcanist'?'#b5cfff':archetype==='hunter'?'#ffe0a2':'#f6ffff';
+   const spark=Math.max(2,Math.round(2*s));
+   ctx.fillRect(Math.round(x2-spark/2),Math.round(y2-spark/2),spark,spark);
+   ctx.globalAlpha=1;
+  }
+  // A cabeça e as orelhas ficam à frente da lâmina nos quadros em que
   // ela cruza o rosto; usa os pixels opacos da sprite como oclusão.
   if(hero&&alive&&img&&(img.naturalWidth||img.width)){
    const race=activeRace(),head=RACE_SHAPES[race]||RACE_SHAPES.human;
@@ -2211,15 +2219,7 @@ function figure(u,team){
   ctx.fillStyle='#b6eee8';ctx.fillRect(bx+Math.round(2*s),by+Math.round(3*s),Math.round(9*s),Math.round(3*s));
   ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
  }
- if(hero&&atk&&sw.active&&!settings.reducedMotion){
-   // Brilho visual da ponta da arma: colisão e alcance permanecem iguais.
-   ctx.globalAlpha=settings.economy?.22:.48;
-   ctx.fillStyle=archetype==='arcanist'?'#b5cfff':archetype==='hunter'?'#ffe0a2':'#f6ffff';
-   const spark=Math.max(2,Math.round(2*s));
-   ctx.fillRect(Math.round(x2-spark/2),Math.round(y2-spark/2),spark,spark);
-   ctx.globalAlpha=1;
-  }
-  // Enemy distinctions: defensive shield and elite crown/phase aura.
+ // Enemy distinctions: defensive shield and elite crown/phase aura.
  if(!hero&&u.style==='guardian'){
   const shieldX=Math.round(-15*s),shieldY=Math.round(-25*s);
   ctx.fillStyle=u.phase==='guard'?'#78f5c7':'#4a8b94';
