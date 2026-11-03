@@ -395,7 +395,7 @@ body{display:block;min-height:0}
   <div id="creatorOverlay" role="dialog" aria-modal="true" aria-label="Criar personagem para nova campanha">
     <section class="creatorCard">
       <div class="creatorHeader"><small id="creatorStepText">CRIAR PERSONAGEM · ETAPA 1 DE 3</small><button type="button" id="creatorCancel" class="creatorClose" aria-label="Cancelar criação">×</button></div>
-      <h2 id="creatorHeading">Escolha sua raça</h2><p id="creatorHelp" class="creatorHelp">Cinco raças com atributos distintos. Arquétipos e objetivos ainda são provisórios.</p>
+      <h2 id="creatorHeading">Escolha sua raça</h2><p id="creatorHelp" class="creatorHelp">Cinco raças e cinco arquétipos com armas distintas. Objetivos ainda são provisórios.</p>
       <label class="creatorNameRow" for="heroName">NOME <input id="heroName" type="text" maxlength="18" placeholder="Nome do aventureiro" autocomplete="off" spellcheck="false"></label>
       <div id="creatorChoices" class="creatorChoices" role="group" aria-label="Rascunho de personagem"></div>
       <div class="creatorFooter"><button id="creatorBack" type="button">← VOLTAR</button><button id="creatorNext" type="button">PRÓXIMO →</button></div>
@@ -439,6 +439,129 @@ const ATTACKS={
  DASH_L:{name:'PASSO CORTANTE',dmg:16,dur:.30,impact:.38,reach:2.38,knock:.45,stun:.22,angle:1,dash:true},
  DASH_H:{name:'INVESTIDA',dmg:31,dur:.50,impact:.45,reach:2.55,knock:1.0,stun:.50,angle:-1,dash:true,down:true}
 };
+
+// ARQUÉTIPOS v1: armas e física de combate. Sem habilidades especiais nem conteúdo narrativo.
+const ARCHETYPE_OPTIONS={
+ warrior:{name:'Guerreiro',weapon:'Espada',desc:'Combos de cortes, rupturas e finalizadores.'},
+ arcanist:{name:'Arcanista',weapon:'Cajado',desc:'Projéteis mágicos leves e disparo forte maior. Não consome mana.'},
+ guardian:{name:'Guardião',weapon:'Espada e escudo',desc:'Cortes firmes, pancadas de escudo e proteção frontal.'},
+ rebel:{name:'Rebelde',weapon:'Adaga',desc:'Golpes curtos e velozes, com sequências rápidas.'},
+ hunter:{name:'Caçador',weapon:'Arco',desc:'Flecha individual no leve e múltiplas flechas no pesado.'}
+};
+const ranged=(name,dmg,dur,impact,speed,count=1,extra={})=>({name,dmg,dur,impact,reach:8,knock:.35,stun:.12,angle:1,ranged:true,speed,shots:count,...extra});
+const dagger=(name,dmg,dur,reach=1.42,extra={})=>({name,dmg,dur,impact:.38,reach,knock:.24,stun:.12,angle:1,...extra});
+const WEAPON_MOVES={
+ arcanist:{
+  L:ranged('Faísca',10,.35,.40,10,1,{magic:true}),
+  LL:ranged('Pulso Arcano',12,.34,.40,10.7,1,{magic:true}),
+  LLL:ranged('Rajada Arcana',15,.39,.44,11,1,{magic:true}),
+  H:ranged('Orbe Maior',24,.71,.53,7.2,1,{magic:true,heavyShot:true,knock:1.05}),
+  LH:ranged('Orbe Acelerado',25,.66,.50,8.4,1,{magic:true,heavyShot:true}),
+  HL:ranged('Faísca de Retorno',11,.31,.37,11,1,{magic:true}),
+  HH:ranged('Orbe Concentrado',30,.81,.56,7.5,1,{magic:true,heavyShot:true,knock:1.2}),
+  LLH:ranged('Pulso Maior',27,.69,.50,8.4,1,{magic:true,heavyShot:true}),
+  LHL:ranged('Pulsos Encadeados',13,.34,.42,11,1,{magic:true}),
+  HLL:ranged('Eco Arcano',16,.38,.42,10,1,{magic:true}),
+  RIP_L:ranged('Reação Arcana',14,.28,.36,10,1,{magic:true}),
+  RIP_H:ranged('Resposta Arcana',25,.50,.46,8,1,{magic:true,heavyShot:true}),
+  DASH_L:ranged('Faísca de Esquiva',11,.28,.37,10,1,{magic:true}),
+  DASH_H:ranged('Orbe de Esquiva',21,.52,.47,8,1,{magic:true,heavyShot:true})
+ },
+ hunter:{
+  L:ranged('Flecha Veloz',11,.38,.43,12),
+  LL:ranged('Flecha Rápida',12,.36,.41,12.5),
+  LLL:ranged('Terceira Flecha',15,.40,.43,13),
+  H:ranged('Tiro Triplo',10,.72,.51,11,3,{heavyShot:true,spread:.15}),
+  LH:ranged('Disparo em Leque',11,.69,.51,12,3,{heavyShot:true,spread:.15}),
+  HL:ranged('Flecha de Retorno',12,.35,.40,12),
+  HH:ranged('Cinco Flechas',10,.88,.57,12,5,{heavyShot:true,spread:.14}),
+  LLH:ranged('Rajada de Flechas',11,.70,.52,12,3,{heavyShot:true,spread:.13}),
+  LHL:ranged('Flecha Guiada',15,.39,.43,13),
+  HLL:ranged('Flecha Rápida',13,.36,.42,13),
+  RIP_L:ranged('Contraflecha',14,.34,.39,12),
+  RIP_H:ranged('Tiro Triplo de Retorno',11,.63,.48,12,3,{heavyShot:true,spread:.14}),
+  DASH_L:ranged('Flecha de Esquiva',12,.32,.41,12),
+  DASH_H:ranged('Rajada da Esquiva',10,.59,.48,12,3,{heavyShot:true,spread:.15})
+ },
+ guardian:{
+  L:{...ATTACKS.L,name:'Corte Defensivo',dmg:10,dur:.34},
+  LL:{...ATTACKS.LL,name:'Corte de Guarda',dmg:13,dur:.38},
+  LLL:{...ATTACKS.LLL,name:'Varredura de Escudo',dmg:19,dur:.53,break:true,knock:1.05},
+  H:{...ATTACKS.H,name:'Pancada de Escudo',dmg:15,dur:.61,reach:1.5,break:true,knock:.95},
+  LH:{...ATTACKS.LH,name:'Escudo e Espada',dmg:19,break:true,knock:1.05},
+  HL:{...ATTACKS.HL,name:'Corte de Retorno',dmg:15},
+  HH:{...ATTACKS.HH,name:'Impacto de Escudo',dmg:28,break:true},
+  LLH:{...ATTACKS.LLH,name:'Ruptura Protegida',dmg:31,break:true},
+  LHL:{...ATTACKS.LHL,name:'Contra-Corte de Guarda',dmg:24,break:true},
+  LHH:{...ATTACKS.LHH,name:'Martelo de Escudo',dmg:32,break:true},
+  LLLH:{...ATTACKS.LLLH,name:'Arremate de Escudo',dmg:34,break:true},
+  RIP_L:ATTACKS.RIP_L,RIP_H:ATTACKS.RIP_H,DASH_L:ATTACKS.DASH_L,DASH_H:ATTACKS.DASH_H
+ },
+ rebel:{
+  L:dagger('Corte de Adaga',8,.22,1.40),
+  LL:dagger('Corte Relâmpago',10,.23,1.46,{angle:-1}),
+  LLL:dagger('Terceiro Corte',12,.27,1.50,{fin:true}),
+  LLLH:dagger('Golpe de Precisão',29,.43,1.62,{ext:true,fin:true,execute:true,angle:-1}),
+  H:dagger('Estocada',19,.43,1.72,{knock:.65,angle:-1}),
+  LH:dagger('Corte Profundo',22,.37,1.67,{break:true,angle:-1}),
+  HL:dagger('Contra-Estocada',13,.23,1.50,{angle:-1}),
+  HH:dagger('Duas Estocadas',27,.48,1.70,{fin:true,angle:-1}),
+  LLH:dagger('Perfuração',24,.40,1.61,{fin:true,break:true,angle:-1}),
+  LHL:dagger('Retorno Certeiro',20,.31,1.50,{fin:true}),
+  HLL:dagger('Sequência de Adaga',23,.37,1.55,{fin:true}),
+  RIP_L:dagger('Contra-Ataque Rápido',23,.29,1.63,{rip:true,fin:true}),
+  RIP_H:dagger('Riposta de Adaga',33,.46,1.75,{rip:true,fin:true}),
+  DASH_L:dagger('Corte de Esquiva',15,.26,1.67,{dash:true}),
+  DASH_H:dagger('Estocada de Esquiva',24,.40,1.80,{dash:true,down:true})
+ }
+};
+function currentArchetype(){return runState?.active&&ARCHETYPE_OPTIONS[runState.character?.archetype]?runState.character.archetype:'warrior';}
+function currentWeaponMoves(){return WEAPON_MOVES[currentArchetype()]||ATTACKS;}
+let rangedShots=[];
+function fireRangedMove(a){
+ if(!a?.move?.ranged||a.launched)return;
+ const m=a.move,count=m.shots||1,spread=m.spread||0,base=Math.atan2(player.face.z,player.face.x);
+ for(let i=0;i<count;i++){
+  const theta=base+(i-(count-1)/2)*spread,dir={x:Math.cos(theta),z:Math.sin(theta)};
+  const shotAct={key:a.key,move:m,hit:false,landed:false,slashed:true,hitIds:new Set(),pal:a.pal};
+  rangedShots.push({x:player.x+dir.x*.58,z:player.z+dir.z*.58,dir,speed:m.speed||10,
+   life:Math.min(1.45,(m.reach||7)/(m.speed||10)+.14),radius:m.heavyShot?(m.magic?.33:.16):(m.magic?.17:.105),magic:!!m.magic,act:shotAct});
+ }
+ if(rangedShots.length>45)rangedShots.splice(0,rangedShots.length-45);
+ a.hit=true;a.launched=true;
+ burst(player.x+player.face.x*.55,player.z+player.face.z*.55,m.magic?'#a8d5ff':'#f9dfac',m.heavyShot?11:5,.43);
+ if(m.heavyShot)ring(player.x+player.face.x*.55,player.z+player.face.z*.55,m.magic?'#bdb1ff':'#ead197',9,.45);
+ sfx(m.heavyShot?'heavy':'light');
+}
+function updateRangedShots(dt){
+ for(const shot of rangedShots){
+  if(shot.life<=0)continue;
+  const x=shot.x,z=shot.z,nx=x+shot.dir.x*shot.speed*dt,nz=z+shot.dir.z*shot.speed*dt;
+  shot.x=nx;shot.z=nz;shot.life-=dt;
+  for(const foe of living()){
+   if(foe.iframe>0||distanceToSegment(foe.x,foe.z,x,z,nx,nz)>.34+shot.radius)continue;
+   playerHit(true,foe,shot.act);
+   shot.life=0;break;
+  }
+ }
+ rangedShots=rangedShots.filter(p=>p.life>0&&Math.abs(p.x)<9&&Math.abs(p.z)<9);
+}
+function drawRangedShots(){
+ for(const shot of rangedShots){
+  const p=point(shot.x,shot.z),tail=point(shot.x-shot.dir.x*.48,shot.z-shot.dir.z*.48);
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.lineCap='square';
+  if(shot.magic){
+   const r=shot.radius>.25?10:5;
+   ctx.fillStyle='#555cc7';ctx.fillRect(Math.round(p.x-r-2),Math.round(p.y-22-r-2),2*r+4,2*r+4);
+   ctx.fillStyle=shot.radius>.25?'#bfaaff':'#95c9ff';ctx.fillRect(Math.round(p.x-r),Math.round(p.y-22-r),r*2,r*2);
+   ctx.fillStyle='#f1ffff';ctx.fillRect(Math.round(p.x-2),Math.round(p.y-24),4,4);
+  }else{
+   ctx.strokeStyle='#e8c69a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(Math.round(tail.x),Math.round(tail.y-24));ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
+   ctx.strokeStyle='#f7f8e2';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(Math.round(p.x-shot.dir.x*5),Math.round(p.y-24-shot.dir.z*3));ctx.lineTo(Math.round(p.x),Math.round(p.y-24));ctx.stroke();
+  }ctx.restore();
+ }
+}
+
 const BALANCE={
  training:{name:'TREINO',enemyHp:.84,enemyDamage:.70,windup:1.26,cooldown:1.28,recovery:1.16,parry:.30,dodgeIframes:.27,tempo:.71,minWind:.64,postHitIframes:.68,balanceRegen:12},
  balanced:{name:'EQUILIBRADO',enemyHp:.93,enemyDamage:.90,windup:1.09,cooldown:1.15,recovery:1.10,parry:.25,dodgeIframes:.24,tempo:.50,minWind:.56,postHitIframes:.60,balanceRegen:16},
@@ -651,6 +774,7 @@ const LEGACY_UNAPPROVED={archetype:['vanguard','duelist','wanderer'],goal:['sent
 function cleanCharacterField(value,field){
  const str=String(value??'').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,field==='goal'?90:32);
  if(field==='race')return Object.hasOwn(RACE_OPTIONS,str)?str:'';
+ if(field==='archetype')return Object.hasOwn(ARCHETYPE_OPTIONS,str)?str:'';
  return LEGACY_UNAPPROVED[field]?.includes(str)?'':str;
 }
 function safeCharacter(raw){
@@ -666,7 +790,7 @@ function heroBonuses(){return raceStats(runState?.active?safeCharacter(runState.
 let creatorDraft={...DEFAULT_HERO},creatorStep=0;
 const CREATOR_STEPS=[
  {key:'race',title:'Escolha sua raça',desc:'Cada raça altera atributos da campanha. Os valores são iniciais e poderão ser balanceados em testes.'},
- {key:'archetype',title:'Arquétipo do personagem',desc:'Campo descritivo provisório. Arquétipos e suas vantagens serão decididos juntos.',placeholder:'Arquétipo (opcional, sem efeitos)'},
+ {key:'archetype',title:'Escolha o arquétipo',desc:'Escolha uma das cinco armas iniciais, cada uma com seu próprio estilo de combate.'},
  {key:'goal',title:'Objetivo pessoal',desc:'Campo descritivo provisório. Condições oficiais de vitória ainda não foram definidas.',placeholder:'Objetivo da jornada (opcional)'}
 ];
 function openCharacterCreator(){
@@ -675,22 +799,23 @@ function openCharacterCreator(){
 }
 function creatorSummaryText(){
  const c=creatorDraft;
- return 'Raça: '+(RACE_OPTIONS[c.race]?.name||'selecione')+' · Arquétipo: '+(c.archetype||'a definir')+' · Objetivo: '+(c.goal||'a definir');
+ return 'Raça: '+(RACE_OPTIONS[c.race]?.name||'selecione')+' · Arquétipo: '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'selecione')+' · Objetivo: '+(c.goal||'a definir');
 }
 function renderCharacterCreator(){
  const step=CREATOR_STEPS[creatorStep];
- $('creatorStepText').textContent='PERSONAGEM · '+(creatorStep+1)+' DE 3'+(creatorStep===0?' · RAÇAS OFICIAIS':' · RASCUNHO');
+ $('creatorStepText').textContent='PERSONAGEM · '+(creatorStep+1)+' DE 3'+(creatorStep===0?' · RAÇAS OFICIAIS':creatorStep===1?' · ARQUÉTIPOS OFICIAIS':' · RASCUNHO');
  $('creatorHeading').textContent=step.title;
  $('creatorHelp').textContent=step.desc;
  const grid=$('creatorChoices');grid.replaceChildren();
- if(step.key==='race'){
+ if(step.key==='race'||step.key==='archetype'){
   grid.classList.add('raceChoices');
-  for(const [id,race] of Object.entries(RACE_OPTIONS)){
-   const b=document.createElement('button');b.type='button';b.className='raceOption'+(creatorDraft.race===id?' selected':'');
-   b.setAttribute('aria-pressed',String(creatorDraft.race===id));
+  const choices=step.key==='race'?RACE_OPTIONS:ARCHETYPE_OPTIONS;
+  for(const [id,race] of Object.entries(choices)){
+   const b=document.createElement('button');b.type='button';b.className='raceOption'+(creatorDraft[step.key]===id?' selected':'');
+   b.setAttribute('aria-pressed',String(creatorDraft[step.key]===id));
    const name=document.createElement('strong');name.textContent=race.name;
-   const detail=document.createElement('span');detail.textContent=race.effects.join(' · ');
-   b.append(name,detail);b.addEventListener('click',()=>{creatorDraft.race=id;renderCharacterCreator();});
+   const detail=document.createElement('span');detail.textContent=step.key==='race'?race.effects.join(' · '):race.weapon+' · '+race.desc;
+   b.append(name,detail);b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
    grid.appendChild(b);
   }
  }else{
@@ -707,15 +832,16 @@ function renderCharacterCreator(){
  }
  $('creatorBack').textContent=creatorStep===0?'CANCELAR':'← VOLTAR';
  $('creatorNext').textContent=creatorStep===2?'✦ COMEÇAR CAMPANHA':'PRÓXIMO →';
- $('creatorNext').disabled=creatorStep===0&&!creatorDraft.race;
+ $('creatorNext').disabled=(step.key==='race'&&!creatorDraft.race)||(step.key==='archetype'&&!creatorDraft.archetype);
  $('creatorSummary').textContent=creatorSummaryText();
 }
 function cancelCharacterCreator(){$('creatorOverlay').classList.remove('open');$('campaignOverlay').classList.contains('open')||showCampaignMenu();}
 function advanceCharacterCreator(){
  creatorDraft.name=$('heroName').value;
  const current=CREATOR_STEPS[creatorStep];
- if(current.key==='race'){
-  if(!RACE_OPTIONS[creatorDraft.race])return;
+ if(current.key==='race'||current.key==='archetype'){
+  if(current.key==='race'&&!RACE_OPTIONS[creatorDraft.race])return;
+  if(current.key==='archetype'&&!ARCHETYPE_OPTIONS[creatorDraft.archetype])return;
  }else creatorDraft[current.key]=cleanCharacterField($('creatorTextField')?.value,current.key);
  if(creatorStep<2){creatorStep++;renderCharacterCreator();return;}
  const newHero=safeCharacter(creatorDraft);$('creatorOverlay').classList.remove('open');newCampaign(newHero);
@@ -732,7 +858,7 @@ let runState=null, loadedRun=null, saveTimer=0;
 function randSeed(){try{let a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||1;}catch(e){return (Math.random()*4294967295)>>>0||1;}}
 function seeded(seed,index){let v=(seed^(index*2654435761))>>>0;v=Math.imul(v^(v>>>16),2246822507);v=Math.imul(v^(v>>>13),3266489909);return ((v^(v>>>16))>>>0)/4294967296;}
 function kindForRoom(n){if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
-function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character);h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+'\n'+b.icon+' '+b.name+' · SALA '+runState.room+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);}
+function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character);h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+b.name+' · SALA '+runState.room+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);}
 function chooseRegion(seed){return Object.keys(BIOMES)[Math.floor(seeded(seed,1)*Object.keys(BIOMES).length)];}
 function readSave(){try{const x=JSON.parse(localStorage.getItem(RUN_KEY)||'null');return x?.version===21&&x?.run?.active&&x?.player?.hp>0&&BIOMES[x.run.region]&&x.progress?x:null;}catch(e){return null;}}
 function saveCampaign(){if(!runState?.active||!player||player.hp<=0)return;try{
