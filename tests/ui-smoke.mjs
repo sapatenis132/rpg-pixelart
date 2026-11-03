@@ -208,7 +208,8 @@ try{
    await page.screenshot({path:resolve(root,'screenshots','atlas-5-racas-8-direcoes.png')});
    await page.locator('#spriteAtlasReview').evaluate(el=>el.remove());
   }
-  // Confere matematicamente que a ponta da arma jamais retorna ao rosto.
+  // A ponta acompanha o vetor do joystick em todos os oito octantes,
+  // inclusive esquerda e costas: a verificação anterior proibia o lado esquerdo.
   if(width===854&&height===480){
    const poseCheck=await page.evaluate(()=>{
     const directions=[];
@@ -220,17 +221,19 @@ try{
        const progress=(i+12)/24;
        const pose=window.__rpgDebug.weaponVisualPose(face,archetype,i/10,progress,{impact:.48});
        count++;
+       const ux=face.x-face.z,uy=(face.x+face.z)*.52;
+       const vx=pose.x2-pose.x1,vy=pose.y2-pose.y1;
+       const dot=(ux*vx+uy*vy)/(Math.hypot(ux,uy)*Math.hypot(vx,vy)||1);
        if(!Number.isFinite(pose.x2)||!Number.isFinite(pose.y2)||
-         pose.side*(pose.x2-pose.x1)<=0||
-         Math.sign(pose.x1)!==pose.side)
-         failures.push({archetype,face,angle:i/10,pose});
+        Math.hypot(vx,vy)<8||dot<.36)
+        failures.push({archetype,face,angle:i/10,dot,pose});
       }
      }
     }
     return{count,failures};
    });
    assert.equal(poseCheck.count,1000);
-   assert.deepEqual(poseCheck.failures,[],'a arma deve ficar para fora do rosto em todo o arco');
+   assert.deepEqual(poseCheck.failures,[],'a ponta segue o joystick nos oito octantes');
   }
   // Checa movimento real de cajado, arco, espada, escudo e adaga.
   if(width===854&&height===480){
@@ -265,21 +268,33 @@ try{
      let maxJump=0;
      for(let i=0;i<poses.length;i++){
       const prev=poses[i],next=poses[(i+1)%poses.length];
-      maxJump=Math.max(maxJump,Math.abs(next.a-prev.a));
+      maxJump=Math.max(maxJump,Math.abs(Math.atan2(Math.sin(next.a-prev.a),Math.cos(next.a-prev.a))));
      }
      output.push({
       archetype,
       angleRange:Math.max(...poses.map(p=>p.a))-Math.min(...poses.map(p=>p.a)),
       gripRange:Math.max(...poses.map(p=>p.y1))-Math.min(...poses.map(p=>p.y1)),
+      sectors:poses.reduce((acc,p)=>{
+       const angle=Math.atan2(p.y2-p.y1,p.x2-p.x1);
+       const sector=(Math.round((angle+Math.PI)*4/Math.PI)+8)%8;
+       acc[sector]=true;return acc;
+      },{}),
+      xRange:[Math.min(...poses.map(p=>p.x2-p.x1)),Math.max(...poses.map(p=>p.x2-p.x1))],
+      yRange:[Math.min(...poses.map(p=>p.y2-p.y1)),Math.max(...poses.map(p=>p.y2-p.y1))],
       maxJump
      });
     }
     return output;
    });
    for(const weapon of following){
-    assert.ok(weapon.angleRange>1.4,weapon.archetype+' deve rodar amplamente com o joystick');
+    assert.ok(weapon.angleRange>6,weapon.archetype+' deve completar 360 graus');
     assert.ok(weapon.gripRange>10,weapon.archetype+' deve deslocar a mão de modo perceptível');
-    assert.ok(weapon.maxJump<.11,weapon.archetype+' não pode saltar de direção');
+    assert.equal(Object.keys(weapon.sectors).length,8,weapon.archetype+' deve apontar para oito setores');
+    assert.ok(weapon.xRange[0]<-15&&weapon.xRange[1]>15,
+     weapon.archetype+' deve apontar para esquerda E direita');
+    assert.ok(weapon.yRange[0]<-15&&weapon.yRange[1]>15,
+     weapon.archetype+' deve apontar para cima E baixo');
+    assert.ok(weapon.maxJump<.23,weapon.archetype+' não pode saltar de direção');
    }
    // Integração: input real de movimento alimenta a direção visual partilhada
    // pelas cinco armas (mesmo com dano, projéteis e combos separados).
@@ -298,6 +313,37 @@ try{
    const rightAim=await page.evaluate(()=>window.__rpgDebug.weaponJoystickFacing());
    assert.ok(Math.hypot(leftAim.x-rightAim.x,leftAim.z-rightAim.z)>.6,
     'a orientação visual deve responder às direções opostas do joystick');
+  }
+  // Teste integrado do joystick DE TOQUE: oito direções reais.
+  // Não basta variar internamente um ângulo de arma.
+  if(width===854&&height===480){
+   const touch=await page.evaluate(()=>{
+    const joy=document.querySelector('#joystick'),d=window.__rpgDebug;
+    const rect=joy.getBoundingClientRect();
+    const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+    const points=[],pointerId=830;
+    const event=(type,dx,dy)=>joy.dispatchEvent(new PointerEvent(type,{
+     pointerId,pointerType:'touch',bubbles:true,cancelable:true,
+     clientX:cx+dx*rect.width*.36,clientY:cy+dy*rect.width*.36
+    }));
+    for(let i=0;i<8;i++){
+     const theta=i*Math.PI/4,dx=Math.cos(theta),dy=Math.sin(theta);
+     event(i===0?'pointerdown':'pointermove',dx,dy);
+     for(let tick=0;tick<10;tick++)d.testTick(.016);
+     const vector=d.weaponJoystickFacing(),pose=d.weaponIdlePose(vector,'warrior');
+     const sx=vector.x-vector.z,sy=(vector.x+vector.z)*.52;
+     const vx=pose.x2-pose.x1,vy=pose.y2-pose.y1;
+     const dot=(sx*vx+sy*vy)/(Math.hypot(sx,sy)*Math.hypot(vx,vy)||1);
+     points.push({i,vector,tip:{x:vx,y:vy},dot});
+    }
+    event('pointerup',0,0);
+    return points;
+   });
+   assert.equal(touch.length,8,'o joystick deve gerar oito direções');
+   for(const p of touch)assert.ok(p.dot>.98,'a espada deve obedecer toque '+p.i);
+   const quadrants=new Set(touch.map(p=>
+    (p.tip.x>0?'D':'E')+(p.tip.y>0?'B':'C')));
+   assert.equal(quadrants.size,4,'o joystick deve apontar para quatro quadrantes');
   }
   // Problema relatado: a arma ficava rígida durante o ataque e ignorava
   // mudanças do joystick. Verifica 5 armas, 3 fases de ataque e 2 direções.
