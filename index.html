@@ -961,8 +961,10 @@ function makeRaceSprite(id){
   c.save();c.translate(frame*32,dir*48);
    // Isola cada frame; capas e botas não invadem frames vizinhos.
    c.beginPath();c.rect(0,0,32,48);c.clip();
-  const back=(dir===1||dir===2||dir===3);
-  const side=(dir===0||dir===4);
+  // +x/+z aponta para frente da camera (linha 1); cinco perfis com um olho.
+  const back=(dir===5||dir===6);
+  const side=dir!==1&&!back;
+  const facingLeft=(dir===2||dir===3||dir===4);
   const walk=[0,1,0,-1][frame],bounce=frame===1||frame===3?1:0;
   const torsoX=16-Math.floor(pz.torsoW/2),headX=16-Math.floor(pz.headW/2);
   const legWidth=id==='orc'||id==='dwarf'?7:id==='halfling'?4:5;
@@ -1039,7 +1041,8 @@ function makeRaceSprite(id){
    rect(headX+2,pz.headY+4+bounce,pz.headW-4,pz.headH-6,p.hair);
   }else{
    const eyeY=pz.headY+(id==='halfling'?6:7)+bounce;
-   rect(headX+(side?Math.floor(pz.headW*.55):2),eyeY,2,2,p.outline);
+   const eyeX=side?(facingLeft?headX+2:headX+pz.headW-4):headX+2;
+   rect(eyeX,eyeY,2,2,p.outline);
    if(!side)rect(headX+pz.headW-4,eyeY,2,2,p.outline);
    if(id==='orc'){
     // Presas brancas visíveis acima do maxilar.
@@ -1047,8 +1050,8 @@ function makeRaceSprite(id){
     rect(headX+pz.headW-4,pz.headY+pz.headH-3+bounce,2,4,'#fbefd0');
    }else if(id==='dwarf'){
     // Barba larga: volume inferior ao queixo, tornando o anão reconhecível.
-    rect(headX+1,pz.headY+pz.headH-3+bounce,pz.headW-2,7,p.hair);
-    rect(headX+3,pz.headY+pz.headH+4+bounce,pz.headW-6,3,p.hair);
+    rect(headX+1,pz.headY+pz.headH+bounce,pz.headW-2,6,p.hair);
+    rect(headX+3,pz.headY+pz.headH+5+bounce,pz.headW-6,3,p.hair);
     rect(headX+4,pz.headY+pz.headH-1+bounce,pz.headW-8,2,'#e39a52');
    }else if(id==='human'||id==='halfling'){
     rect(headX+Math.floor(pz.headW/2),pz.headY+pz.headH-3+bounce,2,1,p.skinShadow);
