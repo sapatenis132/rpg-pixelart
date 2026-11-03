@@ -277,8 +277,8 @@ try{
     return output;
    });
    for(const weapon of following){
-    assert.ok(weapon.angleRange>.85,weapon.archetype+' deve acompanhar a direção do joystick');
-    assert.ok(weapon.gripRange>5,weapon.archetype+' deve deslocar a empunhadura');
+    assert.ok(weapon.angleRange>1.4,weapon.archetype+' deve rodar amplamente com o joystick');
+    assert.ok(weapon.gripRange>10,weapon.archetype+' deve deslocar a mão de modo perceptível');
     assert.ok(weapon.maxJump<.11,weapon.archetype+' não pode saltar de direção');
    }
    // Integração: input real de movimento alimenta a direção visual partilhada
@@ -298,6 +298,34 @@ try{
    const rightAim=await page.evaluate(()=>window.__rpgDebug.weaponJoystickFacing());
    assert.ok(Math.hypot(leftAim.x-rightAim.x,leftAim.z-rightAim.z)>.6,
     'a orientação visual deve responder às direções opostas do joystick');
+  }
+  // Problema relatado: a arma ficava rígida durante o ataque e ignorava
+  // mudanças do joystick. Verifica 5 armas, 3 fases de ataque e 2 direções.
+  if(width===854&&height===480){
+   const motion=await page.evaluate(()=>{
+    const d=window.__rpgDebug,face={x:1,z:0};
+    const up={x:-Math.SQRT1_2,z:-Math.SQRT1_2};
+    const down={x:Math.SQRT1_2,z:Math.SQRT1_2};
+    const report=[];
+    for(const archetype of ['warrior','guardian','rebel','arcanist','hunter']){
+     for(const progress of [.12,.48,.83]){
+      const u=d.weaponDisplayFacing(face,up,archetype,progress,true);
+      const v=d.weaponDisplayFacing(face,down,archetype,progress,true);
+      const p=d.weaponVisualPose(u,archetype,0,progress,{impact:.48});
+      const q=d.weaponVisualPose(v,archetype,0,progress,{impact:.48});
+      report.push({archetype,progress,angle:Math.abs(p.a-q.a),
+       tip:Math.hypot(p.x2-q.x2,p.y2-q.y2)});
+     }
+    }
+    return report;
+   });
+   assert.equal(motion.length,15,'cinco armas × três fases da animação');
+   for(const m of motion){
+    assert.ok(m.tip>14,
+     m.archetype+' precisa seguir o joystick mesmo durante o ataque '+m.progress);
+    assert.ok(m.angle>.25,
+     m.archetype+' nao pode travar no angulo de ataque '+m.progress);
+   }
   }
   // Testa a renderização das cinco raças usando as cinco armas.
   if(width===854&&height===480){
