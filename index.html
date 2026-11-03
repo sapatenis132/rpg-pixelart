@@ -1354,7 +1354,12 @@ function finisherFX(x,z,dir,pal,key='LLL'){
 // Etapa 15: única entrada válida por golpe, sem ganho por pressionar L/P simultaneamente.
 const INPUT_DEBOUNCE=.105,BUFFER_START=.43,BUFFER_END=.93;
 let lastAttackInput=-10,rejectedInputs=0,simultaneousInputs=0,acceptedInputs=0;
-function attackWindow(a){if(!a)return false;const t=a.time/a.move.dur;return t>=BUFFER_START&&t<=BUFFER_END;}
+function attackWindow(a){
+ if(!a)return false;
+ const t=a.time/a.move.dur,opening=a.move.ranged?.37:currentArchetype()==='rebel'?.38:BUFFER_START;
+ const close=a.move.ranged?.96:BUFFER_END;
+ return t>=opening&&t<=close;
+}
 function readyForNext(){return player.hp>0&&player.dodge<=0&&player.parryRecovery<=0&&player.attackLock<=0&&!player.act;}
 function rhythmReadout(){const el=$('rhythmHud');if(!el)return;
  const a=player.act,ready=a&&attackWindow(a)&&!player.buffer;
@@ -1378,7 +1383,9 @@ function startAttack(type){
   key=next;player.seq=next;player.seqTimer=1.30;player.chainReady=false;
  }
  player.dodgeFollowup=0;player.dodgeChain=false;
- const move=currentWeaponMoves()[key]||ATTACKS[key],pal=paletteFor(move,key);totalSwings++;maxChain=Math.max(maxChain,/^[LH]+$/.test(key)?key.length:1);
+ const move=currentWeaponMoves()[key]||ATTACKS[key],pal=paletteFor(move,key);
+ if(move.ranged&&/^[LH]+$/.test(key))player.seqTimer=Math.max(player.seqTimer,1.55);
+ totalSwings++;maxChain=Math.max(maxChain,/^[LH]+$/.test(key)?key.length:1);
  player.act={key,move,time:0,hit:false,landed:false,pal,previousProgress:0,hitIds:new Set(),slashed:false,finishedArc:false,mashCount:0,mashed:false};player.attackLock=0;acceptedInputs++;sfx(key.includes('H')?'heavy':'light');player.buffer=null;player.bufferTime=0;
  burst(player.x,player.z,pal.main,4,.45);directionalBurst(player.x,player.z,player.face,pal.edge,.65,5);
  if(move.ext||move.dash)label(move.name+'!',.85);
