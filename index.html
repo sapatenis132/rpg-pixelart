@@ -943,6 +943,37 @@ const RACE_SHAPES={
 // SPRITES RACIAIS v1: atlas pixel art gerado uma vez e reutilizado em combate e no criador.
 // Proporções, orelhas, rosto e cores são características VISUAIS provisórias, sem novo lore.
 let RACE_SPRITES=null;
+// Direções do atlas 8×4. Eixos de mundo e projeção isométrica:
+// 0=3/4 frente dir., 1=frente, 2=3/4 frente esq., 3=perfil esq.,
+// 4=3/4 costas esq., 5=costas, 6=3/4 costas dir., 7=perfil dir.
+const RACE_FACINGS=[
+ {kind:'frontQuarter',side:1},{kind:'front',side:0},
+ {kind:'frontQuarter',side:-1},{kind:'profile',side:-1},
+ {kind:'backQuarter',side:-1},{kind:'back',side:0},
+ {kind:'backQuarter',side:1},{kind:'profile',side:1}
+];
+function raceHeadRect(id,dir,frame=0){
+ const shape=RACE_SHAPES[id]||RACE_SHAPES.human;
+ const view=RACE_FACINGS[dir]||RACE_FACINGS[1];
+ const width=Math.round(shape.headW*(view.kind==='profile'?.77:
+  view.kind==='frontQuarter'||view.kind==='backQuarter'?.91:1));
+ const x=16-Math.floor(width/2)+
+  (view.kind==='profile'?view.side*2:
+   view.kind==='frontQuarter'?view.side:
+   view.kind==='backQuarter'?view.side*2:0);
+ return{x,y:shape.headY+(frame===1||frame===2||frame===3?1:0),
+  w:width,h:shape.headH,view};
+}
+function raceEyePositions(id,dir,frame=0){
+ const h=raceHeadRect(id,dir,frame),kind=h.view.kind;
+ const y=h.y+(id==='halfling'?6:Math.min(7,h.h-4));
+ if(kind==='front')return[{x:h.x+2,y},{x:h.x+h.w-4,y}];
+ if(kind==='frontQuarter')
+  return[{x:h.view.side>0?h.x+h.w-4:h.x+2,y}];
+ if(kind==='profile')
+  return[{x:h.view.side>0?h.x+h.w-3:h.x+1,y}];
+ return[];
+}
 function makeRaceSprite(id){
  const cvs=document.createElement('canvas');cvs.width=128;cvs.height=384;
  const c=cvs.getContext('2d');c.imageSmoothingEnabled=false;
@@ -953,125 +984,208 @@ function makeRaceSprite(id){
   dwarf:{skin:'#d5a071',skinShadow:'#945e42',hair:'#b15a28',cloth:'#596979',clothHi:'#91a6a9',belt:'#6c4c36',pants:'#3a4b57',boot:'#303940',outline:'#283139',accent:'#d7b276'},
   halfling:{skin:'#e9b48b',skinShadow:'#b77b62',hair:'#a36b3b',cloth:'#57845a',clothHi:'#9bbd70',belt:'#836146',pants:'#8f7b59',boot:'#6a4e3e',outline:'#354138',accent:'#e6c285'}
  };
- const p=palette[id]||palette.human;
- const pz=RACE_SHAPES[id]||RACE_SHAPES.human;
- const rect=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
- const rim=(x,y,w,h,fill)=>{rect(x-1,y-1,w+2,h+2,p.outline);rect(x,y,w,h,fill);};
+ const p=palette[id]||palette.human,shape=RACE_SHAPES[id]||RACE_SHAPES.human;
+ const tone=(hex,shift)=>'#'+[1,3,5].map(k=>
+  Math.max(0,Math.min(255,parseInt(hex.slice(k,k+2),16)+shift))
+  .toString(16).padStart(2,'0')).join('');
+ const clothDark=tone(p.cloth,-29),clothDeep=tone(p.cloth,-49);
+ const skinLight=tone(p.skin,20),hairLight=tone(p.hair,23);
+ const rect=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),
+  Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
+ const rim=(x,y,w,h,col)=>{
+  rect(x-1,y-1,w+2,h+2,p.outline);rect(x,y,w,h,col);
+ };
  for(let dir=0;dir<8;dir++)for(let frame=0;frame<4;frame++){
   c.save();c.translate(frame*32,dir*48);
-   // Isola cada frame; capas e botas não invadem frames vizinhos.
-   c.beginPath();c.rect(0,0,32,48);c.clip();
-  // +x/+z aponta para frente da camera (linha 1); cinco perfis com um olho.
-  const back=(dir===5||dir===6);
-  const side=dir!==1&&!back;
-  const facingLeft=(dir===2||dir===3||dir===4);
-  const walk=[0,1,0,-1][frame],bounce=frame===1||frame===3?1:0;
-  const torsoX=16-Math.floor(pz.torsoW/2),headX=16-Math.floor(pz.headW/2);
-  const legWidth=id==='orc'||id==='dwarf'?7:id==='halfling'?4:5;
-  // Abertura da capa e pontas distintas do elfo e do pequenino.
+  c.beginPath();c.rect(0,0,32,48);c.clip();
+  const v=RACE_FACINGS[dir],side=v.side;
+  const front=v.kind==='front',quarterFront=v.kind==='frontQuarter';
+  const profile=v.kind==='profile',quarterBack=v.kind==='backQuarter';
+  const rear=v.kind==='back'||quarterBack;
+  const walk=[0,-2,0,2][frame],bob=frame===1||frame===2||frame===3?1:0;
+  const tw=Math.round(shape.torsoW*(profile?.71:quarterFront||quarterBack?.86:1));
+  const tx=16-Math.floor(tw/2)+(profile?side:0),ty=shape.torsoY+bob;
+  const head=raceHeadRect(id,dir,frame),hx=head.x,hy=head.y,hw=head.w,hh=head.h;
+  const lw=id==='orc'||id==='dwarf'?6:id==='halfling'?4:5;
+  const gap=profile?3:quarterFront||quarterBack?5:7;
+
+  // Capas do elfo e do pequenino são vistas de trás em vez de
+  // atravessar o tórax como uma coluna vertical.
   if(id==='elf'||id==='halfling'){
-   const cc=id==='elf'?'#245a54':'#385f3e';
-   rect(torsoX-2,pz.torsoY+3,pz.torsoW+4,Math.min(pz.torsoH+14,46-(pz.torsoY+3)),cc);
-   rect(torsoX-3,pz.footY-6,5,6,id==='elf'?'#367962':'#7a9257');
-   rect(torsoX+pz.torsoW-1,pz.footY-6,5,6,cc);
-  }
-  // Pernas animadas em dois passos.
-  for(let j=0;j<2;j++){
-   const off=(j===0?walk:-walk);
-   const legX=16+(j===0?-7:2)+(id==='orc'||id==='dwarf'?(j===0?-1:1):0);
-   const bottom=pz.footY+off;
-   rim(legX,pz.legY,legWidth,Math.max(3,bottom-pz.legY),p.pants);
-   rim(legX-1,bottom-2,pz.bootW,4,p.boot);
-   rect(legX+1,pz.legY+2,2,Math.max(2,bottom-pz.legY-5),p.clothHi);
-  }
-  // Braços e mãos atrás do tronco.
-  for(let j=0;j<2;j++){
-   const armX=j===0?torsoX-pz.armW:torsoX+pz.torsoW;
-   const ay=pz.torsoY+2+(j===0?walk:-walk);
-   rim(armX,ay,pz.armW,pz.torsoH-2,p.cloth);
-   rect(armX+1,ay+1,Math.max(1,pz.armW-2),3,p.clothHi);
-   rect(armX,ay+pz.torsoH-5,pz.armW,4,p.skin);
-  }
-  // Tórax e detalhes de roupa seguem as proporções de cada espécie.
-  rim(torsoX,pz.torsoY+bounce,pz.torsoW,pz.torsoH,p.cloth);
-  rect(torsoX+2,pz.torsoY+2+bounce,Math.max(3,pz.torsoW-4),3,p.clothHi);
-  rect(torsoX+1,pz.torsoY+pz.torsoH-4+bounce,pz.torsoW-2,3,p.belt);
-  rect(torsoX+Math.floor(pz.torsoW/2)-1,pz.torsoY+pz.torsoH-4+bounce,3,3,p.accent);
-  if(id==='orc'){
-   rect(torsoX-1,pz.torsoY,6,5,p.clothHi);
-   rect(torsoX+pz.torsoW-5,pz.torsoY,6,5,p.clothHi);
-   rect(torsoX+3,pz.torsoY+7,3,5,p.accent);
-  } else if(id==='dwarf'){
-   rect(torsoX+2,pz.torsoY+5,pz.torsoW-4,3,p.accent);
-   rect(torsoX+5,pz.torsoY+2,3,pz.torsoH-5,p.clothHi);
-  } else if(id==='human'){
-   rect(torsoX+Math.floor(pz.torsoW/2)-2,pz.torsoY+3,4,7,p.accent);
-  } else if(id==='elf'){
-   rect(torsoX+4,pz.torsoY+4,3,pz.torsoH-7,p.accent);
-  }else{
-   rect(torsoX+2,pz.torsoY+3,pz.torsoW-4,2,p.accent);
-  }
-  // Orelhas saem do contorno do rosto, para diferenciar a silhueta.
-  if(id==='elf'){
-   rim(headX-6,pz.headY+5,7,3,p.skin);
-   rim(headX+pz.headW-1,pz.headY+5,7,3,p.skin);
-   rect(headX-7,pz.headY+4,3,2,p.skinShadow);
-   rect(headX+pz.headW+4,pz.headY+4,3,2,p.skinShadow);
-  }else if(id==='orc'){
-   rim(headX-3,pz.headY+6,4,5,p.skinShadow);
-   rim(headX+pz.headW-1,pz.headY+6,4,5,p.skinShadow);
-  }
-  // Rosto, cabelo e adereços, respeitando direções frontais e traseiras.
-  rim(headX,pz.headY+bounce,pz.headW,pz.headH,p.skin);
-  rect(headX,pz.headY+bounce,pz.headW,3,p.hair);
-  if(id==='elf'){
-   rect(headX-1,pz.headY+2+bounce,3,12,p.hair);
-   rect(headX+pz.headW-1,pz.headY+2+bounce,3,12,p.hair);
-  }else if(id==='orc'){
-   rect(headX+2,pz.headY+2+bounce,pz.headW-4,3,p.skinShadow);
-   rect(headX+3,pz.headY+4+bounce,pz.headW-6,2,p.hair);
-  }else if(id==='dwarf'){
-   rect(headX-1,pz.headY+bounce,pz.headW+2,4,'#717b83');
-   rect(headX+2,pz.headY-2+bounce,pz.headW-4,3,p.accent);
-  }else if(id==='halfling'){
-   rect(headX-2,pz.headY+1+bounce,4,5,p.hair);
-   rect(headX+pz.headW-2,pz.headY+1+bounce,4,5,p.hair);
-  }
-  if(back){
-   rect(headX+2,pz.headY+4+bounce,pz.headW-4,pz.headH-6,p.hair);
-  }else{
-   const eyeY=pz.headY+(id==='halfling'?6:7)+bounce;
-   const eyeX=side?(facingLeft?headX+2:headX+pz.headW-4):headX+2;
-   rect(eyeX,eyeY,2,2,p.outline);
-   if(!side)rect(headX+pz.headW-4,eyeY,2,2,p.outline);
-   if(id==='orc'){
-    // Presas brancas visíveis acima do maxilar.
-    rect(headX+2,pz.headY+pz.headH-3+bounce,2,4,'#fbefd0');
-    rect(headX+pz.headW-4,pz.headY+pz.headH-3+bounce,2,4,'#fbefd0');
-   }else if(id==='dwarf'){
-    // Barba larga: volume inferior ao queixo, tornando o anão reconhecível.
-    rect(headX+1,pz.headY+pz.headH+bounce,pz.headW-2,6,p.hair);
-    rect(headX+3,pz.headY+pz.headH+5+bounce,pz.headW-6,3,p.hair);
-    rect(headX+4,pz.headY+pz.headH-1+bounce,pz.headW-8,2,'#e39a52');
-   }else if(id==='human'||id==='halfling'){
-    rect(headX+Math.floor(pz.headW/2),pz.headY+pz.headH-3+bounce,2,1,p.skinShadow);
+   const cw=tw+(rear?7:4),cx=16-Math.floor(cw/2)+(profile?side:0);
+   const bottom=Math.min(47,shape.footY+1);
+   rect(cx,ty+2,cw,bottom-ty-2,rear?clothDeep:clothDark);
+   if(rear){
+    rect(cx+2,ty+4,3,Math.max(3,bottom-ty-8),clothDark);
+    rect(cx+cw-4,ty+4,2,Math.max(3,bottom-ty-8),p.cloth);
+    rect(cx+Math.floor(cw/2),bottom-5,2,4,p.clothHi);
+   }else{
+    rect(cx+1,bottom-8,3,7,p.cloth);
+    rect(cx+cw-4,bottom-8,3,7,p.cloth);
    }
   }
-  // Bordas de roupa, costuras e ornamentos específicos, em pixels.
-   rect(torsoX+2,pz.torsoY+pz.torsoH-2+bounce,Math.max(2,pz.torsoW-4),1,p.clothHi);
-   rect(torsoX+pz.torsoW-3,pz.torsoY+5+bounce,2,Math.max(3,pz.torsoH-9),p.belt);
-   if(back)rect(torsoX+3,pz.torsoY+5+bounce,Math.max(3,pz.torsoW-6),2,p.belt);
-   else if(id==='elf')rect(torsoX+2,pz.torsoY+7+bounce,2,Math.max(2,pz.torsoH-10),p.accent);
-   else if(id==='orc'){
-    rect(torsoX+4,pz.torsoY+6+bounce,3,3,p.skinShadow);
-    rect(torsoX+pz.torsoW-7,pz.torsoY+6+bounce,3,3,p.skinShadow);
+
+  // Passos alternados compartilham a mesma linha de chão e o mesmo pivô.
+  for(let j=0;j<2;j++){
+   const near=j===1,sgn=near?1:-1;
+   const lx=16+Math.round(sgn*gap/2)-Math.floor(lw/2)+
+    (profile?side*2:0)+(profile?walk*(near?1:-1):0);
+   const foot=shape.footY+(near?-walk:walk)*.45;
+   const lh=Math.max(4,foot-shape.legY);
+   rim(lx,shape.legY,lw,lh,near?p.pants:tone(p.pants,-19));
+   rect(lx+1,shape.legY+2,1,Math.max(2,lh-3),near?p.clothHi:p.pants);
+   const bx=lx+(profile?side:0);
+   rim(bx-1,foot-2,shape.bootW,3,near?p.boot:tone(p.boot,-14));
+   rect(bx,foot-1,Math.max(2,shape.bootW-3),1,p.belt);
+  }
+
+  // Um braço distante atrás do peito e o próximo na frente.
+  const aw=Math.max(2,shape.armW-(profile?1:0));
+  const far=side===0?-1:-side,near=side===0?1:side;
+  const arm=(sgn,foreground)=>{
+   const ax=sgn<0?tx-aw+1:tx+tw-1;
+   const ay=ty+2+Math.round((sgn<0?walk:-walk)*.38);
+   const height=Math.max(5,shape.torsoH-1);
+   rim(ax,ay,aw,height,foreground?p.cloth:clothDark);
+   rect(ax+1,ay+2,1,Math.max(2,height-6),
+    foreground?p.clothHi:clothDeep);
+   rect(ax,ay+height-4,aw,4,foreground?p.skin:p.skinShadow);
+   if(id==='orc')rect(ax,ay+4,aw,3,foreground?p.skinShadow:clothDeep);
+  };
+  arm(far,false);
+  // Tronco achatado no perfil e assimétrico nos 3/4; sombra fixa superior/esq.
+  rim(tx,ty,tw,shape.torsoH,rear?clothDark:p.cloth);
+  rect(tx+1,ty+2,2,Math.max(3,shape.torsoH-5),
+   front||quarterFront?p.clothHi:clothDeep);
+  rect(tx+tw-3,ty+2,2,Math.max(3,shape.torsoH-4),clothDeep);
+  if(front){
+   rect(tx+3,ty+2,Math.max(2,tw-6),3,p.clothHi);
+   rect(15,ty+4,2,Math.max(3,shape.torsoH-8),p.accent);
+  }else if(quarterFront){
+   rect(16+side*2,ty+3,Math.max(2,Math.round(tw*.18)),
+    Math.max(3,shape.torsoH-6),p.accent);
+   rect(tx+(side>0?tw-4:2),ty+2,2,5,p.clothHi);
+  }else if(profile){
+   rect(tx+(side>0?tw-4:1),ty+3,3,Math.max(3,shape.torsoH-6),p.accent);
+   rect(tx+(side>0?1:tw-3),ty+2,2,shape.torsoH-4,clothDeep);
+  }else if(quarterBack){
+   rect(tx+2,ty+3,tw-4,2,p.clothHi);
+   rect(tx+(side>0?tw-5:3),ty+4,2,shape.torsoH-7,p.belt);
+  }else{
+   rect(tx+2,ty+3,tw-4,3,p.clothHi);
+   rect(tx+Math.floor(tw/2)-1,ty+4,2,shape.torsoH-7,clothDeep);
+   rect(tx+4,ty+5,3,shape.torsoH-8,p.belt);
+  }
+  rect(tx+1,ty+shape.torsoH-4,tw-2,3,p.belt);
+  if(!rear)rect(tx+Math.floor(tw/2)-1,ty+shape.torsoH-4,3,3,p.accent);
+  else rect(tx+3,ty+shape.torsoH-3,3,2,clothDeep);
+  if(id==='orc'){
+   rect(tx,ty+1,Math.min(5,tw),4,p.clothHi);
+   rect(tx+tw-5,ty+1,5,4,p.clothHi);
+  }else if(id==='dwarf'){
+   rect(tx+2,ty+5,tw-4,2,p.accent);
+  }else if(id==='human'&&!rear){
+   rect(tx+Math.floor(tw/2)-1,ty+5,2,5,p.accent);
+  }else if(id==='elf'&&rear){
+   rect(tx+Math.floor(tw/2),ty+5,2,shape.torsoH-8,p.accent);
+  }
+  arm(near,true);
+  rect(14+(profile?side:0),ty-3,4,5,rear?p.skinShadow:p.skin);
+
+  // Orelhas são desenhadas atrás do crânio (perfil mostra a orelha traseira).
+  if(id==='elf'){
+   if(front){
+    rim(hx-5,hy+5,6,3,p.skin);rim(hx+hw-1,hy+5,6,3,p.skin);
+   }else if(quarterFront){
+    const nearEar=side>0?hx+hw-1:hx-5;
+    const farEar=side>0?hx-3:hx+hw-1;
+    rim(farEar,hy+5,4,2,p.skinShadow);
+    rim(nearEar,hy+5,6,3,p.skin);
+    rect(nearEar+(side>0?3:0),hy+4,2,2,skinLight);
+   }else if(v.kind==='back'){
+    rim(hx-4,hy+5,5,3,p.skinShadow);
+    rim(hx+hw-1,hy+5,5,3,p.skinShadow);
+   }else{
+    rim(side>0?hx-4:hx+hw-1,hy+5,6,3,p.skinShadow);
+   }
+  }else if(id==='orc'){
+   if(front||v.kind==='back'){
+    rim(hx-3,hy+5,4,5,p.skinShadow);
+    rim(hx+hw-1,hy+5,4,5,p.skinShadow);
+   }else rim(side>0?hx-3:hx+hw-1,hy+5,4,4,p.skinShadow);
+  }
+
+  // Cabeça frontal, de perfil e traseira possuem contornos diferentes.
+  rim(hx,hy,hw,hh,rear?p.skinShadow:p.skin);
+  rect(hx+1,hy+2,Math.max(2,hw-3),2,rear?tone(p.hair,-11):skinLight);
+  rect(hx+hw-3,hy+3,2,Math.max(3,hh-5),
+   rear?tone(p.hair,-9):p.skinShadow);
+  if(rear){
+   // Nuca sem olhos ou dentes: penteado, gola e volume traseiro.
+   rect(hx+1,hy+1,hw-2,hh-3,p.hair);
+   rect(hx+2,hy+2,Math.max(2,Math.round(hw*.4)),3,hairLight);
+   rect(hx+hw-3,hy+5,2,hh-5,tone(p.hair,-13));
+   if(quarterBack){
+    // Parte lateral da nuca e mecha assimétrica dão volume à rotação.
+    rect(side>0?hx+hw-2:hx,hy+5,2,hh-6,p.skinShadow);
+    rect(side>0?hx+2:hx+hw-4,hy+3,2,hh-4,hairLight);
+   }
+   if(id==='elf'){
+    rect(hx+1,hy+hh-2,hw-2,4,p.hair);
+    rect(hx+Math.floor(hw/2),hy+3,2,hh+2,hairLight);
    }else if(id==='dwarf'){
-    rect(torsoX+3,pz.torsoY+4+bounce,3,3,p.accent);
-    rect(torsoX+pz.torsoW-6,pz.torsoY+4+bounce,3,3,p.accent);
-   }else if(id==='halfling')rect(torsoX+3,pz.torsoY+4+bounce,pz.torsoW-6,2,p.accent);
-   // Destaque final da silhueta: anão compacto, orc largo, pequenino baixo.
-  if(id==='orc')rect(torsoX+3,pz.torsoY+1+bounce,pz.torsoW-6,2,'#c5a477');
-  if(id==='dwarf')rect(headX-1,pz.headY+5+bounce,3,3,p.hair);
+    // O capacete/cabelo continuam reconhecíveis quando visto de trás.
+    rect(hx-1,hy,hw+2,3,'#707980');
+    rect(hx+2,hy+3,hw-4,3,hairLight);
+    rect(hx+3,hy+hh-2,hw-6,6,p.hair);
+    rect(hx+5,hy+hh+1,2,3,p.accent);
+   }else if(id==='halfling')rect(hx+1,hy+hh-3,hw-2,4,hairLight);
+   else if(id==='orc')rect(hx+2,hy+hh-3,hw-4,3,clothDeep);
+  }else{
+   rect(hx,hy,hw,3,p.hair);
+   if(profile){
+    rect(side>0?hx:hx+hw-3,hy+2,3,hh-5,p.hair);
+    rect(side>0?hx+hw:hx-2,hy+5,2,3,p.skin);
+    rect(side>0?hx+hw:hx-2,hy+7,1,2,p.skinShadow);
+   }else if(quarterFront){
+    rect(side>0?hx:hx+hw-3,hy+2,3,hh-4,p.hair);
+    rect(side>0?hx+hw-1:hx-1,hy+7,2,2,p.skinShadow);
+   }else{
+    rect(hx+1,hy+3,2,3,hairLight);
+    rect(hx+hw-3,hy+3,2,3,p.hair);
+   }
+   if(id==='elf'){
+    rect(side>0?hx:hx+hw-3,hy+3,2,hh-5,p.hair);
+    if(front)rect(hx+2,hy+3,2,5,hairLight);
+   }else if(id==='orc'){
+    rect(hx+3,hy+3,hw-6,2,p.skinShadow);
+    if(front){
+     rect(hx+2,hy+hh-3,2,4,'#fff0d4');
+     rect(hx+hw-4,hy+hh-3,2,4,'#fff0d4');
+    }else rect(side>0?hx+hw-3:hx+1,hy+hh-3,2,4,'#fff0d4');
+   }else if(id==='dwarf'){
+    rect(hx-1,hy,hw+2,3,'#707980');
+    rect(hx+2,hy-2,hw-4,3,p.accent);
+    const by=hy+hh-2;
+    if(front){
+     rect(hx+1,by,hw-2,6,p.hair);
+     rect(hx+3,by+5,hw-6,2,hairLight);
+    }else{
+     const bx=side>0?hx+hw-7:hx-1;
+     rect(bx,by,Math.max(6,Math.round(hw*.64)),6,p.hair);
+     rect(bx+1,by+3,3,3,hairLight);
+    }
+   }else if(id==='halfling'){
+    rect(hx-1,hy+1,3,5,p.hair);
+    rect(hx+hw-2,hy+1,3,5,p.hair);
+    rect(hx+2,hy-1,4,2,hairLight);
+   }else if(id==='human'&&front){
+    rect(hx+Math.floor(hw/2),hy+hh-3,2,1,p.skinShadow);
+   }
+   // A última camada do rosto é sempre o olho; sem flicker por sobreposição.
+   for(const eye of raceEyePositions(id,dir,frame))
+    rect(eye.x,eye.y,2,2,'#0b1524');
+  }
   c.restore();
  }
  return cvs;
@@ -1139,7 +1253,7 @@ function renderCharacterCreator(){
     preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
     const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
     // Miniatura proporcional ao atlas 32×48, presa no cartão pela grade CSS.
-     pc.drawImage(raceSprite(id),0,6*48,32,48,0,0,48,72);
+     pc.drawImage(raceSprite(id),0,1*48,32,48,0,0,48,72);
     b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
@@ -2513,6 +2627,9 @@ window.__rpgDebug.weaponVisualPose=(face,archetype,swingAngle=0,progress=.5,move
  {...player,face},archetype,true,swingAngle,false,clamp(sx/36*1.9,1.35,2.7),progress,move);
 window.__rpgDebug.spriteAtlas=race=>raceSprite(race);
 window.__rpgDebug.spriteShape=race=>RACE_SHAPES[race];
+window.__rpgDebug.spriteFacings=()=>RACE_FACINGS.map(v=>({...v}));
+window.__rpgDebug.spriteFaceEyes=(race,dir,frame)=>raceEyePositions(race,dir,frame);
+window.__rpgDebug.spriteHeadRect=(race,dir,frame)=>raceHeadRect(race,dir,frame);
 window.__rpgDebug.weaponJoystickFacing=()=>({...player.weaponFacing||player.face});
 resize();reset();$('drillBehavior').value=drill.behavior;rhythmReadout();loadedRun=readSave();showCampaignMenu();requestAnimationFrame(loop);
 })();
