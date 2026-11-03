@@ -310,6 +310,29 @@ body{display:block;min-height:0}
 .raceOption span{font-size:9px;line-height:1.25;color:#c6e0da}
 .raceOption.selected{border:2px solid #f3d389;background:#235249;padding:6px 8px}
 @media (orientation:landscape) and (max-height:380px){.raceOption{min-height:41px;padding:5px 7px}.raceOption span{font-size:8px}.creatorCard{padding:7px 10px}}
+
+/* CONTROLES ACESSÍVEIS v2: escala ajustável; layout responsivo não muda os pontos de toque. */
+#game{--pad-scale:1.12}
+.buttons{transform:scale(var(--pad-scale));transform-origin:bottom right}
+#joystick{width:calc(124px * var(--pad-scale));height:calc(124px * var(--pad-scale))}
+#stick{width:calc(55px * var(--pad-scale));height:calc(55px * var(--pad-scale))}
+.pad-options{border-top:1px solid #c2e5f524;padding:11px 0 13px}
+.pad-options>div:first-child{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pad-options b{font-size:13px}.pad-options small{color:#a6c4d1;font-size:10px}
+.pad-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px}
+.pad-choices button{border:1px solid #6d95a7;border-radius:9px;background:#203d50;color:#d8edf6;
+  min-height:39px;font-size:11px;font-weight:850;cursor:pointer;touch-action:manipulation}
+.pad-choices button.selected{color:#e5fff5;background:#176858;border:2px solid #83f6d3}
+@media(max-height:550px){
+ .buttons{transform:scale(calc(var(--pad-scale) * .80))}
+ #joystick{width:calc(96px * var(--pad-scale));height:calc(96px * var(--pad-scale))}
+ #stick{width:calc(43px * var(--pad-scale));height:calc(43px * var(--pad-scale))}
+ /* O contador de FPS fica acima do joystick, mesmo com os controles ampliados. */
+ .fps-panel{left:9px;top:calc(env(safe-area-inset-top,0px) + 123px)}
+}
+@media(max-height:355px){
+ .fps-panel{top:calc(env(safe-area-inset-top,0px) + 112px)}
+}
 </style></head>
 <body>
 <div id="game" aria-label="RPG isométrico pixel art, etapa vinte e dois">
@@ -350,6 +373,12 @@ body{display:block;min-height:0}
         </div>
         <small class="progress-warning" id="progressHint">A cada nível há três habilidades sorteadas. Tudo é perdido após a morte.</small>
       </section>
+      <div class="pad-options"><div><b>Tamanho dos controles</b><small id="padSizeLabel">NORMAL</small></div>
+      <div class="pad-choices" role="group" aria-label="Tamanho dos botões e joystick">
+       <button type="button" data-pad-size="small">Pequeno</button>
+       <button type="button" data-pad-size="medium">Normal</button>
+       <button type="button" data-pad-size="large">Grande</button>
+      </div></div>
       <div class="option-row"><div><b>Efeitos sonoros</b><small>Sons procedurais, sem arquivos externos. Ativados após um toque.</small></div><button id="soundToggle" class="switch" aria-pressed="true">LIGADO</button></div>
       <div class="option-row"><div><b>Vibração</b><small>Funciona somente em navegadores e aparelhos compatíveis.</small></div><button id="hapticToggle" class="switch" aria-pressed="true">LIGADO</button></div>
       <div class="option-row"><div><b>Câmera adaptativa</b><small>Enquadra você e as ameaças ao redor.</small></div><button id="cameraToggle" class="switch" aria-pressed="true">LIGADO</button></div>
@@ -991,10 +1020,11 @@ function showAbilityChoices(){if(!runState?.active||progress.points<=0)return;co
  if(!Array.isArray(runState.offers)||runState.offers.length!==Math.min(3,available.length)||runState.offers.some(k=>!available.includes(k))){const shuffled=[...available].sort((a,b)=>seeded(runState.seed,progress.level*101+a.length+a.charCodeAt(0))-seeded(runState.seed,progress.level*101+b.length+b.charCodeAt(0)));runState.offers=shuffled.slice(0,3);}offeredChoices=runState.offers;
  const grid=$('abilityGrid');grid.replaceChildren();for(const k of offeredChoices){const a=ABILITIES[k],button=document.createElement('button');const name=document.createElement('b');name.textContent=a.title+' '+(progress.ranks[k]?'II+':'I');const desc=document.createElement('span');desc.textContent=a.desc;const rank=document.createElement('small');rank.textContent=a.tag+' · NÍVEL '+progress.ranks[k]+'/'+TALENT_LIMIT;button.append(name,desc,rank);button.addEventListener('click',()=>{if(!runState?.active||!offeredChoices.includes(k))return;const success=buyTalent(k,true);if(!success)return;runState.offers=[];saveCampaign();$('abilityOverlay').classList.remove('open');if(progress.points>0)showAbilityChoices();else if(runState.cleared)showRoomExit();});grid.append(button);} $('abilityOverlay').classList.add('open');saveCampaign();}
 
-const defaults={sound:true,haptics:true,dynamicCamera:true,reducedMotion:false,economy:false,sensitivity:1,showFps:false,showReach:false,tactics:true,difficulty:'balanced'};
+const defaults={sound:true,haptics:true,dynamicCamera:true,reducedMotion:false,economy:false,sensitivity:1,showFps:false,showReach:false,tactics:true,difficulty:'balanced',padSize:'medium'};
 let settings={...defaults};
 try{const previous=JSON.parse(localStorage.getItem('iso_rpg_etapa8_settings')||'{}');if(previous&&typeof previous==='object')settings={...defaults,...previous};}catch(e){}
 settings.sensitivity=clamp(Number(settings.sensitivity)||1,.65,1.40);if(!BALANCE[settings.difficulty])settings.difficulty='balanced';
+if(!['small','medium','large'].includes(settings.padSize))settings.padSize='medium';
 let audioContext=null,noiseBuffer=null;
 let totalHits=0,totalDamage=0,totalParries=0,totalDodges=0,totalTaken=0;
 let frameAccumulator=0,fpsFrames=0,fpsTime=0,actualFps=0,lastRender=0;
@@ -1005,6 +1035,13 @@ function updateSettings(){
   const b=$(id);b.textContent=settings[key]?'LIGADO':'DESLIGADO';b.setAttribute('aria-pressed',String(!!settings[key]));b.classList.toggle('enabled',!!settings[key]);
  }
  $('sensitivity').value=String(settings.sensitivity);$('sensitivityNumber').textContent=Math.round(settings.sensitivity*100)+'%';
+ const padScales={small:.96,medium:1.12,large:1.26};
+ game.style.setProperty('--pad-scale',String(padScales[settings.padSize]||1.12));
+ for(const btn of document.querySelectorAll('[data-pad-size]')){
+  const on=btn.dataset.padSize===settings.padSize;
+  btn.classList.toggle('selected',on);btn.setAttribute('aria-pressed',String(on));
+ }
+ $('padSizeLabel').textContent=({small:'PEQUENO',medium:'NORMAL',large:'GRANDE'})[settings.padSize]||'NORMAL';
  $('fpsPanel').style.display=settings.showFps?'block':'none';updateDifficultyUI();updateTrainingReadout();
  stats.textContent=`Alvos atingidos: ${totalHits}  •  Dano: ${totalDamage}  •  Parries: ${totalParries}  •  Esquivas: ${totalDodges}  •  Flancos: ${totalFlanks}  •  Coberturas: ${totalCovers}  •  Contra-ataques: ${totalPunishes}  •  Ondas: ${wavesCleared}  •  Precisão: ${trainingAccuracy()}%  •  Parries tentados: ${parryAttempts}  •  Falhas no parry: ${parryMisses}  •  Esquivas eficazes: ${dodgeSaves}  •  Maior combo: ${maxChain}`;
 }
@@ -2145,6 +2182,7 @@ $('settingsBtn').addEventListener('click',openOptions);$('difficultyBtn').addEve
 $('closeOptions').addEventListener('click',closeOptions);$('resumeOptions').addEventListener('click',closeOptions);
 options.addEventListener('pointerdown',e=>{if(e.target===options)closeOptions();});
 for(const [id,key] of [['soundToggle','sound'],['hapticToggle','haptics'],['cameraToggle','dynamicCamera'],['motionToggle','reducedMotion'],['economyToggle','economy'],['fpsToggle','showFps'],['reachToggle','showReach'],['tacticsToggle','tactics']])$(''+id).addEventListener('click',()=>toggleSetting(key));
+for(const b of document.querySelectorAll('[data-pad-size]'))b.addEventListener('click',()=>{settings.padSize=b.dataset.padSize;saveSettings();updateSettings();});
 $('sensitivity').addEventListener('input',e=>{settings.sensitivity=clamp(Number(e.target.value),.65,1.40);saveSettings();updateSettings();});
 $('eliteBtn').addEventListener('click',toggleElite);$('labBtn').addEventListener('click',openLab);$('closeLab').addEventListener('click',closeLab);$('startLab').addEventListener('click',startLab);$('repeatLab').addEventListener('click',()=>{if(drill.active)startLab();else startLab();});$('returnArena').addEventListener('click',exitLab);$('labRecenter').addEventListener('click',repositionLab);$('drillMode').addEventListener('change',e=>labSetMode(e.target.value));$('drillBehavior').addEventListener('change',e=>{$('labDescription').textContent=DRILLS[$('drillMode').value].description+'  ·  Comportamento selecionado: '+e.target.selectedOptions[0].textContent;});$('drillFoe').addEventListener('change',()=>{});$('drillPanel').addEventListener('pointerdown',e=>{if(e.target===$('drillPanel'))closeLab();});
 $('creatorCancel').addEventListener('click',cancelCharacterCreator);$('creatorBack').addEventListener('click',()=>{if(creatorStep===0)cancelCharacterCreator();else{creatorStep--;renderCharacterCreator();}});$('creatorNext').addEventListener('click',advanceCharacterCreator);$('enemyPicker').addEventListener('click',switchFoe);$('targetPicker').addEventListener('click',cycleTarget);$('aimToggle').addEventListener('click',toggleAim);$('reset').addEventListener('click',showCampaignMenu);$('help').addEventListener('click',()=>{keys.clear();joyReset();renderWeaponCombos();guide.classList.add('open');});$('closeGuide').addEventListener('click',()=>guide.classList.remove('open'));guide.addEventListener('pointerdown',e=>{if(e.target===guide)guide.classList.remove('open');});document.addEventListener('visibilitychange',()=>{last=0;frameAccumulator=0;if(document.hidden){joyReset();keys.clear();saveCampaign();}});
