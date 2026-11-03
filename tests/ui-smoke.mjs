@@ -559,7 +559,7 @@ try{
    assert.equal(balance.contact.archetype,'warrior','teste com espada');
    assert.ok(balance.contact.meleeGuard>0,'acerto em combate próximo gera aparo temporário');
    assert.ok(balance.contact.meleeGuard<=.46,'não deve gerar defesa permanente');
-   assert.ok(balance.snap.totalHits>0,'benefício apenas após impacto conectado');
+   assert.ok(balance.snap.hits>0,'benefício apenas após impacto conectado');
   }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
