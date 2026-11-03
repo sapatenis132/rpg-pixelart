@@ -959,7 +959,7 @@ function raceHeadRect(id,dir,frame=0){
   view.kind==='frontQuarter'||view.kind==='backQuarter'?.91:1));
  const x=16-Math.floor(width/2)+
   (view.kind==='profile'?view.side*2:view.kind==='frontQuarter'?view.side:0);
- return{x,y:shape.headY+(frame===1||frame===3?1:0),
+ return{x,y:shape.headY+(frame===1||frame===2||frame===3?1:0),
   w:width,h:shape.headH,view};
 }
 function raceEyePositions(id,dir,frame=0){
@@ -1000,7 +1000,7 @@ function makeRaceSprite(id){
   const front=v.kind==='front',quarterFront=v.kind==='frontQuarter';
   const profile=v.kind==='profile',quarterBack=v.kind==='backQuarter';
   const rear=v.kind==='back'||quarterBack;
-  const walk=[0,-2,0,2][frame],bob=frame===1||frame===3?1:0;
+  const walk=[0,-2,0,2][frame],bob=frame===1||frame===2||frame===3?1:0;
   const tw=Math.round(shape.torsoW*(profile?.71:quarterFront||quarterBack?.86:1));
   const tx=16-Math.floor(tw/2)+(profile?side:0),ty=shape.torsoY+bob;
   const head=raceHeadRect(id,dir,frame),hx=head.x,hy=head.y,hw=head.w,hh=head.h;
@@ -2618,6 +2618,9 @@ window.__rpgDebug.weaponVisualPose=(face,archetype,swingAngle=0,progress=.5,move
  {...player,face},archetype,true,swingAngle,false,clamp(sx/36*1.9,1.35,2.7),progress,move);
 window.__rpgDebug.spriteAtlas=race=>raceSprite(race);
 window.__rpgDebug.spriteShape=race=>RACE_SHAPES[race];
+window.__rpgDebug.spriteFacings=()=>RACE_FACINGS.map(v=>({...v}));
+window.__rpgDebug.spriteFaceEyes=(race,dir,frame)=>raceEyePositions(race,dir,frame);
+window.__rpgDebug.spriteHeadRect=(race,dir,frame)=>raceHeadRect(race,dir,frame);
 window.__rpgDebug.weaponJoystickFacing=()=>({...player.weaponFacing||player.face});
 resize();reset();$('drillBehavior').value=drill.behavior;rhythmReadout();loadedRun=readSave();showCampaignMenu();requestAnimationFrame(loop);
 })();
