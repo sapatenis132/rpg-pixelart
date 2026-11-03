@@ -391,6 +391,82 @@ try{
     await page.screenshot({path:resolve(root,'screenshots','golpe-'+race+'-'+archetype+'.png')});
    }
   }
+  // ETAPA 27A: geração, conectividade, geometria, retorno e persistência.
+  if(width===854&&height===480){
+   const generated=await page.evaluate(()=>{
+    const d=window.__rpgDebug,errors=[],worlds=new Set(),shapes=new Set();
+    let singles=0,bigs=0;
+    for(let seed=1;seed<=100;seed++){
+     let world;
+     try{world=d.worldForSeed(seed);}catch(err){errors.push({seed,message:err.message});continue;}
+     if(JSON.stringify(world)!==JSON.stringify(d.worldForSeed(seed)))errors.push({seed,reason:'não determinístico'});
+     worlds.add(JSON.stringify(world.areas.map(a=>[a.biome,a.rooms.length])));
+     const rooms=world.rooms,ids=Object.keys(rooms).map(Number),seen=new Set([1]),queue=[1];
+     while(queue.length)for(const e of rooms[queue.shift()].exits)if(!seen.has(e.to)){seen.add(e.to);queue.push(e.to);}
+     if(seen.size!==ids.length)errors.push({seed,reason:'desconectado'});
+     for(const area of world.areas){if(area.rooms.length===1)singles++;}
+     for(const id of ids){
+      const r=rooms[id],g=d.worldRoomShape(r);shapes.add(r.shape);
+      if(r.width>=22||r.height>=22)bigs++;
+      if(new Set(r.exits.map(x=>x.dir)).size!==r.exits.length)errors.push({seed,id,reason:'saídas duplicadas'});
+      if(!g.floor.includes('0,0'))errors.push({seed,id,reason:'origem bloqueada'});
+      for(const exit of r.exits){
+       if(!rooms[exit.to]?.exits.some(x=>x.to===id&&x.dir===(exit.dir+2)%4))
+        errors.push({seed,id,reason:'sem volta'});
+      }
+      for(const exit of g.exits){
+       const key=Math.floor(exit.x)+','+Math.floor(exit.z);
+       if(!g.floor.includes(key)||g.solids.includes(key))errors.push({seed,id,reason:'portal bloqueado',key});
+      }
+     }
+    }
+    return{errors:errors.slice(0,12),worlds:worlds.size,shapes:[...shapes],
+     singles,bigs};
+   });
+   assert.deepEqual(generated.errors,[],'todas as áreas e passagens devem ser acessíveis');
+   assert.ok(generated.worlds>=70,'cada run deve variar bastante');
+   assert.equal(generated.shapes.length,5,'cinco topologias de sala');
+   assert.ok(generated.singles>=100,'cada mundo terá áreas de sala única');
+   assert.ok(generated.bigs>=100,'salas de tamanho grande');
+   await page.evaluate(()=>window.__rpgDebug.newCampaign());
+   const initial=await page.evaluate(()=>window.__rpgDebug.snapshot());
+   assert.ok(initial.run.world&&initial.run.world.areas.length>=5);
+   assert.equal(initial.run.world.current,1);
+   await page.screenshot({path:resolve(root,'screenshots','etapa27-mundo-procedural.png')});
+   const travel=await page.evaluate(()=>{
+    const d=window.__rpgDebug;
+    d.debugClearRoom();
+    const start=d.worldRoomInfo(),e=start.exits[0];
+    const v=[{dx:1,dz:0},{dx:0,dz:1},{dx:-1,dz:0},{dx:0,dz:-1}][e.dir];
+    d.debugSet({player:{x:e.at.x-v.dx*.4,z:e.at.z-v.dz*.4,invuln:90,hp:1000}});
+    const joy=document.querySelector('#joystick'),r=joy.getBoundingClientRect();
+    const ix=(v.dx-v.dz)/1.28,iy=(v.dx+v.dz)/2.08;
+    joy.dispatchEvent(new PointerEvent('pointerdown',{pointerId:701,pointerType:'touch',
+     clientX:r.left+r.width/2+ix*r.width*.36,
+     clientY:r.top+r.height/2+iy*r.width*.36,bubbles:true,cancelable:true}));
+    for(let i=0;i<64;i++)d.testTick(.016);
+    joy.dispatchEvent(new PointerEvent('pointerup',{pointerId:701,pointerType:'touch',bubbles:true,cancelable:true}));
+    return{target:e.to,current:d.snapshot().run.world.current,firstMemory:d.snapshot().run.world.memories[1]};
+   });
+   assert.equal(travel.current,travel.target,'joystick deve atravessar uma passagem');
+   assert.equal(travel.firstMemory.cleared,true,'sala limpa deve manter estado');
+   const back=await page.evaluate(()=>{
+    const d=window.__rpgDebug,edge=d.worldRoomInfo().exits.find(e=>e.to===1);
+    d.worldTravelNeighbor(edge.dir);d.worldSave();
+    return{snap:d.snapshot(),room:d.worldRoomInfo(),saved:!!localStorage.getItem('rpg_pixelart_active_run_v21')};
+   });
+   assert.equal(back.snap.run.world.current,1,'volta à mesma sala');
+   assert.ok(back.room.walkable,'chegada em piso transitável');
+   assert.ok(back.snap.foes.every(f=>f.hp<=0),'sem reaparecimento imediato');
+   assert.ok(back.saved,'salva estado do mundo');
+   await page.reload();await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+   await page.evaluate(()=>window.__rpgDebug.resumeCampaign(
+    JSON.parse(localStorage.getItem('rpg_pixelart_active_run_v21'))));
+   const loaded=await page.evaluate(()=>({state:window.__rpgDebug.snapshot(),room:window.__rpgDebug.worldRoomInfo()}));
+   assert.equal(loaded.state.run.world.current,1,'retorno após recarregar página');
+   assert.ok(loaded.room.walkable,'colisões persistem após reload');
+   assert.ok(loaded.state.run.world.memories[1].cleared,'salvou a vitória');
+  }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }
