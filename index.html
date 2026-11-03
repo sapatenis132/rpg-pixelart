@@ -958,7 +958,9 @@ function raceHeadRect(id,dir,frame=0){
  const width=Math.round(shape.headW*(view.kind==='profile'?.77:
   view.kind==='frontQuarter'||view.kind==='backQuarter'?.91:1));
  const x=16-Math.floor(width/2)+
-  (view.kind==='profile'?view.side*2:view.kind==='frontQuarter'?view.side:0);
+  (view.kind==='profile'?view.side*2:
+   view.kind==='frontQuarter'?view.side:
+   view.kind==='backQuarter'?view.side*2:0);
  return{x,y:shape.headY+(frame===1||frame===2||frame===3?1:0),
   w:width,h:shape.headH,view};
 }
@@ -1123,13 +1125,20 @@ function makeRaceSprite(id){
    rect(hx+1,hy+1,hw-2,hh-3,p.hair);
    rect(hx+2,hy+2,Math.max(2,Math.round(hw*.4)),3,hairLight);
    rect(hx+hw-3,hy+5,2,hh-5,tone(p.hair,-13));
-   if(quarterBack)rect(side>0?hx+hw-2:hx,hy+hh-5,2,4,p.skinShadow);
+   if(quarterBack){
+    // Parte lateral da nuca e mecha assimétrica dão volume à rotação.
+    rect(side>0?hx+hw-2:hx,hy+5,2,hh-6,p.skinShadow);
+    rect(side>0?hx+2:hx+hw-4,hy+3,2,hh-4,hairLight);
+   }
    if(id==='elf'){
     rect(hx+1,hy+hh-2,hw-2,4,p.hair);
     rect(hx+Math.floor(hw/2),hy+3,2,hh+2,hairLight);
    }else if(id==='dwarf'){
-    rect(hx+2,hy+hh-2,hw-4,5,p.hair);
-    rect(hx+4,hy+hh+1,3,2,hairLight);
+    // O capacete/cabelo continuam reconhecíveis quando visto de trás.
+    rect(hx-1,hy,hw+2,3,'#707980');
+    rect(hx+2,hy+3,hw-4,3,hairLight);
+    rect(hx+3,hy+hh-2,hw-6,6,p.hair);
+    rect(hx+5,hy+hh+1,2,3,p.accent);
    }else if(id==='halfling')rect(hx+1,hy+hh-3,hw-2,4,hairLight);
    else if(id==='orc')rect(hx+2,hy+hh-3,hw-4,3,clothDeep);
   }else{
@@ -1244,7 +1253,7 @@ function renderCharacterCreator(){
     preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
     const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
     // Miniatura proporcional ao atlas 32×48, presa no cartão pela grade CSS.
-     pc.drawImage(raceSprite(id),0,6*48,32,48,0,0,48,72);
+     pc.drawImage(raceSprite(id),0,1*48,32,48,0,0,48,72);
     b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
