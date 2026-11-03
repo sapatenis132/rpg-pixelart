@@ -182,11 +182,11 @@ try{
     'arco deve tensionar, soltar e recuperar a corda');
    for(const m of checks.melee)assert.ok(m.delta>8,m.arch+' deve ter golpe visível');
   }
-  // Regressão: as duas espadas e a adaga acompanham o joystick de modo
-  // contínuo. Antes o ângulo era quase fixo independentemente da direção.
+  // Regressão: TODAS as cinco armas seguem 72 direções contínuas do
+  // joystick (espadas, adaga, cajado e arco).
   if(width===854&&height===480){
    const following=await page.evaluate(()=>{
-    const d=window.__rpgDebug,archetypes=['warrior','guardian','rebel'];
+    const d=window.__rpgDebug,archetypes=['warrior','guardian','rebel','arcanist','hunter'];
     const output=[];
     for(const archetype of archetypes){
      const poses=[];
@@ -214,7 +214,8 @@ try{
     assert.ok(weapon.gripRange>5,weapon.archetype+' deve deslocar a empunhadura');
     assert.ok(weapon.maxJump<.11,weapon.archetype+' não pode saltar de direção');
    }
-   // Integração: mover o joystick real via teclas usa a mesma entrada de movimento.
+   // Integração: input real de movimento alimenta a direção visual partilhada
+   // pelas cinco armas (mesmo com dano, projéteis e combos separados).
    const keyboardAim=await page.evaluate(()=>{
     const debug=window.__rpgDebug;
     const initial=debug.weaponJoystickFacing();
