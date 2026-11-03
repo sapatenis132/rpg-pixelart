@@ -503,6 +503,14 @@ const WEAPON_MOVES={
   LHL:{...ATTACKS.LHL,name:'Contra-Corte de Guarda',dmg:24,break:true},
   LHH:{...ATTACKS.LHH,name:'Martelo de Escudo',dmg:32,break:true},
   LLLH:{...ATTACKS.LLLH,name:'Arremate de Escudo',dmg:34,break:true},
+  LLHL:{...ATTACKS.LLHL,name:'Retorno Protegido',dmg:28,break:true,knock:.78},
+  LHLH:{...ATTACKS.LHLH,name:'Dupla Pancada de Escudo',dmg:30,break:true,knock:1.1},
+  LHHL:{...ATTACKS.LHHL,name:'Corte Após Impacto',dmg:26,break:true},
+  HLL:{...ATTACKS.HLL,name:'Espada por Trás do Escudo',dmg:23,break:true},
+  HLLH:{...ATTACKS.HLLH,name:'Arremate de Guarda',dmg:32,break:true,knock:1.2},
+  HLH:{...ATTACKS.HLH,name:'Esmagamento Frontal',dmg:34,break:true,knock:1.35},
+  HLHL:{...ATTACKS.HLHL,name:'Riposta Blindada',dmg:29,break:true},
+  HHL:{...ATTACKS.HHL,name:'Varredura Defensiva',dmg:27,break:true},
   RIP_L:ATTACKS.RIP_L,RIP_H:ATTACKS.RIP_H,DASH_L:ATTACKS.DASH_L,DASH_H:ATTACKS.DASH_H
  },
  rebel:{
@@ -517,6 +525,14 @@ const WEAPON_MOVES={
   LLH:dagger('Perfuração',24,.40,1.61,{fin:true,break:true,angle:-1}),
   LHL:dagger('Retorno Certeiro',20,.31,1.50,{fin:true}),
   HLL:dagger('Sequência de Adaga',23,.37,1.55,{fin:true}),
+  LHH:dagger('Cortes Alternados',24,.43,1.61,{fin:true,angle:-1}),
+  HLH:dagger('Estocada de Resposta',29,.48,1.72,{fin:true,angle:1}),
+  LLHL:dagger('Corte do Ângulo Morto',27,.35,1.65,{fin:true,ext:true,angle:-1}),
+  LHLH:dagger('Estocada Relâmpago',30,.38,1.73,{fin:true,ext:true,dash:true,angle:1}),
+  LHHL:dagger('Corte de Recuo',26,.35,1.58,{fin:true,ext:true,angle:-1}),
+  HLLH:dagger('Investida de Adaga',31,.43,1.73,{fin:true,ext:true,dash:true,angle:1}),
+  HLHL:dagger('Quatro Cortes',29,.42,1.63,{fin:true,ext:true,angle:-1}),
+  HHL:dagger('Final de Estocada',27,.35,1.61,{fin:true,ext:true,angle:1}),
   RIP_L:dagger('Contra-Ataque Rápido',23,.29,1.63,{rip:true,fin:true}),
   RIP_H:dagger('Riposta de Adaga',33,.46,1.75,{rip:true,fin:true}),
   DASH_L:dagger('Corte de Esquiva',15,.26,1.67,{dash:true}),
@@ -536,17 +552,17 @@ function renderWeaponCombos(){
  const heading=document.createElement('h3');heading.textContent=detail.name+' · '+detail.weapon;
  heading.style.margin='9px 0 5px';heading.style.color='#b8f7df';slot.appendChild(heading);
  const info=document.createElement('p');
- info.textContent=arch==='arcanist'?'Projéteis mágicos básicos, sem gasto de mana. Pesado cria um orbe maior.':
- arch==='hunter'?'Leve dispara uma flecha. Pesado lança três flechas; a sequência Pesado → Pesado lança cinco.':
- arch==='guardian'?'Ataques de espada e pancadas de escudo. Parry bem cronometrado riposta; defesa frontal reduz parte do dano de golpes comuns.':
- arch==='rebel'?'Adaga de curto alcance, com ataques rápidos. Sequências curtas são mais fáceis de encadear.':
+ info.textContent=arch==='arcanist'?'Cajado sem gasto de mana. Leve→Leve dispara duas faíscas; Leve→Leve→Leve dispara três, e a extensão Pesado dispara quatro pulsos escalonados.':
+ arch==='hunter'?'Leve dispara uma flecha. Pesado lança três; Pesado→Pesado lança cinco. Leve→Leve→Pesado e o arremate de quatro golpes lançam flechas grandes que atravessam até dois inimigos.':
+ arch==='guardian'?'Espada e escudo: golpes para pressionar a postura, combos de escudo e arremates com uma breve proteção frontal.':
+ arch==='rebel'?'Adaga de curto alcance: sequências velozes de até quatro golpes, estocadas e ripostas.':
  'Espada equilibrada. Finalizadores que acertam liberam extensões e golpes aéreos.';
  slot.appendChild(info);
  const order=['L','LL','LLL','H','LH','HL','HH','LLH','LHL','LHH','HLL','HLH','LLLH','LLHL','LHLH','LHHL','HLLH','HLHL','HHL','RIP_L','RIP_H','DASH_L','DASH_H'];
  for(const key of order){
   const m=moves[key];if(!m)continue;
   const row=document.createElement('div');row.className='row';
-  const name=document.createElement('b');name.textContent=m.name;
+  const name=document.createElement('b');name.textContent=m.name+(m.largeArrow?' · FLECHA GIGANTE':m.shots>1?' · '+m.shots+' TIROS':'');
   const how=document.createElement('span');
   how.textContent=key.startsWith('RIP_')?'Parry perfeito → '+(key.endsWith('L')?'Leve':'Pesado'):
    key.startsWith('DASH_')?'Esquiva → '+(key.endsWith('L')?'Leve':'Pesado'):
@@ -1287,6 +1303,10 @@ function playerHit(contact=false,target=null,externalAct=null){
  floating('-'+dmg,enemy.x,enemy.z,move.fin?pal.edge:'#e9fbff',move.fin?26:18);
  shake=move.fin?12:move.dmg>20?7:4;hitStop=move.fin?.075:.040;screenFlash=Math.max(screenFlash,pal.screen*(move.fin?1:.65));buzz(move.fin?31:12);
  if(enemy.hp<=0){onAllyFallen(enemy);sfx('ko');kills++;awardXP(enemy);enemy.phase='dead';enemy.air=0;enemy.downTimer=0;floating('DERROTADO!',enemy.x,enemy.z,'#ffe0a4',16);if(living().length===0) {respawn=runState?.active?0:(eliteMode?0:2.15);wavesCleared++;waveFinished();if(runState?.active){onRoomCleared();}else if(eliteMode){eliteVictory=true;note('SENTINELA DERROTADA!','Vitória! Toque em ↻ para repetir ou ↩ ARENA para sair.',999);label('DUELO CONCLUÍDO · HP '+Math.ceil(player.hp),2);}else note('ONDA CONCLUÍDA! · NOTA '+lastWave.grade,'Veja seu desempenho no menu ⚙',1.6);} else label('Inimigo derrotado · '+living().length+' restantes',1.1);}
+ if(currentArchetype()==='guardian'&&move.fin&&move.break){
+  // A recuperação de um arremate com escudo protege por um instante.
+  player.guardWindow=Math.max(player.guardWindow||0,.32);
+ }
  if(move.fin&&!move.ranged){
   if(living().length>0&&EXTENSIONS[a.key]&&!move.ext){player.seq=a.key;player.chainReady=true;player.seqTimer=1.14;}
   else {player.seq='';player.seqTimer=0;player.chainReady=false;}
