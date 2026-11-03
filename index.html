@@ -1352,7 +1352,8 @@ function roomById(id=runState?.room){return runState?.world?.rooms?.[id]||null;}
 function makeRoomGeometry(room){
  const tiles=[],walkable=new Set(),solid=new Set(),props=[];
  const hw=room.width/2,hh=room.height/2;
- for(let x=-hw;x<hw;x++)for(let z=-hh;z<hh;z++){
+ const minX=-Math.floor(room.width/2),minZ=-Math.floor(room.height/2);
+ for(let x=minX;x<minX+room.width;x++)for(let z=minZ;z<minZ+room.height;z++){
   const u=(x+.5)/hw,v=(z+.5)/hh;
   const a=Math.abs(u),b=Math.abs(v);
   let inside=room.shape==='rect'?true:
