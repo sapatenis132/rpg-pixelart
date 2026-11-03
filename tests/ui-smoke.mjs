@@ -467,6 +467,100 @@ try{
    assert.ok(loaded.room.walkable,'colisões persistem após reload');
    assert.ok(loaded.state.run.world.memories[1].cleared,'salvou a vitória');
   }
+
+  // ETAPA 27B: os dois mapas usam apenas informações descobertas e
+  // não permitem viagem rápida fora de pontos específicos.
+  if(width===854&&height===480){
+   const d=await page.evaluate(()=>{
+    const dbg=window.__rpgDebug;
+    const area=dbg.mapData('area'),world=dbg.mapData('world');
+    return{area,world,run:dbg.snapshot().run};
+   });
+   assert.equal(d.area.tab,'area');
+   assert.equal(d.world.tab,'world');
+   assert.equal(d.area.current,1);
+   assert.equal(d.area.states[1],2,'sala atual visitada');
+   const visitedInArea=d.area.nodes.filter(id=>d.run.world.discovered.includes(id)).length;
+   assert.equal(d.area.seen,visitedInArea,'salas descobertas correspondem ao save');
+   for(const id of d.area.nodes){
+    assert.equal(d.area.states[id]===2,d.run.world.discovered.includes(id),
+     'não revelar sala '+id+' como visitada prematuramente');
+   }
+   assert.equal(d.world.seen,1,'não revelar áreas ainda não visitadas');
+   assert.ok(Object.values(d.world.states).some(x=>x===0),'mundo deve manter regiões ocultas');
+   assert.ok(Object.values(d.world.states).some(x=>x===1),'regiões vizinhas só aparecem como desconhecidas');
+   assert.ok(d.area.nodes.every(id=>d.area.coords[id]),'cada sala deve ter posição no desenho');
+   assert.ok(d.world.nodes.every(id=>d.world.coords[id]),'cada área deve ter posição no desenho');
+   assert.equal(await page.locator('#worldMapBtn').isVisible(),true,'botão de mapa visível na campanha');
+   await page.locator('#worldMapBtn').click();
+   assert.equal(await page.locator('#worldMapOverlay').isVisible(),true,'mapa abre por toque');
+   assert.equal(await page.locator('#mapGraph [data-map-node][data-current="true"]').count(),1,'posição destacada');
+   assert.equal(await page.locator('#mapGraph [data-discovery="2"]').count(),visitedInArea,'não revela salas não visitadas');
+   await page.screenshot({path:resolve(root,'screenshots','etapa27b-mapa-area.png')});
+   await page.locator('#worldMapTab').click();
+   assert.equal(await page.locator('#worldMapTab').getAttribute('aria-pressed'),'true');
+   assert.equal(await page.locator('#mapGraph [data-discovery="2"]').count(),1,'mapa-múndi com apenas uma área descoberta');
+   assert.equal(await page.locator('#mapGraph [data-current="true"]').count(),1);
+   await page.screenshot({path:resolve(root,'screenshots','etapa27b-mapa-mundi.png')});
+   const prior=await page.evaluate(()=>window.__rpgDebug.snapshot().run.world.current);
+   await page.locator('#mapGraph [data-discovery="1"]').first().click();
+   const after=await page.evaluate(()=>window.__rpgDebug.snapshot().run.world.current);
+   assert.equal(after,prior,'tocar em mapa não teletransporta jogador');
+   await page.locator('#closeWorldMap').click();
+   assert.equal(await page.locator('#worldMapOverlay').isVisible(),false);
+   await page.keyboard.press('Tab');
+   assert.equal(await page.locator('#worldMapOverlay').isVisible(),true,'TAB abre mapa');
+   await page.keyboard.press('Escape');
+   assert.equal(await page.locator('#worldMapOverlay').isVisible(),false,'Escape fecha mapa');
+   // A exploração atualiza o mapa-múndi sem perder os pontos já descobertos.
+   const discovery=await page.evaluate(()=>{
+    const dbg=window.__rpgDebug;let steps=0;
+    const startArea=dbg.snapshot().run.world.rooms[dbg.snapshot().run.world.current].area;
+    while(steps<30){
+     const run=dbg.snapshot().run,room=run.world.rooms[run.world.current];
+     if(room.area!==startArea)break;
+     const next=room.exits.find(e=>run.world.rooms[e.to].area!==startArea)
+      ||room.exits.find(e=>!run.world.discovered.includes(e.to))
+      ||room.exits[0];
+     if(!next||!dbg.worldTravelNeighbor(next.dir))break;
+     steps++;
+    }
+    dbg.worldSave();
+    const area=dbg.mapData('area'),world=dbg.mapData('world');
+    return{steps,area,world,run:dbg.snapshot().run};
+   });
+   assert.ok(discovery.steps>0,'mapa registra novas salas');
+   assert.ok(discovery.run.world.discovered.length>1,'salas visitadas permanecem descobertas');
+   assert.ok(discovery.world.seen>=1,'mapa-múndi acompanha descoberta');
+  }
+  // Equilíbrio: o risco de combate próximo deve render mobilidade real e um
+  // aparo limitado, sem reduzir danos globalmente ou criar invulnerabilidade.
+  if(width===854&&height===480){
+   const balance=await page.evaluate(()=>{
+    const d=window.__rpgDebug,arch=['warrior','guardian','rebel','arcanist','hunter'];
+    const factors=Object.fromEntries(arch.map(a=>[a,{
+     light:d.combatMoveFactor(a,{key:'L'}),heavy:d.combatMoveFactor(a,{key:'H'}),
+     free:d.combatMoveFactor(a,null)
+    }]));
+    d.debugKill();
+    d.chooseDrill('sandbox','dummy',0);
+    d.debugSet({player:{x:0,z:0,face:{x:1,z:0},meleeGuard:0,invuln:0}});
+    d.debugSetFoes([{x:1.38,z:0,phase:'chase',cooldown:5,stun:0,iframe:0}]);
+    d.action('L');for(let n=0;n<15;n++)d.testTick(1/60);
+    return{factors,contact:d.combatProfile(),snap:d.snapshot()};
+   });
+   for(const [name,p] of Object.entries(balance.factors)){
+    assert.equal(p.free,1,name+' não deve perder velocidade fora do ataque');
+    assert.ok(p.heavy>0&&p.light>p.heavy,name+' pesado exige mais compromisso');
+   }
+   assert.ok(balance.factors.warrior.heavy>balance.factors.hunter.heavy);
+   assert.ok(balance.factors.guardian.light>balance.factors.arcanist.light);
+   assert.ok(balance.factors.rebel.light>balance.factors.hunter.light);
+   assert.equal(balance.contact.archetype,'warrior','teste com espada');
+   assert.ok(balance.contact.meleeGuard>0,'acerto em combate próximo gera aparo temporário');
+   assert.ok(balance.contact.meleeGuard<=.46,'não deve gerar defesa permanente');
+   assert.ok(balance.snap.hits>0,'benefício apenas após impacto conectado');
+  }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }

@@ -369,10 +369,31 @@ body{display:block;min-height:0}
 }
 /* Interação contextual também recebe área de toque mais confortável. */
 #interactBtn{min-height:46px;font-size:13px}
+
+/* Etapa 27B — mapas de área e de mundo com névoa de exploração. */
+#worldMapBtn{position:absolute;z-index:8;left:calc(env(safe-area-inset-left,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 118px);min-height:36px;padding:6px 12px;border-radius:10px;background:#123f48ea;border:1px solid #96efd79c;color:#d9fff1;font-size:11px;font-weight:950;letter-spacing:.05em;box-shadow:0 4px 15px #0008;cursor:pointer;touch-action:manipulation}
+#worldMapBtn[hidden]{display:none!important}
+#worldMapOverlay{position:absolute;inset:0;display:none;z-index:38;background:#03101cef;backdrop-filter:blur(8px);padding:10px;justify-content:center;align-items:center}
+#worldMapOverlay.open{display:flex}
+.mapCard{width:min(730px,100%);max-height:calc(100dvh - 20px);min-height:0;overflow:auto;padding:12px 15px;background:linear-gradient(155deg,#142e3b,#071824);border:1px solid #94ddce91;border-radius:14px;box-shadow:0 12px 48px #000b;display:flex;flex-direction:column;gap:7px}
+.mapHead{display:flex;align-items:center;justify-content:space-between;gap:12px}.mapHead small{display:block;font-size:9px;letter-spacing:.10em;color:#8cdece;font-weight:900}.mapHead h2{margin:2px 0 0;color:#f1fff5;font-size:20px;line-height:1.1}
+.mapHead button,.mapTabs button{min-height:38px;border:1px solid #98d6ca6b;border-radius:9px;background:#244656;font-size:12px;font-weight:850;color:#ecfdf7;cursor:pointer}
+.mapHead button{min-width:42px;font-size:22px}
+.mapTabs{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.mapTabs button.active{background:#256d5c;border-color:#96ffe2;color:#eafff2}
+#mapGraph{width:100%;height:min(47dvh,325px);min-height:100px;display:block;border-radius:10px;background:#081c28;border:1px solid #6baba659;touch-action:pan-x pan-y}
+.mapInfo{margin:0;color:#bfdbd6;font-size:11px;line-height:1.3}
+.mapLegend{display:flex;flex-wrap:wrap;align-items:center;gap:7px 14px;color:#bcd8d7;font-size:10px}
+.mapLegend span:before{content:'●';margin-right:5px;color:#8ce0c1}.mapLegend .unknown:before{color:#7e9dad}.mapLegend .location:before{color:#f4d482}
+@media(max-height:380px){
+ #worldMapBtn{top:calc(env(safe-area-inset-top,0px) + 102px);min-height:32px;padding:4px 9px;font-size:10px}
+ .mapCard{padding:7px 10px;gap:4px}.mapHead h2{font-size:16px}.mapHead button,.mapTabs button{min-height:32px}
+ #mapGraph{height:min(45dvh,190px)}.mapInfo{font-size:10px}
+}
 </style></head>
 <body>
 <div id="game" aria-label="RPG isométrico pixel art, etapa vinte e dois">
-  <canvas id="scene"></canvas><div id="campaignHud" aria-live="polite">SALA 1 · INÍCIO</div>
+  <canvas id="scene"></canvas><button type="button" id="worldMapBtn" hidden aria-label="Abrir mapas da campanha" title="Mapa: TAB">▧ MAPA</button><div id="campaignHud" aria-live="polite">SALA 1 · INÍCIO</div>
   <header class="hud"><section class="gauges" aria-label="Vida e mana"><div class="brand"><span>CAMPANHA</span><b id="levelLabel">NÍVEL 1</b></div><div class="stat hp"><span class="stat-label">VIDA</span><div class="track"><div class="fill" id="hpFill"></div></div><span class="value" id="hpText">100/100</span></div><div class="stat mp"><span class="stat-label">MANA</span><div class="track"><div class="fill" id="mpFill"></div></div><span class="value" id="mpText">60/60</span></div><div class="xp-mini" title="Experiência do herói"><span id="xpMiniFill"></span></div></section><div class="top-actions"><button id="fullscreenBtn" class="top-btn" aria-label="Tela cheia horizontal" title="Tentar tela cheia e orientação horizontal">⛶</button><button id="settingsBtn" class="top-btn" aria-label="Configurações" title="Ajustes de jogabilidade">⚙</button><button id="help" class="top-btn" aria-label="Ver combos" title="Combos">?</button><button id="reset" class="top-btn" aria-label="Menu da campanha" title="Menu da campanha">☷</button></div></header>
   <div class="status"><div id="combo">PRONTO PARA COMBATER</div><div id="hint">Encadeie finalizadores · aproveite lançamentos e derrubadas</div></div>
   <button id="enemyPicker" class="enemy-picker" aria-label="Alternar tamanho da arena" title="Alternar arena: Q">⚔ ARENA: 3 INIMIGOS ↻</button><button id="targetPicker" class="target-picker" aria-label="Alternar alvo prioritário" title="Trocar alvo: E">◎ FOCO: GUARDIÃO</button>
@@ -454,6 +475,19 @@ body{display:block;min-height:0}
 
   <div id="campaignOverlay" role="dialog" aria-modal="true" aria-label="Campanha roguelike"><section class="campaignCard"><small id="campaignTag">ROGUELIKE · ETAPA 21</small><h2 id="campaignTitle">Uma campanha, uma vida</h2><p id="campaignDescription">Cada personagem começa em uma região aleatória. A morte encerra a campanha e apaga sua evolução.</p><div id="campaignActions" class="campaignActions"></div><div id="campaignHistory" class="history"></div></section></div>
   <div id="abilityOverlay" role="dialog" aria-modal="true" aria-label="Escolher uma habilidade"><section class="campaignCard"><small>EVOLUÇÃO · TRÊS OPÇÕES ALEATÓRIAS</small><h2>Escolha uma habilidade</h2><p>Somente uma das opções será aprendida. Habilidades podem evoluir durante a mesma campanha.</p><div id="abilityGrid" class="abilityGrid"></div></section></div>
+
+  <div id="worldMapOverlay" role="dialog" aria-modal="true" aria-label="Mapas da campanha">
+    <section class="mapCard" aria-labelledby="mapTitle">
+      <div class="mapHead"><div><small>EXPLORAÇÃO · DESCOBERTA PROGRESSIVA</small><h2 id="mapTitle">Mapa da área</h2></div><button type="button" id="closeWorldMap" aria-label="Fechar mapa">×</button></div>
+      <div class="mapTabs" role="group" aria-label="Tipo de mapa">
+        <button type="button" id="areaMapTab" class="active" aria-pressed="true">▦ ÁREA</button>
+        <button type="button" id="worldMapTab" aria-pressed="false">◎ MUNDO</button>
+      </div>
+      <svg id="mapGraph" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Representação das áreas ou salas descobertas" viewBox="0 0 520 290"></svg>
+      <p id="mapInfo" class="mapInfo">Descubra passagens para revelar caminhos.</p>
+      <div class="mapLegend"><span class="location">Você está aqui</span><span>Visitado</span><span class="unknown">Desconhecido</span></div>
+    </section>
+  </div>
 
   <div id="creatorOverlay" role="dialog" aria-modal="true" aria-label="Criar personagem para nova campanha">
     <section class="creatorCard">
@@ -674,6 +708,7 @@ function updateRangedShots(dt){
   if(travel<=0)continue;
   const x=shot.x,z=shot.z,nx=x+shot.dir.x*shot.speed*travel,nz=z+shot.dir.z*shot.speed*travel;
   shot.x=nx;shot.z=nz;shot.life-=travel;
+  if(runState?.world&&!worldPassable(nx,nz)){shot.life=0;continue;}
   for(const foe of living()){
    if(foe.iframe>0||shot.act.hitIds.has(foe.id)||distanceToSegment(foe.x,foe.z,x,z,nx,nz)>.34+shot.radius)continue;
    playerHit(true,foe,shot.act);
@@ -683,7 +718,7 @@ function updateRangedShots(dt){
   }
  }
  for(const shot of rangedShots){
-  if(shot.accounted||shot.life>0&&Math.abs(shot.x)<9&&Math.abs(shot.z)<9)continue;
+  if(shot.accounted||shot.life>0&&(runState?.world?worldPassable(shot.x,shot.z):Math.abs(shot.x)<9&&Math.abs(shot.z)<9))continue;
   shot.accounted=true;const group=shot.act?.group;
   if(group&&--group.pending===0&&!group.landed)precisionMisses++;
  }
@@ -1348,6 +1383,152 @@ function generateWorld(seed){
  }
  return{version:1,seed,areas,rooms,memories:{},current:1,discovered:[1]};
 }
+
+let mapTab='area';
+const MAP_NS='http://www.w3.org/2000/svg';
+function mapAreaEdges(world){
+ const out=[],seen=new Set();
+ for(const room of Object.values(world.rooms))for(const e of room.exits){
+  const next=world.rooms[e.to];if(!next||next.area===room.area)continue;
+  const k=[room.area,next.area].sort((a,b)=>a-b).join(':');if(seen.has(k))continue;
+  seen.add(k);out.push({from:room.area,to:next.area,dir:e.dir});
+ }
+ return out;
+}
+function mapRoomEdges(world,areaId){
+ const out=[],seen=new Set();
+ for(const id of world.areas[areaId].rooms)for(const e of world.rooms[id].exits){
+  const other=world.rooms[e.to];if(!other||other.area!==areaId)continue;
+  const k=[id,e.to].sort((a,b)=>a-b).join(':');if(seen.has(k))continue;
+  seen.add(k);out.push({from:id,to:e.to,dir:e.dir});
+ }
+ return out;
+}
+function mapVisibility(world,tab='area'){
+ const room=world.rooms[world.current],areaId=room.area,visited=new Set(world.discovered||[]);
+ const exploredAreas=new Set([...visited].map(id=>world.rooms[id]?.area).filter(x=>x!==undefined));
+ if(tab==='world'){
+  const edges=mapAreaEdges(world),states={};
+  for(const a of world.areas)states[a.id]=exploredAreas.has(a.id)?2:0;
+  for(const e of edges){
+   if(states[e.from]===2&&states[e.to]===0)states[e.to]=1;
+   else if(states[e.to]===2&&states[e.from]===0)states[e.from]=1;
+  }
+  return{tab,areaId,nodes:world.areas.map(a=>a.id),edges,states,
+   current:areaId,seen:exploredAreas.size,total:world.areas.length};
+ }
+ const area=world.areas[areaId],edges=mapRoomEdges(world,areaId),states={};
+ for(const id of area.rooms)states[id]=visited.has(id)?2:0;
+ const openness={forest:.73,desert:1,tundra:.48,ruins:.35}[area.biome]??.6;
+ for(const e of edges){
+  const candidate=states[e.from]===2&&states[e.to]===0?e.to:
+   states[e.to]===2&&states[e.from]===0?e.from:null;
+  if(candidate!==null&&seeded(world.seed,candidate*337+world.rooms[candidate].variant)<openness)
+   states[candidate]=1;
+ }
+ return{tab,areaId,nodes:[...area.rooms],edges,states,current:world.current,
+  seen:area.rooms.filter(id=>visited.has(id)).length,total:area.rooms.length};
+}
+function mapGraphLayout(nodes,edges){
+ const out={},used=new Set(),neighbors=new Map(nodes.map(id=>[id,[]]));
+ for(const e of edges){
+  neighbors.get(e.from)?.push({to:e.to,dir:e.dir});
+  neighbors.get(e.to)?.push({to:e.from,dir:(e.dir+2)%4});
+ }
+ const first=nodes[0];if(first===undefined)return out;
+ out[first]={x:0,y:0};used.add('0,0');
+ const queue=[first],moves=[[1,0],[0,1],[-1,0],[0,-1]];
+ while(queue.length){
+  const id=queue.shift(),at=out[id];
+  for(const edge of neighbors.get(id)||[]){
+   if(out[edge.to])continue;
+   const dir=moves[edge.dir],target={x:at.x+dir[0],y:at.y+dir[1]};
+   if(used.has(target.x+','+target.y)){
+    let found=false;
+    for(let r=1;r<15&&!found;r++)for(let dx=-r;dx<=r&&!found;dx++)for(let dy=-r;dy<=r&&!found;dy++){
+     if(Math.abs(dx)!==r&&Math.abs(dy)!==r)continue;
+     const x=target.x+dx,y=target.y+dy;
+     if(!used.has(x+','+y)){target.x=x;target.y=y;found=true;}
+    }
+   }
+   out[edge.to]=target;used.add(target.x+','+target.y);queue.push(edge.to);
+  }
+ }
+ return out;
+}
+function mapData(tab='area'){
+ const world=runState?.world;if(!world)return null;
+ const data=mapVisibility(world,tab);
+ return{...data,coords:mapGraphLayout(data.nodes,data.edges)};
+}
+function svgMap(tag,attrs={},value){
+ const el=document.createElementNS(MAP_NS,tag);
+ for(const [key,val] of Object.entries(attrs))el.setAttribute(key,String(val));
+ if(value!==undefined)el.textContent=value;
+ return el;
+}
+function renderWorldMap(){
+ const data=mapData(mapTab),svg=$('mapGraph');if(!data)return;
+ const world=runState.world,area=world.areas[data.areaId];
+ $('mapTitle').textContent=mapTab==='area'?'Mapa da área':'Mapa-múndi';
+ for(const [id,name] of [['areaMapTab','area'],['worldMapTab','world']]){
+  $(id).classList.toggle('active',mapTab===name);
+  $(id).setAttribute('aria-pressed',String(mapTab===name));
+ }
+ $('mapInfo').textContent=(mapTab==='area'?
+  area.name+' · '+data.seen+'/'+data.total+' salas visitadas.':
+  data.seen+'/'+data.total+' áreas descobertas.')+
+  ' ? = passagem ainda desconhecida. Abra o mapa para consultar, não para teleportar.';
+ svg.replaceChildren();
+ const visible=data.nodes.filter(id=>data.states[id]>0),distance=mapTab==='area'?76:112,pad=45;
+ const xx=visible.map(id=>data.coords[id].x),yy=visible.map(id=>data.coords[id].y);
+ const minX=Math.min(0,...xx),maxX=Math.max(0,...xx),minY=Math.min(0,...yy),maxY=Math.max(0,...yy);
+ const width=Math.max(360,(maxX-minX)*distance+2*pad),height=Math.max(180,(maxY-minY)*distance+2*pad);
+ svg.setAttribute('viewBox','0 0 '+width+' '+height);
+ const pos=id=>({x:pad+(data.coords[id].x-minX)*distance,y:pad+(data.coords[id].y-minY)*distance});
+ for(let x=0;x<width;x+=25)svg.appendChild(svgMap('line',{x1:x,x2:x,y1:0,y2:height,stroke:'#b0e8d6','stroke-opacity':.045}));
+ for(let y=0;y<height;y+=25)svg.appendChild(svgMap('line',{x1:0,x2:width,y1:y,y2:y,stroke:'#b0e8d6','stroke-opacity':.045}));
+ for(const edge of data.edges){
+  if(!data.states[edge.from]||!data.states[edge.to])continue;
+  const p=pos(edge.from),q=pos(edge.to),known=data.states[edge.from]===2&&data.states[edge.to]===2;
+  svg.appendChild(svgMap('line',{x1:p.x,y1:p.y,x2:q.x,y2:q.y,stroke:known?'#9be0bd':'#7495a1',
+   'stroke-width':4,'stroke-dasharray':known?'none':'5 6'}));
+ }
+ for(const id of visible){
+  const p=pos(id),state=data.states[id],current=id===data.current;
+  const itemArea=mapTab==='world'?world.areas[id]:area;
+  const color={forest:'#377856',desert:'#9d8050',tundra:'#678ca0',ruins:'#806da1'}[itemArea.biome];
+  const g=svgMap('g',{'data-map-node':id,'data-discovery':state,'data-current':current?'true':'false',
+   transform:'translate('+p.x+' '+p.y+')'});
+  g.appendChild(svgMap('rect',{x:-34,y:-22,width:68,height:44,rx:9,
+   fill:state===1?'#17313f':color,stroke:current?'#ffe7a0':state===2?'#92d6c1':'#7296a7',
+   'stroke-width':current?4:1.5,'stroke-dasharray':state===1?'4 3':'none'}));
+  const label=state===1?'?':mapTab==='area'?String(area.rooms.indexOf(id)+1):
+   itemArea.type==='village'?'VILA':itemArea.type==='boss'?'CHEFE':BIOMES[itemArea.biome].icon;
+  g.appendChild(svgMap('text',{x:0,y:5,'text-anchor':'middle','font-size':label.length>3?13:18,
+   'font-weight':900,'font-family':'system-ui,sans-serif',fill:'#edfff7'},label));
+  if(current)g.appendChild(svgMap('circle',{cx:25,cy:-17,r:6,fill:'#ffe2a1',stroke:'#fff1c5'}));
+  if(state===2&&mapTab==='area'&&world.memories[id]?.cleared)
+   g.appendChild(svgMap('circle',{cx:-27,cy:16,r:4,fill:'#9ceeb6'}));
+  g.appendChild(svgMap('title',{},state===1?'Passagem desconhecida':
+   mapTab==='area'?'Sala '+label:itemArea.name));
+  svg.appendChild(g);
+ }
+}
+function openWorldMap(tab='area'){
+ if(!runState?.active||!runState.world||$('creatorOverlay').classList.contains('open')
+  ||$('campaignOverlay').classList.contains('open')||$('abilityOverlay').classList.contains('open')
+  ||options.classList.contains('open')||$('drillPanel').classList.contains('open'))return false;
+ mapTab=tab==='world'?'world':'area';renderWorldMap();
+ $('worldMapOverlay').classList.add('open');joyReset();keys.clear();frameAccumulator=0;return true;
+}
+function closeWorldMap(){
+ $('worldMapOverlay').classList.remove('open');last=0;frameAccumulator=0;joyReset();keys.clear();
+}
+function toggleWorldMap(){
+ if($('worldMapOverlay').classList.contains('open'))closeWorldMap();else openWorldMap();
+}
+
 function roomById(id=runState?.room){return runState?.world?.rooms?.[id]||null;}
 function makeRoomGeometry(room){
  const tiles=[],walkable=new Set(),solid=new Set(),props=[];
@@ -1413,7 +1594,7 @@ function enterWorldRoom(id,from=null){
  selectedEnemy=Math.floor(seeded(world.seed,id*17)*3);
  enemies=[];respawn=0;player.act=null;player.buffer=null;player.seq='';player.seqTimer=0;
  player.dodge=0;player.parryWindow=0;player.attackLock=0;player.velX=0;player.velZ=0;
- player.knockX=0;player.knockZ=0;player.invuln=Math.max(player.invuln||0,.55);
+ player.knockX=0;player.knockZ=0;player.meleeGuard=0;player.invuln=Math.max(player.invuln||0,.55);
  const fromDoor=room.exits.find(e=>e.to===from);
  const point=fromDoor?ROOM_DIRECTIONS[fromDoor.dir]:{dx:0,dz:0};
  // Surge a dois tiles do portal de retorno, virado para dentro.
@@ -1504,7 +1685,7 @@ function drawWorldFloor(){
  v.addColorStop(0,'#0000');v.addColorStop(1,'#03101bb1');ctx.fillStyle=v;ctx.fillRect(0,0,w,h);
 }
 function kindForRoom(n){if(roomById(n))return roomById(n).kind;if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
-function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character),r=roomById(),area=r?runState.world.areas[r.area]:null;h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+(area?.name||b.name)+' · SALA '+(area?area.rooms.indexOf(r.id)+1+'/'+area.rooms.length:runState.room)+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);}
+function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character),r=roomById(),area=r?runState.world.areas[r.area]:null;h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+(area?.name||b.name)+' · SALA '+(area?area.rooms.indexOf(r.id)+1+'/'+area.rooms.length:runState.room)+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);$('worldMapBtn').hidden=!(runState?.active&&runState.world);}
 function chooseRegion(seed){return Object.keys(BIOMES)[Math.floor(seeded(seed,1)*Object.keys(BIOMES).length)];}
 function readSave(){try{const x=JSON.parse(localStorage.getItem(RUN_KEY)||'null');return x?.version===21&&x?.run?.active&&x?.player?.hp>0&&BIOMES[x.run.region]&&x.progress?x:null;}catch(e){return null;}}
 function saveCampaign(){if(!runState?.active||!player||player.hp<=0)return;try{
@@ -1620,7 +1801,7 @@ function makeEnemy(styleIndex=selectedEnemy){
  const profile=FOES[styleIndex];return{x:profile.id==='berserker'?3.60:2.45,z:-.8,hp:Math.round(profile.life*BALANCE[settings.difficulty].enemyHp),maxHp:Math.round(profile.life*BALANCE[settings.difficulty].enemyHp),balance:profile.balance,maxBalance:profile.balance,balanceTimer:0,face:{x:-1,z:0},phase:'chase',wind:0,windMax:.75,strike:0,strikeMax:0,recover:0,cooldown:(profile.id==='berserker'?.50:1.1)*BALANCE[settings.difficulty].cooldown,stun:0,flash:0,knockX:0,knockZ:0,walk:0,hit:false,attackCount:0,type:'light',style:profile.id,title:profile.title,color:profile.color,aiSpeed:profile.speed,preferred:profile.reach,air:0,airVel:0,downTimer:0,downTotal:0,getup:0,launchCount:0,reaction:0,reactionDir:1,moveMagnitude:0,guardTime:0,guardCooldown:1.8,evade:0,evadeCooldown:1.6,iframe:0,side:1,feintCount:0,choice:styleIndex};
 }
 
-function reset(){clearInteractables();projectileEpoch++;rangedShots=[];eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);$('eliteBtn').textContent=eliteMode?'↩ ARENA':'♛ ELITE';if(drill.active){drill.score=0;drill.errors=0;drill.unique=new Set();drill.done=false;drill.attacks=0;drill.last='Objetivo iniciado · observe os golpes';}totalFlanks=0;totalCovers=0;totalPunishes=0;peakAttackers=0;lastTacticBanner=-10;lastAttackOrdered=-10;lastAttackInput=-10;rejectedInputs=0;simultaneousInputs=0;acceptedInputs=0;precisionHits=0;precisionMisses=0;parryAttempts=0;parryMisses=0;dodgeSaves=0;totalSwings=0;successfulSwings=0;maxChain=0;damageTimeline=[];lastWave=null;waveStart=0;waveStartDamage=0;waveStartTaken=0;waveStartParries=0;waveStartSwings=0;waveStartSuccess=0;totalHits=0;totalDamage=0;totalParries=0;totalDodges=0;totalTaken=0;player={x:0,z:0,hp:100+8*progress.ranks.vigor+heroBonuses().hp,maxHp:100+8*progress.ranks.vigor+heroBonuses().hp,mp:60+heroBonuses().mana,maxMp:60+heroBonuses().mana,face:{x:1,z:0},assist:false,act:null,buffer:null,bufferTime:0,attackLock:0,seq:'',seqTimer:0,chainReady:false,dodgeFollowup:0,dodgeChain:false,parryWindow:0,parryRecovery:0,parryCooldown:0,guardWindow:0,riposte:0,invuln:0,dodge:0,dodgeCooldown:0,dodgeDir:{x:0,z:0},velX:0,velZ:0,flash:0,walk:0,knockX:0,knockZ:0,reaction:0,reactionDir:1,moveMagnitude:0};enemy=null;nextEnemyId=0;wavesCleared=0;cam={x:0,z:0,zoom:1};particles=[];texts=[];arcs=[];rings=[];flashes=[];specials=[];pixelHits=[];dodgeEchoes=[];dodgeEchoClock=0;clock=0;shake=0;hitStop=0;screenFlash=0;kills=0;respawn=0;bannerTime=0;noticeTime=0;banner.classList.remove('visible');hintUI.textContent=eliteMode?'Dourado: parry · Vermelho: esquiva':'Ajuste a dificuldade em ⚖ · confira o relatório em ⚙';spawnWave();updateSettings();hud();if(drill.active){drill.start=clock;game.classList.add('in-drill');}drillRefresh();}
+function reset(){clearInteractables();projectileEpoch++;rangedShots=[];eliteVictory=false;game.classList.toggle('in-elite',eliteMode);$('eliteBtn').classList.toggle('active',eliteMode);$('eliteBtn').textContent=eliteMode?'↩ ARENA':'♛ ELITE';if(drill.active){drill.score=0;drill.errors=0;drill.unique=new Set();drill.done=false;drill.attacks=0;drill.last='Objetivo iniciado · observe os golpes';}totalFlanks=0;totalCovers=0;totalPunishes=0;peakAttackers=0;lastTacticBanner=-10;lastAttackOrdered=-10;lastAttackInput=-10;rejectedInputs=0;simultaneousInputs=0;acceptedInputs=0;precisionHits=0;precisionMisses=0;parryAttempts=0;parryMisses=0;dodgeSaves=0;totalSwings=0;successfulSwings=0;maxChain=0;damageTimeline=[];lastWave=null;waveStart=0;waveStartDamage=0;waveStartTaken=0;waveStartParries=0;waveStartSwings=0;waveStartSuccess=0;totalHits=0;totalDamage=0;totalParries=0;totalDodges=0;totalTaken=0;player={x:0,z:0,meleeGuard:0,hp:100+8*progress.ranks.vigor+heroBonuses().hp,maxHp:100+8*progress.ranks.vigor+heroBonuses().hp,mp:60+heroBonuses().mana,maxMp:60+heroBonuses().mana,face:{x:1,z:0},assist:false,act:null,buffer:null,bufferTime:0,attackLock:0,seq:'',seqTimer:0,chainReady:false,dodgeFollowup:0,dodgeChain:false,parryWindow:0,parryRecovery:0,parryCooldown:0,guardWindow:0,riposte:0,invuln:0,dodge:0,dodgeCooldown:0,dodgeDir:{x:0,z:0},velX:0,velZ:0,flash:0,walk:0,knockX:0,knockZ:0,reaction:0,reactionDir:1,moveMagnitude:0};enemy=null;nextEnemyId=0;wavesCleared=0;cam={x:0,z:0,zoom:1};particles=[];texts=[];arcs=[];rings=[];flashes=[];specials=[];pixelHits=[];dodgeEchoes=[];dodgeEchoClock=0;clock=0;shake=0;hitStop=0;screenFlash=0;kills=0;respawn=0;bannerTime=0;noticeTime=0;banner.classList.remove('visible');hintUI.textContent=eliteMode?'Dourado: parry · Vermelho: esquiva':'Ajuste a dificuldade em ⚖ · confira o relatório em ⚙';spawnWave();updateSettings();hud();if(drill.active){drill.start=clock;game.classList.add('in-drill');}drillRefresh();}
 function updateFoePicker(){const b=$('enemyPicker');b.textContent=`⚔ ARENA: ${squadSize===1?'DUELO':squadSize+' INIMIGOS'} ↻`;b.style.color='#8cefe4';$('targetPicker').textContent='◎ FOCO: '+(enemy?.name||enemy?.title||'—');}
 function switchFoe(){if(runState?.active)return;changeMode();}
 function note(main,sub='',duration=1){banner.replaceChildren(document.createTextNode(main));if(sub){const sm=document.createElement('small');sm.textContent=sub;banner.append(sm);}banner.classList.add('visible');bannerTime=duration;}
@@ -1793,6 +1974,24 @@ sfx('parry');player.parryWindow=0;player.parryRecovery=.08;player.parryCooldown=
 // POSTURA v2: pressão por arma e por golpe, independente do dano de vida.
 // Rajadas dividem um orçamento de pressão entre as flechas para evitar que um pesado
 // com cinco projéteis quebre a guarda cinco vezes mais rápido que o disparo triplo.
+
+// Risco/recompensa: combatentes próximos conservam mobilidade enquanto golpeiam.
+// Arco e cajado continuam fortes à distância, mas precisam se comprometer com o tiro.
+const COMBAT_MOVE_FACTORS={
+ warrior:{light:.98,heavy:.77},
+ guardian:{light:.94,heavy:.72},
+ rebel:{light:1.04,heavy:.85},
+ arcanist:{light:.76,heavy:.53},
+ hunter:{light:.79,heavy:.55}
+};
+function combatMoveFactor(archetype,act){
+ if(!act)return 1;
+ const p=COMBAT_MOVE_FACTORS[archetype]||COMBAT_MOVE_FACTORS.warrior;
+ return act.key.includes('H')?p.heavy:p.light;
+}
+function isMeleeArchetype(archetype=currentArchetype()){
+ return archetype==='warrior'||archetype==='guardian'||archetype==='rebel';
+}
 const POSTURE_PROFILES={
  warrior:{light:13,heavy:24,fin:34,break:36,rip:29,ext:41},
  guardian:{light:11,heavy:25,fin:32,break:38,rip:27,ext:45},
@@ -1846,6 +2045,10 @@ function playerHit(contact=false,target=null,externalAct=null){
    if(m.streak>=3){enemy.bossAdapt=1.6;enemy.bossAdaptiveCount++;m.streak=0;floating('PADRÃO LIDO!',enemy.x,enemy.z,'#ffd19a',14);}}
  }a.landed=true;if(move.ranged&&a.group)a.group.landed=true;
  if(a.hitIds.size>=2)floating('MULTIACERTO x'+a.hitIds.size,player.x,player.z,'#b3ffe3',15);
+ // Um acerto real de curto alcance concede proteção parcial e brevíssima.
+ // Não é invulnerabilidade e só suporta um impacto, preservando risco e parry.
+ if(!move.ranged&&isMeleeArchetype()&&d<=Math.max(2.1,move.reach+.3))
+  player.meleeGuard=Math.max(player.meleeGuard||0,move.fin?.46:.27);
  const guarding=enemy.phase==='guard'&&enemy.guardTime>0;
  const airborne=enemy.air>.05,downed=enemy.downTimer>0;
  const multiplier=move.execute&&downed?1.42:move.airBonus&&airborne?1.35:1;
@@ -1904,7 +2107,11 @@ function enemyDamage(){
  const baseDamage=enemy.style==='elite'?(enemy.type==='crush'?26:enemy.type==='thrust'?16:enemy.type==='dash'?18:14):enemy.type==='rush'?20:enemy.type==='heavy'?18:enemy.type==='quick'?10:12;const rawDamage=Math.max(1,Math.round(baseDamage*profile().enemyDamage*(1-.025*progress.ranks.ward)));
  const toward=unit(enemy.x-player.x,enemy.z-player.z),frontal=player.face.x*toward.x+player.face.z*toward.z;
  const shielded=currentArchetype()==='guardian'&&(player.guardWindow||0)>0&&frontal>.12&&!(enemy.style==='elite'&&enemy.type==='crush');
- const damage=shielded?Math.max(1,Math.round(rawDamage*.40)):rawDamage;
+ const engaged=!shielded&&isMeleeArchetype()&&(player.meleeGuard||0)>0&&frontal>-.15;
+ const damage=shielded?Math.max(1,Math.round(rawDamage*.40)):
+  engaged?Math.max(1,Math.round(rawDamage*.78)):rawDamage;
+ if(engaged)floating('APARO −'+(rawDamage-damage),player.x,player.z,'#9eead4',13);
+ player.meleeGuard=0;
  if(shielded){floating('ESCUDO! −'+(rawDamage-damage),player.x,player.z,'#a5ffe5',15);pixelImpact(player.x,player.z,'#8cffe2','guard',.75);player.guardWindow=0;sfx('guard');}
  player.hp=Math.max(drill.active?1:0,player.hp-damage);if(drill.active&&player.hp<=20){player.hp=100;drillFailure('Recebeu golpes; vida restaurada para continuar.');}totalTaken+=damage;sfx('hurt');player.flash=.27;player.reaction=.30;player.reactionDir=enemy.face.x*player.face.z-enemy.face.z*player.face.x<0?-1:1;player.invuln=profile().postHitIframes;
  player.knockX+=vec.x*3.9;player.knockZ+=vec.z*3.9;player.act=null;player.buffer=null;player.bufferTime=0;player.seq='';player.seqTimer=0;player.chainReady=false;player.dodgeChain=false;player.dodgeFollowup=0;player.riposte=0;
@@ -2236,7 +2443,7 @@ function drawInteractables(){
  for(const p of pixelHits)p.life-=dt;pixelHits=pixelHits.filter(p=>p.life>0);
  for(const g of dodgeEchoes)g.life-=dt;dodgeEchoes=dodgeEchoes.filter(g=>g.life>0);
  screenFlash=Math.max(0,screenFlash-dt*2.5);
- player.reaction=Math.max(0,(player.reaction||0)-dt);player.flash=Math.max(0,player.flash-dt);player.invuln=Math.max(0,player.invuln-dt);player.seqTimer=Math.max(0,player.seqTimer-dt);if(player.seqTimer===0)player.chainReady=false;player.dodgeFollowup=Math.max(0,player.dodgeFollowup-dt);if(player.dodgeFollowup===0)player.dodgeChain=false;player.riposte=Math.max(0,player.riposte-dt);player.parryCooldown=Math.max(0,player.parryCooldown-dt);player.guardWindow=Math.max(0,(player.guardWindow||0)-dt);player.attackLock=Math.max(0,player.attackLock-dt);
+ player.meleeGuard=Math.max(0,(player.meleeGuard||0)-dt);player.reaction=Math.max(0,(player.reaction||0)-dt);player.flash=Math.max(0,player.flash-dt);player.invuln=Math.max(0,player.invuln-dt);player.seqTimer=Math.max(0,player.seqTimer-dt);if(player.seqTimer===0)player.chainReady=false;player.dodgeFollowup=Math.max(0,player.dodgeFollowup-dt);if(player.dodgeFollowup===0)player.dodgeChain=false;player.riposte=Math.max(0,player.riposte-dt);player.parryCooldown=Math.max(0,player.parryCooldown-dt);player.guardWindow=Math.max(0,(player.guardWindow||0)-dt);player.attackLock=Math.max(0,player.attackLock-dt);
  if(player.buffer){player.bufferTime-=dt;if(player.bufferTime<=0){player.buffer=null;player.bufferTime=0;}}
  const parryBefore=player.parryWindow;player.parryWindow=Math.max(0,player.parryWindow-dt);if(parryBefore>0&&player.parryWindow===0){parryMisses++;if(drill.mode==='parry')drillFailure('Parry antecipado: aguarde mais perto do contato.');}player.parryRecovery=Math.max(0,player.parryRecovery-dt);player.dodgeCooldown=Math.max(0,player.dodgeCooldown-dt);
  if(player.hp>0){
@@ -2266,7 +2473,7 @@ function drawInteractables(){
    }
    if(player.dodge===0&&player.buffer&&player.bufferTime>0){const type=player.buffer;player.buffer=null;player.bufferTime=0;startAttack(type);}
   }else{
-   const speed=3.95*(1+.02*progress.ranks.mobility+heroBonuses().speed)*(player.parryRecovery>0?.74:player.act?(player.act.key.includes('H')?.59:.89):1);
+   const speed=3.95*(1+.02*progress.ranks.mobility+heroBonuses().speed)*(player.parryRecovery>0?.74:combatMoveFactor(currentArchetype(),player.act));
    // Fast start, controlled stop: joystick never feels sluggish or slippery.
    const response=length(v.x,v.z)>.01?20:27;
    player.velX=mix(player.velX,v.x*speed,1-Math.exp(-response*dt));
@@ -2798,7 +3005,7 @@ function loop(ts){
  fpsTime+=elapsed;
  if(fpsTime>=.85){actualFps=Math.round(fpsFrames/fpsTime);fpsFrames=0;fpsTime=0;
   if(settings.showFps)$('fpsPanel').textContent=`${actualFps} FPS · ${Math.round(dpr*100)}% pixels${settings.economy?' · ECO':''}`;}
- const paused=guide.classList.contains('open')||options.classList.contains('open')||$('drillPanel').classList.contains('open')||$('campaignOverlay').classList.contains('open')||$('abilityOverlay').classList.contains('open')||$('creatorOverlay').classList.contains('open')||(!runState?.active&&!drill.active)||document.hidden;
+ const paused=$('worldMapOverlay').classList.contains('open')||guide.classList.contains('open')||options.classList.contains('open')||$('drillPanel').classList.contains('open')||$('campaignOverlay').classList.contains('open')||$('abilityOverlay').classList.contains('open')||$('creatorOverlay').classList.contains('open')||(!runState?.active&&!drill.active)||document.hidden;
  if(!paused){
   frameAccumulator=Math.min(.075,frameAccumulator+elapsed);let count=0;
   while(frameAccumulator>=1/60&&count<5){const step=1/60;if(hitStop>0){hitStop=Math.max(0,hitStop-step);update(step*.08);}else update(step);frameAccumulator-=step;count++;}
@@ -2829,8 +3036,13 @@ game.addEventListener('pointerdown',e=>{
 game.addEventListener('pointermove',e=>{if(joyCapture===game&&e.pointerId===joyId)joyMove(e);});
 for(const evt of ['pointerup','pointercancel','lostpointercapture'])game.addEventListener(evt,e=>{if(joyCapture===game)joyEnd(e);});
 function bindButton(id,fn){const el=$(id);el.addEventListener('pointerdown',e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(err){}el.classList.add('pressed');unlockAudio();fn();});for(const event of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(event,()=>el.classList.remove('pressed'));}
+$('worldMapBtn').addEventListener('click',toggleWorldMap);
+$('closeWorldMap').addEventListener('click',closeWorldMap);
+$('areaMapTab').addEventListener('click',()=>{mapTab='area';renderWorldMap();});
+$('worldMapTab').addEventListener('click',()=>{mapTab='world';renderWorldMap();});
+$('worldMapOverlay').addEventListener('pointerdown',e=>{if(e.target===$('worldMapOverlay'))closeWorldMap();});
 $('interactBtn').addEventListener('click',interactWithNearest);bindButton('light',()=>attack('L'));bindButton('heavy',()=>attack('H'));bindButton('parry',parry);bindButton('dodge',dodge);
-window.addEventListener('keydown',e=>{if($('creatorOverlay').classList.contains('open')){if(e.key==='Escape')cancelCharacterCreator();return;}const k=e.key.toLowerCase();if(['j','k','l',' '].includes(k))unlockAudio();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();keys.add(k);if(e.repeat)return;if(k==='escape'){guide.classList.remove('open');closeOptions();closeLab();return;}if($('drillPanel').classList.contains('open')||options.classList.contains('open'))return;if(k==='f'){interactWithNearest();return;}if(k==='t'){openLab();return;}if(k==='v'){toggleElite();return;}if(k==='z'){repositionLab();return;}if(k==='r')showCampaignMenu();if(k==='?'||k==='h'){renderWeaponCombos();guide.classList.toggle('open');}if(k==='j')attack('L');if(k==='k')attack('H');if(k==='l')parry();if(k===' ')dodge();if(k==='m')toggleAim();if(k==='q')switchFoe();if(k==='b')cycleDifficulty();if(k==='e')cycleTarget();});
+window.addEventListener('keydown',e=>{if($('creatorOverlay').classList.contains('open')){if(e.key==='Escape')cancelCharacterCreator();return;}const k=e.key.toLowerCase();if(k==='tab'){e.preventDefault();if(!e.repeat)toggleWorldMap();return;}if($('worldMapOverlay').classList.contains('open')){if(k==='escape')closeWorldMap();return;}if(['j','k','l',' '].includes(k))unlockAudio();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();keys.add(k);if(e.repeat)return;if(k==='escape'){guide.classList.remove('open');closeOptions();closeLab();return;}if($('drillPanel').classList.contains('open')||options.classList.contains('open'))return;if(k==='f'){interactWithNearest();return;}if(k==='t'){openLab();return;}if(k==='v'){toggleElite();return;}if(k==='z'){repositionLab();return;}if(k==='r')showCampaignMenu();if(k==='?'||k==='h'){renderWeaponCombos();guide.classList.toggle('open');}if(k==='j')attack('L');if(k==='k')attack('H');if(k==='l')parry();if(k===' ')dodge();if(k==='m')toggleAim();if(k==='q')switchFoe();if(k==='b')cycleDifficulty();if(k==='e')cycleTarget();});
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();joyReset();});
 function toggleAim(){aimAssist=!aimAssist;$('aimToggle').textContent=aimAssist?'◎ MIRA AUTO':'◇ MIRA LIVRE';$('aimToggle').classList.toggle('off',!aimAssist);$('aimToggle').setAttribute('aria-pressed',String(aimAssist));player.assist=false;label(aimAssist?'Mira assistida ativada':'Mira livre ativada — direcione com o joystick',1.30);}
 $('fullscreenBtn').addEventListener('click',async()=>{try{if(!document.fullscreenElement)await game.requestFullscreen();else await document.exitFullscreen();if(screen.orientation?.lock&&document.fullscreenElement)await screen.orientation.lock('landscape');}catch(e){label('Gire o celular: a orientação depende do navegador.',2);}});
@@ -2855,6 +3067,9 @@ window.__rpgDebug.spriteHeadRect=(race,dir,frame)=>raceHeadRect(race,dir,frame);
 window.__rpgDebug.weaponJoystickFacing=()=>({...player.weaponFacing||player.face});
 window.__rpgDebug.weaponDisplayFacing=(face,joystick,archetype,progress=.5,attacking=false)=>
  weaponDisplayFacing({face,weaponFacing:joystick},archetype,attacking,false,progress);
+window.__rpgDebug.combatMoveFactor=combatMoveFactor;
+window.__rpgDebug.combatProfile=()=>({archetype:currentArchetype(),meleeGuard:player.meleeGuard||0});
+window.__rpgDebug.mapData=(tab='area')=>mapData(tab);window.__rpgDebug.openWorldMap=openWorldMap;window.__rpgDebug.closeWorldMap=closeWorldMap;
 window.__rpgDebug.worldForSeed=seed=>generateWorld(seed);
 window.__rpgDebug.worldRoomShape=room=>{const g=makeRoomGeometry(room);return{width:g.room.width,height:g.room.height,
  shape:g.room.shape,walkable:g.walkable.size,blocked:g.solid.size,
