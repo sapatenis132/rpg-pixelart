@@ -2079,7 +2079,7 @@ function figure(u,team){
  lean+=dodging?.09:0;
  lean+=(u.reactionDir||1)*stagger*.08;
  ctx.rotate(lean);
- if(img?.complete&&img.naturalWidth){
+ if(img&&(img.naturalWidth||img.width)){
    if(!alive)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
    const bounce=moving?Math.abs(Math.sin(u.walk||0))*2:0;
