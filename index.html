@@ -437,27 +437,32 @@ const ATTACKS={
 // ARQUÉTIPOS v1: armas e física de combate. Sem habilidades especiais nem conteúdo narrativo.
 const ARCHETYPE_OPTIONS={
  warrior:{name:'Guerreiro',weapon:'Espada',desc:'Combos de cortes, rupturas e finalizadores.'},
- arcanist:{name:'Arcanista',weapon:'Cajado',desc:'Projéteis mágicos leves e disparo forte maior. Não consome mana.'},
+ arcanist:{name:'Arcanista',weapon:'Cajado',desc:'Faíscas, salvas encadeadas e orbes maiores, sem consumo de mana.'},
  guardian:{name:'Guardião',weapon:'Espada e escudo',desc:'Cortes firmes, pancadas de escudo e proteção frontal.'},
  rebel:{name:'Rebelde',weapon:'Adaga',desc:'Golpes curtos e velozes, com sequências rápidas.'},
- hunter:{name:'Caçador',weapon:'Arco',desc:'Flecha individual no leve e múltiplas flechas no pesado.'}
+ hunter:{name:'Caçador',weapon:'Arco',desc:'Flechas rápidas, rajadas e flechas gigantes perfurantes nos finalizadores.'}
 };
 const ranged=(name,dmg,dur,impact,speed,count=1,extra={})=>({name,dmg,dur,impact,reach:8,knock:.35,stun:.12,angle:1,ranged:true,speed,shots:count,...extra});
 const dagger=(name,dmg,dur,reach=1.42,extra={})=>({name,dmg,dur,impact:.38,reach,knock:.24,stun:.12,angle:1,...extra});
 const WEAPON_MOVES={
  arcanist:{
   L:ranged('Faísca',10,.35,.40,10,1,{magic:true}),
-  LL:ranged('Pulso Arcano',12,.34,.40,10.7,1,{magic:true}),
-  LLL:ranged('Rajada Arcana',15,.39,.44,11,1,{magic:true}),
+  LL:ranged('Faíscas Gêmeas',9,.37,.40,10.6,2,{magic:true,spread:.055,delayStep:.055}),
+  LLL:ranged('Tríade Arcana',8,.43,.43,11,3,{magic:true,spread:.08,delayStep:.055,fin:true}),
   H:ranged('Orbe Maior',24,.71,.53,7.2,1,{magic:true,heavyShot:true,knock:1.05}),
-  LH:ranged('Orbe Acelerado',25,.66,.50,8.4,1,{magic:true,heavyShot:true}),
-  HL:ranged('Faísca de Retorno',11,.31,.37,11,1,{magic:true}),
-  HH:ranged('Orbe Concentrado',30,.81,.56,7.5,1,{magic:true,heavyShot:true,knock:1.2}),
-  LLH:ranged('Pulso Maior',27,.69,.50,8.4,1,{magic:true,heavyShot:true}),
-  LHL:ranged('Pulsos Encadeados',13,.34,.42,11,1,{magic:true}),
-  LLLH:ranged('Orbe da Sequência',31,.73,.54,7.7,1,{magic:true,heavyShot:true,knock:1.2}),
-  HLH:ranged('Orbe de Resposta',27,.67,.50,8.3,1,{magic:true,heavyShot:true}),
-  HLL:ranged('Eco Arcano',16,.38,.42,10,1,{magic:true}),
+  LH:ranged('Pulso Duplo',13,.63,.49,8.7,2,{magic:true,spread:.065,delayStep:.075,heavyShot:true}),
+  HL:ranged('Resposta Geminada',8,.37,.40,11.2,2,{magic:true,spread:.04,delayStep:.045}),
+  HH:ranged('Orbes Convergentes',19,.83,.54,7.6,2,{magic:true,heavyShot:true,spread:.06,delayStep:.085,fin:true,knock:1.05}),
+  LLH:ranged('Rajada de Três Pulsos',12,.68,.49,9,3,{magic:true,spread:.065,delayStep:.07,fin:true}),
+  LHL:ranged('Eco Arcano Triplo',8,.43,.43,11,3,{magic:true,spread:.045,delayStep:.048}),
+  LHH:ranged('Orbe Focal',33,.77,.52,7.4,1,{magic:true,heavyShot:true,fin:true,knock:1.25}),
+  HLL:ranged('Onda de Faíscas',9,.45,.43,11,3,{magic:true,spread:.11,delayStep:.04,fin:true}),
+  HLH:ranged('Coroa Arcana',11,.70,.49,9.4,3,{magic:true,spread:.08,delayStep:.055,fin:true}),
+  LLLH:ranged('Constelação Arcana',11,.79,.51,9.5,4,{magic:true,spread:.075,delayStep:.055,heavyShot:true,fin:true,ext:true}),
+  LLHL:ranged('Retorno de Pulsos',11,.41,.42,11,3,{magic:true,spread:.05,delayStep:.045,fin:true,ext:true}),
+  LHLH:ranged('Orbe da Sequência',34,.76,.53,7.6,1,{magic:true,heavyShot:true,fin:true,ext:true,knock:1.2}),
+  HLLH:ranged('Estouro Arcano',13,.78,.52,9,3,{magic:true,spread:.07,delayStep:.06,heavyShot:true,fin:true,ext:true}),
+  HLHL:ranged('Eco de Quatro Faíscas',9,.57,.44,11,4,{magic:true,spread:.085,delayStep:.05,fin:true,ext:true}),
   RIP_L:ranged('Reação Arcana',14,.28,.36,10,1,{magic:true}),
   RIP_H:ranged('Resposta Arcana',25,.50,.46,8,1,{magic:true,heavyShot:true}),
   DASH_L:ranged('Faísca de Esquiva',11,.28,.37,10,1,{magic:true}),
@@ -465,17 +470,22 @@ const WEAPON_MOVES={
  },
  hunter:{
   L:ranged('Flecha Veloz',11,.38,.43,12),
-  LL:ranged('Flecha Rápida',12,.36,.41,12.5),
-  LLL:ranged('Terceira Flecha',15,.40,.43,13),
+  LL:ranged('Segunda Flecha',13,.35,.41,12.5),
+  LLL:ranged('Disparo Duplo',9,.48,.43,13,2,{spread:.065,delayStep:.07,fin:true}),
   H:ranged('Tiro Triplo',10,.72,.51,11,3,{heavyShot:true,spread:.15}),
-  LH:ranged('Disparo em Leque',11,.69,.51,12,3,{heavyShot:true,spread:.15}),
-  HL:ranged('Flecha de Retorno',12,.35,.40,12),
-  HH:ranged('Cinco Flechas',10,.88,.57,12,5,{heavyShot:true,spread:.14}),
-  LLH:ranged('Rajada de Flechas',11,.70,.52,12,3,{heavyShot:true,spread:.13}),
-  LHL:ranged('Flecha Guiada',15,.39,.43,13),
-  LLLH:ranged('Rajada Final',12,.76,.54,12,3,{heavyShot:true,spread:.12}),
-  HLH:ranged('Tiro de Retorno',11,.69,.49,12,3,{heavyShot:true,spread:.13}),
-  HLL:ranged('Flecha Rápida',13,.36,.42,13),
+  LH:ranged('Leque de Flechas',10,.69,.51,12,3,{heavyShot:true,spread:.17}),
+  HL:ranged('Flecha de Retorno',13,.35,.40,12),
+  HH:ranged('Cinco Flechas',10,.88,.57,12,5,{heavyShot:true,spread:.14,fin:true}),
+  LLH:ranged('Flecha Perfurante',30,.78,.54,12.5,1,{heavyShot:true,largeArrow:true,pierce:2,knock:1.1,fin:true}),
+  LHL:ranged('Tiro Preciso',17,.45,.44,13),
+  LHH:ranged('Flecha de Impacto',34,.84,.54,12,1,{heavyShot:true,largeArrow:true,pierce:2,knock:1.3,fin:true}),
+  HLL:ranged('Flechas Encadeadas',10,.52,.44,13,2,{spread:.055,delayStep:.065,fin:true}),
+  HLH:ranged('Flecha de Ruptura',32,.76,.51,12,1,{heavyShot:true,largeArrow:true,pierce:2,knock:1.2,fin:true}),
+  LLLH:ranged('Flecha Colossal',40,.98,.56,11.5,1,{heavyShot:true,largeArrow:true,pierce:2,knock:1.65,fin:true,ext:true}),
+  LLHL:ranged('Flechas de Rebate',11,.54,.45,12.5,3,{spread:.085,delayStep:.055,fin:true,ext:true}),
+  LHLH:ranged('Flecha Pesada',36,.86,.55,12,1,{heavyShot:true,largeArrow:true,pierce:2,knock:1.35,fin:true,ext:true}),
+  HLLH:ranged('Flecha do Arremate',38,.90,.56,12,1,{heavyShot:true,largeArrow:true,pierce:2,knock:1.4,fin:true,ext:true}),
+  HLHL:ranged('Três Flechas de Retorno',11,.63,.49,12,3,{spread:.1,delayStep:.04,fin:true,ext:true}),
   RIP_L:ranged('Contraflecha',14,.34,.39,12),
   RIP_H:ranged('Tiro Triplo de Retorno',11,.63,.48,12,3,{heavyShot:true,spread:.14}),
   DASH_L:ranged('Flecha de Esquiva',12,.32,.41,12),
@@ -1112,7 +1122,9 @@ function startAttack(type){
   const prior=player.seqTimer>0?player.seq:'';
   let next=prior+type;
   const moves=currentWeaponMoves();
-  if(prior&&moves[prior]?.fin&&(!player.chainReady||EXTENSIONS[prior]!==type))next=type;
+  // Projéteis viajam após o disparo: extensões à distância dependem da
+  // janela e da execução do tiro, não de um impacto que pode ocorrer mais tarde.
+  if(prior&&moves[prior]?.fin&&!moves[prior]?.ranged&&(!player.chainReady||EXTENSIONS[prior]!==type))next=type;
   if(next.length>4||!moves[next])next=type;
   key=next;player.seq=next;player.seqTimer=1.30;player.chainReady=false;
  }
@@ -1663,7 +1675,7 @@ function drawInteractables(){
      player.buffer=null;player.bufferTime=0;
      if(buffered && (a.landed||a.launched)&&!a.mashed){startAttack(buffered);}
      else {
-      if(!a.landed||a.mashed){player.seq='';player.seqTimer=0;player.chainReady=false;}
+      if((!a.landed&&!a.launched)||a.mashed){player.seq='';player.seqTimer=0;player.chainReady=false;}
       player.attackLock=a.key.includes('H')?.18:.095;
      }
     }
