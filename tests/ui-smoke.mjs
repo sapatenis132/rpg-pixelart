@@ -622,6 +622,7 @@ try{
      if(type==='colossal_tree'){
       if(data.props.filter(x=>x.type==='trunk').length<12)
        errors.push({seed,type,reason:'árvore monumental sem tronco'});
+      if(data.paths.filter(x=>x[1]==='water').length<15)errors.push({seed,type,reason:'falta água abaixo das raízes'});
       if(data.paths.filter(x=>x[1]==='rootFloor').length<40)
        errors.push({seed,type,reason:'raízes não são o chão de ponte'});
      }
@@ -634,6 +635,8 @@ try{
     assert.ok(n>=60&&n<=145,'frequência do spawn '+name+' deve ser razoável: '+n);
    for(const [kind,seed] of Object.entries(analysis.seeds)){
     await page.evaluate(seed=>window.__rpgDebug.debugStartSeed(seed),seed);
+    // Aguarda o aviso de entrada desaparecer para inspecionar a arte real.
+    await page.evaluate(()=>{for(let t=0;t<250;t++)window.__rpgDebug.testTick(1/60);});
     const started=await page.evaluate(()=>({
      snapshot:window.__rpgDebug.snapshot(),
      info:window.__rpgDebug.worldRoomInfo()
