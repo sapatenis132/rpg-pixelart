@@ -425,7 +425,8 @@ try{
    });
    assert.deepEqual(generated.errors,[],'todas as áreas e passagens devem ser acessíveis');
    assert.ok(generated.worlds>=70,'cada run deve variar bastante');
-   assert.equal(generated.shapes.length,5,'cinco topologias de sala');
+   assert.ok(generated.shapes.includes('spawn'),'salas autorais aparecem entre os formatos');
+    assert.equal(generated.shapes.length,6,'cinco formatos genéricos mais o formato autoral');
    assert.ok(generated.singles>=100,'cada mundo terá áreas de sala única');
    assert.ok(generated.bigs>=100,'salas de tamanho grande');
    await page.evaluate(()=>window.__rpgDebug.newCampaign());
@@ -560,6 +561,118 @@ try{
    assert.ok(balance.contact.meleeGuard>0,'acerto em combate próximo gera aparo temporário');
    assert.ok(balance.contact.meleeGuard<=.46,'não deve gerar defesa permanente');
    assert.ok(balance.snap.hits>0,'benefício apenas após impacto conectado');
+  }
+
+  // ETAPA 27C: os três spawns são templates físicos, não apenas imagens.
+  if(width===854&&height===480){
+   const analysis=await page.evaluate(()=>{
+    const debug=window.__rpgDebug,seen=new Set(),seeds={},errors=[],count={};
+    const expected={
+     flower_clearing:[1],
+     ruined_gate:[3],
+     colossal_tree:[0,1]
+    };
+    for(let seed=1;seed<=300;seed++){
+     const data=debug.spawnGeometry(seed),world=debug.worldForSeed(seed);
+     const type=data.template,room=data.room,spawn=data.spawn;
+     seen.add(type);count[type]=(count[type]||0)+1;
+     if(seeds[type]===undefined)seeds[type]=seed;
+     if(room.id!==1||room.kind!=='empty'||world.rooms[1].spawnTemplate!==type)
+      errors.push({seed,type,reason:'primeira sala não está segura'});
+     if(JSON.stringify(world)!==JSON.stringify(debug.worldForSeed(seed)))
+      errors.push({seed,type,reason:'seed instável'});
+     const connected=room.exits.map(e=>e.dir);
+     for(const dir of expected[type]||[])if(!connected.includes(dir))
+      errors.push({seed,type,reason:'saída da referência desapareceu',dir});
+     const floor=new Set(data.walkable),solid=new Set(data.solid);
+     const start=Math.floor(spawn.x)+','+Math.floor(spawn.z);
+     if(!floor.has(start)||solid.has(start))
+      errors.push({seed,type,reason:'nascimento sem chão livre',start});
+     const visited=new Set([start]),queue=[start],neighbors=[[1,0],[-1,0],[0,1],[0,-1]];
+     while(queue.length){
+      const [x,z]=queue.shift().split(',').map(Number);
+      for(const [dx,dz] of neighbors){
+       const key=(x+dx)+','+(z+dz);
+       if(visited.has(key)||!floor.has(key)||solid.has(key))continue;
+       visited.add(key);queue.push(key);
+      }
+     }
+     for(const e of room.exits){
+      const k=(e.dir===0?Math.floor(room.width/2-.72):e.dir===2?Math.floor(-room.width/2+.72):0)+','+
+        (e.dir===1?Math.floor(room.height/2-.72):e.dir===3?Math.floor(-room.height/2+.72):0);
+      if(!visited.has(k))errors.push({seed,type,reason:'saída sem caminho',k});
+      if(!world.rooms[e.to]?.exits.some(x=>x.to===1&&x.dir===(e.dir+2)%4))
+       errors.push({seed,type,reason:'passagem sem retorno'});
+     }
+     if(data.props.some(o=>o.type==='bush'))
+      errors.push({seed,type,reason:'vegetação aleatória em spawn autoral'});
+     if(type==='flower_clearing'){
+      const flowers=data.decor.filter(x=>x.type==='flower');
+      const trees=data.props.filter(x=>x.type==='tree');
+      if(flowers.length<40||trees.length<8)errors.push({seed,type,reason:'flores ou árvores ausentes',flowers:flowers.length,trees:trees.length});
+      for(const flo of flowers)if(Math.abs(flo.x)<2.1&&flo.z>=-1||Math.hypot(flo.x,flo.z)<1.9)
+       errors.push({seed,type,reason:'canteiro invade o caminho/spawn'});
+     }
+     if(type==='ruined_gate'){
+      if(data.props.filter(x=>x.type==='archPillar').length<10)
+       errors.push({seed,type,reason:'pilares do arco ausentes'});
+      if(solid.has('0,-4')||solid.has('0,-3'))
+       errors.push({seed,type,reason:'vão central do arco bloqueado'});
+     }
+     if(type==='colossal_tree'){
+      if(data.props.filter(x=>x.type==='trunk').length<12)
+       errors.push({seed,type,reason:'árvore monumental sem tronco'});
+      if(data.paths.filter(x=>x[1]==='water').length<15)errors.push({seed,type,reason:'falta água abaixo das raízes'});
+      if(data.paths.filter(x=>x[1]==='rootFloor').length<40)
+       errors.push({seed,type,reason:'raízes não são o chão de ponte'});
+     }
+    }
+    return{count,seen:[...seen],seeds,errors:errors.slice(0,15)};
+   });
+   assert.deepEqual(analysis.errors,[],'todos os pontos de nascimento devem ser transitáveis');
+   assert.deepEqual(new Set(analysis.seen),new Set(['flower_clearing','ruined_gate','colossal_tree']));
+   for(const [name,n] of Object.entries(analysis.count))
+    assert.ok(n>=60&&n<=145,'frequência do spawn '+name+' deve ser razoável: '+n);
+   for(const [kind,seed] of Object.entries(analysis.seeds)){
+    await page.evaluate(seed=>window.__rpgDebug.debugStartSeed(seed),seed);
+    // Aguarda o aviso de entrada desaparecer para inspecionar a arte real.
+    await page.evaluate(()=>{for(let t=0;t<250;t++)window.__rpgDebug.testTick(1/60);});
+    const started=await page.evaluate(()=>({
+     snapshot:window.__rpgDebug.snapshot(),
+     info:window.__rpgDebug.worldRoomInfo()
+    }));
+    assert.equal(started.snapshot.run.world.rooms[1].spawnTemplate,kind,'o cenário deve aparecer na campanha real');
+    assert.equal(started.snapshot.foes.length,0,'jogador não começa no meio de combate');
+    assert.equal(started.snapshot.run.cleared,true,'spawn é área segura');
+    assert.ok(started.info.walkable,'personagem está no solo e não preso');
+    assert.equal(started.snapshot.run.world.memories[1].cleared,true,'spawn fica persistido');
+    await page.screenshot({path:resolve(root,'screenshots','spawn-'+kind+'.png')});
+    const back=await page.evaluate(()=>{
+     const d=window.__rpgDebug,from=d.snapshot().run.world.rooms[1].exits[0];
+     const next=d.worldTravelNeighbor(from.dir);
+     if(!next)return{ok:false};
+     const edge=d.snapshot().run.world.rooms[d.snapshot().run.world.current].exits.find(e=>e.to===1);
+     const home=d.worldTravelNeighbor(edge.dir);
+     d.worldSave();
+     return{ok:home,kind:d.snapshot().run.world.rooms[1].spawnTemplate,cleared:d.snapshot().run.world.memories[1].cleared};
+    });
+    assert.ok(back.ok,'o spawn deve permitir ida e volta');
+    assert.equal(back.kind,kind,'modelo não se perde ao retornar');
+    assert.ok(back.cleared,'sem resetar spawn ao voltar');
+   }
+   const last=await page.evaluate(()=>window.__rpgDebug.snapshot().run.world.rooms[1].spawnTemplate);
+   await page.reload();
+   await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+   await page.evaluate(()=>{
+    const raw=JSON.parse(localStorage.getItem('rpg_pixelart_active_run_v21'));
+    window.__rpgDebug.resumeCampaign(raw);
+   });
+   const restored=await page.evaluate(()=>({
+    kind:window.__rpgDebug.snapshot().run.world.rooms[1].spawnTemplate,
+    passable:window.__rpgDebug.worldRoomInfo().walkable
+   }));
+   assert.equal(restored.kind,last,'retomar campanha conserva mapa inicial sorteado');
+   assert.ok(restored.passable,'colisões restauradas corretamente');
   }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
