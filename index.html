@@ -1340,12 +1340,131 @@ const ROOM_DIRECTIONS=[
  {dx:1,dz:0,name:'LESTE'}, {dx:0,dz:1,name:'SUL'},
  {dx:-1,dz:0,name:'OESTE'}, {dx:0,dz:-1,name:'NORTE'}
 ];
+
+// ETAPA 27C — três modelos de sala inicial; a seed escolhe o modelo sem
+// alterar o layout essencial. As variações afetam somente detalhes.
+const SPAWN_TEMPLATES={
+ flower_clearing:{name:'Clareira Florida',biome:'forest',width:24,height:22,exit:1,spawn:{x:0,z:0}},
+ ruined_gate:{name:'Portão Arruinado',biome:'ruins',width:24,height:22,exit:3,spawn:{x:0,z:3}},
+ colossal_tree:{name:'Árvore Colossal',biome:'forest',width:26,height:24,exit:0,spawn:{x:0,z:3}}
+};
+const SPAWN_IDS=Object.keys(SPAWN_TEMPLATES);
+function spawnForSeed(seed){return SPAWN_IDS[Math.floor(seeded(seed,6501)*SPAWN_IDS.length)];}
+function buildSpawnGeometry(g){
+ const room=g.room,kind=room.spawnTemplate,hw=g.hw,hh=g.hh,seed=room.variant;
+ const center=SPAWN_TEMPLATES[kind].spawn;
+ const key=(x,z)=>x+','+z;
+ const cell=(x,z)=>g.walkable.has(key(x,z));
+ const hasRoute=(x,z)=>{
+  if(Math.hypot(x-center.x,z-center.z)<2.15)return true;
+  for(const e of room.exits){
+   if(e.dir===0&&x>=-1&&Math.abs(z)<1.75)return true;
+   if(e.dir===2&&x<=1&&Math.abs(z)<1.75)return true;
+   if(e.dir===1&&z>=-1&&Math.abs(x)<1.75)return true;
+   if(e.dir===3&&z<=1&&Math.abs(x)<1.75)return true;
+  }
+  // Preserva vias naturais do interior para as extremidades da sala.
+  if(kind==='colossal_tree'&&(Math.abs(x)<1.55&&z>=0||x>=0&&Math.abs(z-3)<1.6))return true;
+  if(kind==='ruined_gate'&&Math.abs(x)<1.75&&z<=4)return true;
+  return false;
+ };
+ const solid=(x,z,type,v=0)=>{
+  if(!cell(x,z)||hasRoute(x+.5,z+.5)||g.solid.has(key(x,z)))return false;
+  g.solid.add(key(x,z));g.props.push({x,z,type,v});return true;
+ };
+ const decoration=(type,x,z,v=0)=>g.decor.push({type,x,z,v});
+ const paintPath=(x,z,type='path')=>{
+  if(cell(x,z))g.paths.set(key(x,z),type);
+ };
+ const minX=-Math.floor(room.width/2),minZ=-Math.floor(room.height/2);
+ if(kind==='flower_clearing'){
+  // Jardim em núcleos bem separados: nenhum arbusto aleatório entre flores.
+  const clusters=[[-4.1,-2.5],[3.8,-2.6],[-4.1,2.6],[4.0,2.7]];
+  for(const [index,[cx,cz]] of clusters.entries()){
+   const hue=Math.floor(seeded(seed,300+index)*4);
+   for(let i=0;i<18;i++){
+    const r=.28+Math.sqrt(seeded(seed,index*100+400+i))*(1.22+seeded(seed,index*200+i)*.14);
+    const a=seeded(seed,index*190+i+299)*Math.PI*2;
+    const x=cx+Math.cos(a)*r,z=cz+Math.sin(a)*r;
+    if(!cell(Math.floor(x),Math.floor(z)))continue;
+    if(Math.abs(x)<2.25&&z>-.8||Math.hypot(x,z)<1.9)continue;
+    decoration('flower',x,z,(hue+i)%5);
+   }
+  }
+  // Estrada inferior e vias centrais livres; não passam por cima dos canteiros.
+  for(let z=0;z<hh;z++)for(let x=-1;x<=1;x++)paintPath(x,z);
+  for(let x=-2;x<=2;x++)for(let z=-1;z<=1;z++)paintPath(x,z,'clearing');
+  // As bordas de árvores possuem vãos reais entre os troncos.
+  for(let x=minX+1;x<minX+room.width-1;x+=3){
+   for(const z of [minZ+1,minZ+room.height-3]){
+    const dx=Math.floor(seeded(seed,x*31+z)*2),dz=Math.floor(seeded(seed,x*57+z*11)*2);
+    solid(x+dx,z+dz,'tree',seeded(seed,x*81+z*13));
+   }
+  }
+  for(let z=minZ+3;z<minZ+room.height-3;z+=3){
+   for(const x of [minX+1,minX+room.width-3]){
+    solid(x,z,'tree',seeded(seed,x*149+z*11));
+   }
+  }
+  // Árvores interiores posicionadas fora dos canteiros e da estrada.
+  for(const [x,z] of [[-7,-4],[7,-4],[-7,4],[7,4],[-8,0],[8,0]]){
+   solid(x,z,'tree',seeded(seed,x*53+z*47));
+  }
+ }else if(kind==='ruined_gate'){
+  // O vão entre duas colunas é transitável, inclusive sob o arco partido.
+  for(let z=minZ+1;z<minZ+room.height-1;z++)for(let x=-1;x<=1;x++)paintPath(x,z,'stonePath');
+  for(let x=-8;x<=8;x++)for(let z=2;z<=6;z++)if(seeded(seed,x*23+z*43)>.25)paintPath(x,z,'stonePath');
+  for(const side of [-1,1]){
+   for(let x=side<0?-4:3;x<(side<0?-2:5);x++)
+    for(let z=-5;z<=-3;z++)solid(x,z,'archPillar',side);
+  }
+  g.landmarks.push({type:'arch',x:0,z:-4});
+  for(const [x,z] of [[-6,-1],[6,0],[-7,4],[7,5],[-5,-7],[6,-7]]){
+   if(seeded(seed,x*39+z*71)>.23)solid(x,z,'rubble',0);
+   else decoration('debris',x+.1,z+.1,seeded(seed,x*13+z*17));
+  }
+  for(let i=0;i<15;i++){
+   const x=-10+seeded(seed,530+i)*20,z=-8+seeded(seed,620+i)*16;
+   if(Math.abs(x)<2.4&&z<5)continue;
+   decoration('moss',x,z,i%4);
+  }
+ }else if(kind==='colossal_tree'){
+  // Duas antigas árvores do rascunho representam UMA base monumental.
+  g.landmarks.push({type:'colossalTrunk',x:0,z:-7});
+  for(let x=-3;x<=2;x++)for(let z=-10;z<=-6;z++){
+   // Tronco compacto enorme, mas afastado do nascimento entre as raízes.
+   solid(x,z,'trunk',0);
+  }
+  // Raízes largas são o próprio chão de travessia/ponte, não tábuas.
+  for(let z=-6;z<hh;z++)for(let x=minX;x<minX+room.width;x++){
+   if(Math.abs(x)<1.6+Math.max(0,-z)*.18&&z<=4)paintPath(x,z,'rootFloor');
+   if(z>=1&&Math.abs(x)<1.9)paintPath(x,z,'rootFloor');
+   if(x>=0&&Math.abs(z-(3-x*.21))<1.6)paintPath(x,z,'rootFloor');
+   if(x<=0&&Math.abs(z-(3+x*.27))<1.25)paintPath(x,z,'rootFloor');
+  }
+  // Veios de raiz menores podem variar, sem cobrir a rota principal.
+  for(const [x,z] of [[-7,-4],[7,-4],[-8,0],[8,5],[-5,7],[5,8]]){
+   if(seeded(seed,x*43+z*71)>.18)solid(x,z,'rootWall',seeded(seed,x*37+z));
+  }
+  for(let i=0;i<17;i++){
+   const x=-11+seeded(seed,720+i)*22,z=-9+seeded(seed,850+i)*20;
+   if(hasRoute(x,z)||Math.abs(x)<3&&z<0)continue;
+   decoration('leaf',x,z,i%4);
+  }
+ }
+ // Colisões e decoração nunca cobrem o spawn nem qualquer portal.
+ for(let x=minX;x<minX+room.width;x++)for(let z=minZ;z<minZ+room.height;z++)
+  if(hasRoute(x+.5,z+.5))g.solid.delete(key(x,z));
+ return g;
+}
+
 function generateWorld(seed){
  const biomes=Object.keys(BIOMES),rooms={},areas=[];
+ const startTemplate=spawnForSeed(seed),template=SPAWN_TEMPLATES[startTemplate];
  const count=5+Math.floor(seeded(seed,779)*3);
  let nextId=0;
- function link(a,b){
-  const offset=Math.floor(seeded(seed,a.id*571+b.id*83)*4);
+ function link(a,b,preferred=null){
+  const offset=preferred===null?Math.floor(seeded(seed,a.id*571+b.id*83)*4):preferred;
   for(let n=0;n<4;n++){
    const d=(offset+n)%4,reverse=(d+2)%4;
    if(a.exits.some(e=>e.dir===d)||b.exits.some(e=>e.dir===reverse))continue;
@@ -1355,28 +1474,37 @@ function generateWorld(seed){
  }
  for(let ai=0;ai<count;ai++){
   const special=ai===2?'village':ai===count-1?'boss':'wild';
-  const biome=biomes[(ai+Math.floor(seeded(seed,18)*biomes.length))%biomes.length];
+  const biome=ai===0?template.biome:biomes[(ai+Math.floor(seeded(seed,18)*biomes.length))%biomes.length];
   const size=special==='wild'?3+Math.floor(seeded(seed,ai*199+30)*4):1;
   const area={id:ai,biome,type:special,rooms:[],name:
    special==='village'?'Povoação isolada':special==='boss'?'Recinto do chefe':BIOMES[biome].name+' '+(ai+1)};
   areas.push(area);
   for(let j=0;j<size;j++){
    const id=++nextId,noise=seeded(seed,id*407+31);
-   const kind=special==='boss'?'boss':special==='village'?'rest':
-    j===0&&ai===0?'combat':noise<.20?'empty':noise<.34?'rest':'combat';
-   const room={id,area:ai,kind,shape:['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
-    width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
-    height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
+   const first=j===0&&ai===0;
+   const kind=first?'empty':special==='boss'?'boss':special==='village'?'rest':noise<.20?'empty':noise<.34?'rest':'combat';
+   const room={id,area:ai,kind,
+    shape:first?'spawn':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
+    width:first?template.width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
+    height:first?template.height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
+    spawnTemplate:first?startTemplate:null,name:first?template.name:null,
     exits:[],variant:Math.floor(seeded(seed,id*109+87)*100000)};
    rooms[id]=room;area.rooms.push(id);
    if(j>0){
-    const candidates=area.rooms.slice(0,-1).map(key=>rooms[key]).filter(r=>r.exits.length<3);
-    const parent=candidates[Math.floor(seeded(seed,id*71+9)*candidates.length)]||rooms[area.rooms[j-1]];
-    link(parent,room);
+    // Saídas nos lugares desenhados: clareira sul, portão norte,
+    // árvore colossal leste e sul. Outras salas ramificam a partir daí.
+    if(ai===0&&j===1)link(rooms[1],room,template.exit);
+    else if(ai===0&&j===2&&startTemplate==='colossal_tree')link(rooms[1],room,1);
+    else{
+     const candidates=area.rooms.slice(0,-1).map(key=>rooms[key])
+      .filter(r=>r.exits.length<3&&r.id!==1);
+     const parent=candidates[Math.floor(seeded(seed,id*71+9)*candidates.length)]||rooms[area.rooms[j-1]];
+     link(parent,room);
+    }
    }else if(ai>0){
     // As áreas formam uma árvore conexa, mas podem ramificar entre regiões.
     const parentArea=areas[ai===3?1:ai-1];
-    const parents=parentArea.rooms.map(key=>rooms[key]).filter(r=>r.exits.length<3);
+    const parents=parentArea.rooms.map(key=>rooms[key]).filter(r=>r.exits.length<3&&r.id!==1);
     link(parents[Math.floor(seeded(seed,id*53+5)*parents.length)]||rooms[parentArea.rooms[0]],room);
    }
   }
@@ -1537,7 +1665,7 @@ function makeRoomGeometry(room){
  for(let x=minX;x<minX+room.width;x++)for(let z=minZ;z<minZ+room.height;z++){
   const u=(x+.5)/hw,v=(z+.5)/hh;
   const a=Math.abs(u),b=Math.abs(v);
-  let inside=room.shape==='rect'?true:
+  let inside=room.shape==='spawn'?Math.abs(u)+Math.abs(v)*.12<1.02:room.shape==='rect'?true:
    room.shape==='ellipse'?u*u+v*v<.97:
    room.shape==='cross'?a<.48||b<.42:
    room.shape==='bend'?u<.30||v>.16:
@@ -1548,11 +1676,12 @@ function makeRoomGeometry(room){
   tiles.push({x,z});
   const key=x+','+z;walkable.add(key);
   const variation=seeded(room.variant,x*1499+z*701);
-  if(Math.abs(x+.5)>2.5&&Math.abs(z+.5)>2.5&&variation<.055){
+  if(!room.spawnTemplate&&Math.abs(x+.5)>2.5&&Math.abs(z+.5)>2.5&&variation<.055){
    solid.add(key);props.push({x,z,type:variation<.024?'stone':'bush'});
   }
  }
- return{room,hw,hh,tiles,walkable,solid,props};
+ const geometry={room,hw,hh,tiles,walkable,solid,props,decor:[],landmarks:[],paths:new Map()};
+ return room.spawnTemplate?buildSpawnGeometry(geometry):geometry;
 }
 function worldExtent(){return roomGeometry&&runState?.world?Math.max(roomGeometry.hw,roomGeometry.hh):6.65;}
 function worldPassable(x,z){
@@ -1598,8 +1727,9 @@ function enterWorldRoom(id,from=null){
  const fromDoor=room.exits.find(e=>e.to===from);
  const point=fromDoor?ROOM_DIRECTIONS[fromDoor.dir]:{dx:0,dz:0};
  // Surge a dois tiles do portal de retorno, virado para dentro.
- player.x=fromDoor?point.dx*(roomGeometry.hw-2.4):0;
- player.z=fromDoor?point.dz*(roomGeometry.hh-2.4):0;
+ const spawn=room.spawnTemplate?SPAWN_TEMPLATES[room.spawnTemplate]?.spawn:null;
+ player.x=fromDoor?point.dx*(roomGeometry.hw-2.4):spawn?.x||0;
+ player.z=fromDoor?point.dz*(roomGeometry.hh-2.4):spawn?.z||0;
  player.face={x:fromDoor?-point.dx:1,z:fromDoor?-point.dz:0};
  cam.x=player.x;cam.z=player.z;
  if(stored){
@@ -1622,7 +1752,7 @@ function enterWorldRoom(id,from=null){
   enemies:enemies.map(e=>({...e})),region:runState.region};
  setCampaignHud();updateEliteUI();hud();saveCampaign();
  note((BIOMES[runState.region]?.icon||'✦')+' '+area.name,
-  isReturning?'Área conhecida · caminhos preservados':
+  isReturning?'Área conhecida · caminhos preservados':room.spawnTemplate?'Ponto de nascimento · '+room.name:
    room.kind==='boss'?'Um adversário poderoso aguarda':room.kind==='combat'?'Explore ou enfrente os inimigos':'Explore o local e suas passagens',2);
  return true;
 }
@@ -1685,7 +1815,7 @@ function drawWorldFloor(){
  v.addColorStop(0,'#0000');v.addColorStop(1,'#03101bb1');ctx.fillStyle=v;ctx.fillRect(0,0,w,h);
 }
 function kindForRoom(n){if(roomById(n))return roomById(n).kind;if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
-function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character),r=roomById(),area=r?runState.world.areas[r.area]:null;h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+(area?.name||b.name)+' · SALA '+(area?area.rooms.indexOf(r.id)+1+'/'+area.rooms.length:runState.room)+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);$('worldMapBtn').hidden=!(runState?.active&&runState.world);}
+function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character),r=roomById(),area=r?runState.world.areas[r.area]:null;h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+(r?.name||area?.name||b.name)+' · SALA '+(area?area.rooms.indexOf(r.id)+1+'/'+area.rooms.length:runState.room)+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);$('worldMapBtn').hidden=!(runState?.active&&runState.world);}
 function chooseRegion(seed){return Object.keys(BIOMES)[Math.floor(seeded(seed,1)*Object.keys(BIOMES).length)];}
 function readSave(){try{const x=JSON.parse(localStorage.getItem(RUN_KEY)||'null');return x?.version===21&&x?.run?.active&&x?.player?.hp>0&&BIOMES[x.run.region]&&x.progress?x:null;}catch(e){return null;}}
 function saveCampaign(){if(!runState?.active||!player||player.hp<=0)return;try{
