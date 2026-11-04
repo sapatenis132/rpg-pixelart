@@ -1597,6 +1597,24 @@ function buildForestTraversalGeometry(g){
    if(!validCell(x,z))continue;
    g.solid.add(k);g.paths.set(k,'forestWater');
   }
+  // Em salas com muitas saídas, os corredores protegidos podem cobrir
+  // quase todo o riacho. Mantém pequenas margens visíveis fora da trilha.
+  if(![...g.paths.values()].includes('forestWater')){
+   const bridges=[...g.paths].filter(([,v])=>v==='forestBridge')
+    .map(([k])=>k.split(',').map(Number));
+   const candidates=g.tiles.filter(p=>{
+    const k=forestTileKey(p.x,p.z);return !protectedTiles.has(k)&&!g.solid.has(k);
+   }).sort((p,q)=>{
+    const score=r=>{
+     const d=bridges.length?Math.min(...bridges.map(([x,z])=>Math.abs(x-r.x)+Math.abs(z-r.z))):0;
+     return d+seeded(seed,r.x*89+r.z*103)*.4;
+    };
+    return score(p)-score(q);
+   });
+   for(const p of candidates.slice(0,8)){
+    const k=forestTileKey(p.x,p.z);g.solid.add(k);g.paths.set(k,'forestWater');
+   }
+  }
  }
  // Troncos reais ocupam uma célula. Copas desenhadas maiores podem cruzar
  // a trilha visualmente, mas nunca criam colisão fora da base da árvore.
