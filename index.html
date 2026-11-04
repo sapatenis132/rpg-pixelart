@@ -1345,7 +1345,7 @@ const ROOM_DIRECTIONS=[
 // alterar o layout essencial. As variações afetam somente detalhes.
 const SPAWN_TEMPLATES={
  flower_clearing:{name:'Clareira Florida',biome:'forest',width:24,height:22,exit:1,spawn:{x:0,z:0}},
- ruined_gate:{name:'Portão Arruinado',biome:'ruins',width:24,height:22,exit:3,spawn:{x:0,z:3}},
+ ruined_gate:{name:'Portão Arruinado',biome:'forest',width:24,height:22,exit:3,spawn:{x:0,z:3}},
  colossal_tree:{name:'Árvore Colossal',biome:'forest',width:26,height:24,exit:0,spawn:{x:0,z:3}}
 };
 const SPAWN_IDS=Object.keys(SPAWN_TEMPLATES);
@@ -1427,6 +1427,22 @@ function buildSpawnGeometry(g){
    const x=-10+seeded(seed,530+i)*20,z=-8+seeded(seed,620+i)*16;
    if(Math.abs(x)<2.4&&z<5)continue;
    decoration('moss',x,z,i%4);
+  }
+  // O arco fica DENTRO da floresta: árvores enquadram a estrutura,
+  // e seus troncos nunca fecham a trilha, o vão do portão ou o nascimento.
+  const forestTrees=[[-9,-8],[-7,-6],[-10,0],[-9,6],[-7,8],
+   [9,-8],[7,-6],[10,0],[9,6],[7,8],[-5,9],[5,9]];
+  for(const [i,[tx,tz]] of forestTrees.entries()){
+   const x=tx+(seeded(seed,1210+i)*3|0)-1,
+    z=tz+(seeded(seed,1300+i)*3|0)-1;
+   solid(x,z,'tree',seeded(seed,1400+i));
+  }
+  // Pequenas folhas e musgo nas margens tornam as ruínas parte do bosque.
+  for(let i=0;i<18;i++){
+   const x=-10+seeded(seed,1510+i)*20,
+    z=-9+seeded(seed,1620+i)*18;
+   if(Math.abs(x)<2.6||Math.hypot(x-center.x,z-center.z)<2.4)continue;
+   decoration('leaf',x,z,i%4);
   }
  }else if(kind==='colossal_tree'){
   // Duas antigas árvores do rascunho representam UMA base monumental.
@@ -1945,7 +1961,17 @@ function showCampaignMenu(){saveCampaign();const saved=loadedRun||readSave();con
  ...(!active?[{label:'⚔ Laboratório de combate (sem XP)',secondary:true,action:()=>{closeCampaignOverlay();runState=null;eliteMode=false;drill.active=false;reset();openLab();}}]:[])
  ]);}
 function newCampaign(character=DEFAULT_HERO,debugSeed=null){progress=safeProgress(null);clearSave();loadedRun=null;runState={active:true,seed:Number.isInteger(debugSeed)&&debugSeed>0?debugSeed:randSeed(),region:'forest',startRegion:null,room:1,visited:[],visitedRegions:[],bossKills:0,character:safeCharacter(character),cleared:false,createdAt:Date.now(),cause:null};runState.world=generateWorld(runState.seed);runState.room=runState.world.current;runState.region=runState.world.areas[0].biome;runState.startRegion=runState.region;runState.visitedRegions=[runState.region];eliteMode=false;eliteVictory=false;drill.active=false;game.classList.remove('in-drill');reset();enterRoom(true);closeCampaignOverlay();note((roomById()?.name||BIOMES[runState.region].name).toUpperCase(),roomById()?.spawnTemplate?'Explore o ponto de nascimento e descubra suas passagens.':BIOMES[runState.region].intro,3.5);}
-function resumeCampaign(data){loadedRun=null;runState={...data.run,character:safeCharacter(data.run?.character),visitedRegions:Array.isArray(data.run?.visitedRegions)?data.run.visitedRegions.filter(x=>BIOMES[x]):[data.run.region],bossKills:Number(data.run?.bossKills)||0,active:true};progress=safeProgress(data.progress);eliteMode=!!data.eliteMode;eliteVictory=!!data.eliteVictory;drill.active=false;game.classList.remove('in-drill');reset();
+function resumeCampaign(data){loadedRun=null;runState={...data.run,character:safeCharacter(data.run?.character),visitedRegions:Array.isArray(data.run?.visitedRegions)?data.run.visitedRegions.filter(x=>BIOMES[x]):[data.run.region],bossKills:Number(data.run?.bossKills)||0,active:true};
+ // Corrige o bioma nos saves da versão anterior: o Portão Arruinado
+ // era indevidamente tratado como Ruínas em vez de um local na Floresta.
+ if(runState.world?.rooms?.[1]?.spawnTemplate==='ruined_gate'
+    &&runState.world.areas?.[0]?.biome==='ruins'){
+  runState.world.areas[0].biome='forest';
+  if(runState.world.rooms[runState.room]?.area===0)runState.region='forest';
+  runState.startRegion='forest';
+  if(!runState.visitedRegions.includes('forest'))runState.visitedRegions.push('forest');
+ }
+ progress=safeProgress(data.progress);eliteMode=!!data.eliteMode;eliteVictory=!!data.eliteVictory;drill.active=false;game.classList.remove('in-drill');reset();
  const rebuiltMaxHp=player.maxHp,rebuiltMaxMp=player.maxMp;player={...player,...data.player};if(runState.world){roomGeometry=makeRoomGeometry(roomById());roomTransitionCooldown=.9;}player.guardWindow=0;projectileEpoch++;rangedShots=[];if(player.maxHp!==rebuiltMaxHp){const ratio=Math.max(0,Math.min(1,Number(player.hp||0)/Math.max(1,Number(player.maxHp)||1)));player.maxHp=rebuiltMaxHp;player.hp=Math.max(1,Math.round(rebuiltMaxHp*ratio));}if(player.maxMp!==rebuiltMaxMp){const ratio=Math.max(0,Math.min(1,Number(player.mp||0)/Math.max(1,Number(player.maxMp)||1)));player.maxMp=rebuiltMaxMp;player.mp=Math.round(rebuiltMaxMp*ratio);}player.hp=Math.max(1,Math.min(player.maxHp,player.hp));player.act=null;player.buffer=null;player.bufferTime=0;player.parryWindow=0;player.parryRecovery=0;player.invuln=Math.min(.6,player.invuln||0);player.attackLock=0;
  enemies=(Array.isArray(data.enemies)?data.enemies:[]).slice(0,5).map(x=>({...x,face:x.face||{x:-1,z:0},phase:['chase','windup','strike','recover','dead','guard','feint'].includes(x.phase)?x.phase:'chase'}));selectedEnemy=Number.isInteger(data.selectedEnemy)?data.selectedEnemy:0;squadSize=Number.isInteger(data.squadSize)?data.squadSize:3;clock=Math.max(0,Number(data.clock)||0);kills=Math.max(0,Number(data.kills)||0);wavesCleared=Math.max(0,Number(data.wavesCleared)||0);nextEnemyId=Math.max(0,Number(data.nextEnemyId)||0);respawn=0;focusId=data.focusId||null;chooseTarget();
  setCampaignHud();updateEliteUI();hud();closeCampaignOverlay();if(progress.points>0)showAbilityChoices();else if(runState.cleared)showRoomExit();else if(!runState.world&&!['combat','boss'].includes(kindForRoom(runState.room)))enterRoom();saveCampaign();}
