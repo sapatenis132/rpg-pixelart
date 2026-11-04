@@ -1342,6 +1342,8 @@ const ROOM_DIRECTIONS=[
 ];
 function generateWorld(seed){
  const biomes=Object.keys(BIOMES),rooms={},areas=[];
+ // Dois spawns da floresta: layout escolhido pela seed, ambos acessíveis.
+ const forestStarts=seeded(seed,7041)<.5?['flowerClearing','ancientRoots']:['ancientRoots','flowerClearing'];
  const count=5+Math.floor(seeded(seed,779)*3);
  let nextId=0;
  function link(a,b){
@@ -1355,18 +1357,20 @@ function generateWorld(seed){
  }
  for(let ai=0;ai<count;ai++){
   const special=ai===2?'village':ai===count-1?'boss':'wild';
-  const biome=biomes[(ai+Math.floor(seeded(seed,18)*biomes.length))%biomes.length];
+  const biome=ai===0?'forest':biomes[(ai+Math.floor(seeded(seed,18)*biomes.length))%biomes.length];
   const size=special==='wild'?3+Math.floor(seeded(seed,ai*199+30)*4):1;
   const area={id:ai,biome,type:special,rooms:[],name:
-   special==='village'?'Povoação isolada':special==='boss'?'Recinto do chefe':BIOMES[biome].name+' '+(ai+1)};
+   special==='village'?'Povoação isolada':special==='boss'?'Recinto do chefe':ai===0?'Mata dos Primeiros Caminhos':BIOMES[biome].name+' '+(ai+1)};
   areas.push(area);
   for(let j=0;j<size;j++){
    const id=++nextId,noise=seeded(seed,id*407+31);
-   const kind=special==='boss'?'boss':special==='village'?'rest':
-    j===0&&ai===0?'combat':noise<.20?'empty':noise<.34?'rest':'combat';
-   const room={id,area:ai,kind,shape:['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
-    width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
-    height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
+   const authored=ai===0&&j<2?forestStarts[j]:null;
+   const kind=authored?'empty':special==='boss'?'boss':special==='village'?'rest':noise<.20?'empty':noise<.34?'rest':'combat';
+   const room={id,area:ai,kind,template:authored,
+    title:authored==='flowerClearing'?'Clareira Florida':authored==='ancientRoots'?'Ruínas da Mata':null,
+    shape:authored?'rect':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
+    width:authored==='flowerClearing'?24:authored==='ancientRoots'?26:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
+    height:authored==='flowerClearing'?22:authored==='ancientRoots'?24:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
     exits:[],variant:Math.floor(seeded(seed,id*109+87)*100000)};
    rooms[id]=room;area.rooms.push(id);
    if(j>0){
@@ -1531,6 +1535,7 @@ function toggleWorldMap(){
 
 function roomById(id=runState?.room){return runState?.world?.rooms?.[id]||null;}
 function makeRoomGeometry(room){
+ if(room.template==='flowerClearing'||room.template==='ancientRoots')return makeAuthoredSpawnGeometry(room);
  const tiles=[],walkable=new Set(),solid=new Set(),props=[];
  const hw=room.width/2,hh=room.height/2;
  const minX=-Math.floor(room.width/2),minZ=-Math.floor(room.height/2);
@@ -1598,8 +1603,8 @@ function enterWorldRoom(id,from=null){
  const fromDoor=room.exits.find(e=>e.to===from);
  const point=fromDoor?ROOM_DIRECTIONS[fromDoor.dir]:{dx:0,dz:0};
  // Surge a dois tiles do portal de retorno, virado para dentro.
- player.x=fromDoor?point.dx*(roomGeometry.hw-2.4):0;
- player.z=fromDoor?point.dz*(roomGeometry.hh-2.4):0;
+ player.x=fromDoor?point.dx*(roomGeometry.hw-2.4):(roomGeometry.spawn?.x??0);
+ player.z=fromDoor?point.dz*(roomGeometry.hh-2.4):(roomGeometry.spawn?.z??0);
  player.face={x:fromDoor?-point.dx:1,z:fromDoor?-point.dz:0};
  cam.x=player.x;cam.z=player.z;
  if(stored){
@@ -1621,7 +1626,7 @@ function enterWorldRoom(id,from=null){
  world.memories[id]={visited:true,cleared:runState.cleared,
   enemies:enemies.map(e=>({...e})),region:runState.region};
  setCampaignHud();updateEliteUI();hud();saveCampaign();
- note((BIOMES[runState.region]?.icon||'✦')+' '+area.name,
+ note((BIOMES[runState.region]?.icon||'✦')+' '+(room.title||area.name),
   isReturning?'Área conhecida · caminhos preservados':
    room.kind==='boss'?'Um adversário poderoso aguarda':room.kind==='combat'?'Explore ou enfrente os inimigos':'Explore o local e suas passagens',2);
  return true;
@@ -1685,7 +1690,7 @@ function drawWorldFloor(){
  v.addColorStop(0,'#0000');v.addColorStop(1,'#03101bb1');ctx.fillStyle=v;ctx.fillRect(0,0,w,h);
 }
 function kindForRoom(n){if(roomById(n))return roomById(n).kind;if(n===1)return 'combat';if(n%5===0)return 'boss';if(n%5===4)return 'rest';const p=seeded(runState?.seed||1,n*97);return p<.20?'event':p<.36?'rest':'combat';}
-function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character),r=roomById(),area=r?runState.world.areas[r.area]:null;h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+(area?.name||b.name)+' · SALA '+(area?area.rooms.indexOf(r.id)+1+'/'+area.rooms.length:runState.room)+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);$('worldMapBtn').hidden=!(runState?.active&&runState.world);}
+function setCampaignHud(){const h=$('campaignHud');if(!h)return;if(runState?.active){const b=BIOMES[runState.region],c=safeCharacter(runState.character),r=roomById(),area=r?runState.world.areas[r.area]:null;h.textContent=c.name+' · '+(RACE_OPTIONS[c.race]?.name||'Raça a definir')+' / '+(ARCHETYPE_OPTIONS[c.archetype]?.name||'Guerreiro (legado)')+'\n'+b.icon+' '+(r?.title||area?.name||b.name)+' · SALA '+(area?area.rooms.indexOf(r.id)+1+'/'+area.rooms.length:runState.room)+' · LV '+progress.level;}game.classList.toggle('in-campaign',!!runState?.active);$('worldMapBtn').hidden=!(runState?.active&&runState.world);}
 function chooseRegion(seed){return Object.keys(BIOMES)[Math.floor(seeded(seed,1)*Object.keys(BIOMES).length)];}
 function readSave(){try{const x=JSON.parse(localStorage.getItem(RUN_KEY)||'null');return x?.version===21&&x?.run?.active&&x?.player?.hp>0&&BIOMES[x.run.region]&&x.progress?x:null;}catch(e){return null;}}
 function saveCampaign(){if(!runState?.active||!player||player.hp<=0)return;try{
