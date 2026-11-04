@@ -35,7 +35,7 @@ header{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:7p
 .pair{display:flex;gap:5px}.pair>*{flex:1;min-width:0}
 #tools button{padding:7px 4px;font-size:11px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:3px}
 #tools .toolLabel{display:none}#tools button span[aria-hidden]{font-size:18px}
-#tabs button{padding:7px 6px}
+#tabs button{padding:7px 3px;font-size:10px}#tiles .thumb canvas{width:28px;height:28px;image-rendering:pixelated}
 #tiles{flex:1;overflow-y:auto;min-height:0;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:6px;padding:10px;overscroll-behavior:contain}
 .tile-btn{display:flex;align-items:center;text-align:left;gap:7px;min-width:0;height:49px;padding:5px 6px;font-size:11px;white-space:normal;line-height:1.05;border-color:#39566a;background:#1a3142}
 .tile-btn .thumb{display:grid;place-items:center;width:30px;height:30px;flex:none;border:2px solid #ffffff26;border-radius:6px;box-shadow:inset 0 4px 0 #ffffff16;color:#fff;text-shadow:0 2px 2px #000b;font-size:18px;font-weight:950}
@@ -55,7 +55,7 @@ fieldset{border:0;padding:0;margin:0}
 .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:9px}
 select{min-height:35px}.hidden{display:none!important}
 @media(max-width:740px){header{height:50px;padding:5px 7px}.titlebox{min-width:115px}.titlebox strong{font-size:12px}.titlebox small{font-size:9px}#name{max-width:155px}header button{padding:6px;font-size:10px}#palette{width:188px}.section{padding:7px 7px 6px}.sectionTitle{margin-bottom:4px;font-size:10px}#tiles{padding:6px;gap:4px}.tile-btn{font-size:10px;gap:4px;height:44px;padding:3px}.tile-btn .thumb{width:25px;height:25px;font-size:14px}#notes{height:42px}#statusbar{height:46px}}
-@media(max-height:450px){header{height:45px}.section{padding:5px 7px}.sectionTitle{margin-bottom:3px}#notes{height:32px}#statusbar{height:43px}}
+@media(max-height:450px){header{height:45px}.section{padding:5px 7px}.sectionTitle{margin-bottom:3px}#palette .section .mini,#notesWrap{display:none}#statusbar{height:43px}}
 @media(orientation:portrait) and (max-width:600px){header{height:83px;flex-wrap:wrap;align-content:center;row-gap:4px}.titlebox{min-width:126px}.header-actions{margin-left:auto}#name{order:3;flex-basis:100%;max-width:none;height:29px}#workspace{flex-direction:column}#viewer{flex:1;min-height:30%}#palette{height:43%;width:100%;border-left:0;border-top:1px solid #426075;display:grid;grid-template-columns:145px 1fr;grid-template-rows:auto 1fr}#palette .section:nth-child(1){grid-column:1;grid-row:1 / span 2;border-right:1px solid #38586b}#palette .section:nth-child(2){grid-column:2;grid-row:1}#tiles{grid-column:2;grid-row:2;grid-template-columns:1fr 1fr}.tile-btn{height:39px}#notes{height:50px}#palette .sectionTitle{font-size:9px}#status{display:none}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 </style>
@@ -73,12 +73,12 @@ select{min-height:35px}.hidden{display:none!important}
   <div id="zoomBar"><button id="zoomOut" aria-label="Diminuir zoom">−</button><button id="zoomIn" aria-label="Aumentar zoom">+</button><button id="fit" aria-label="Enquadrar mapa">⤢</button></div>
  </main>
  <aside id="palette">
- <div class="section"><div class="sectionTitle">Ferramentas</div><div id="tools" class="pair"><button data-tool="paint" class="active" aria-label="Pintar" title="Pintar"><span aria-hidden="true">✏</span><span class="toolLabel">Pintar</span></button><button data-tool="erase" aria-label="Apagar" title="Apagar"><span aria-hidden="true">⌫</span><span class="toolLabel">Apagar</span></button><button data-tool="fill" aria-label="Preencher" title="Preencher"><span aria-hidden="true">▤</span><span class="toolLabel">Preencher</span></button><button data-tool="pan" aria-label="Mover" title="Mover"><span aria-hidden="true">✋</span><span class="toolLabel">Mover</span></button></div>
+ <div class="section"><div class="sectionTitle">Ferramentas</div><div id="tools" class="pair"><button data-tool="paint" class="active" aria-label="Pintar" title="Pintar"><span aria-hidden="true">✏</span><span class="toolLabel">Pintar</span></button><button data-tool="erase" aria-label="Apagar" title="Apagar"><span aria-hidden="true">⌫</span><span class="toolLabel">Apagar</span></button><button data-tool="fill" aria-label="Preencher" title="Preencher"><span aria-hidden="true">▤</span><span class="toolLabel">Preencher</span></button><button data-tool="pan" aria-label="Mover" title="Mover"><span aria-hidden="true">✋</span><span class="toolLabel">Mover</span></button><button data-tool="scatter" aria-label="Espalhar vegetação" title="Bosque: espalhar vegetação (aba Natureza)" disabled><span aria-hidden="true">🌳</span><span class="toolLabel">Bosque</span></button></div>
   <div class="pair" style="margin-top:6px"><button id="undo">↶ Desfazer</button><button id="redo">↷ Refazer</button></div>
-  <div class="mini" style="margin-top:7px">Arraste para desenhar. Use “Mover” para deslocar o mapa.</div>
+  <div class="mini" style="margin-top:7px">Arraste para pintar. Na aba Natureza, use 🌳 para plantar grupos de árvores, arbustos e flores.</div>
  </div>
- <div class="section"><div id="tabs" class="pair"><button data-layer="ground" class="active">🌿 Terrenos</button><button data-layer="object">⚔ Elementos</button></div>
-  <div style="margin-top:8px"><div class="sectionTitle">Anotações do mapa</div><textarea id="notes" maxlength="1600" placeholder="Ex.: Ponte destruída; chefe aparece ao abrir o altar..."></textarea></div>
+ <div class="section"><div id="tabs" class="pair"><button data-layer="ground" class="active">▦ Terreno</button><button data-layer="nature">🌳 Natureza</button><button data-layer="object">⚔ Outros</button></div>
+  <div id="notesWrap" style="margin-top:8px"><div class="sectionTitle">Anotações do mapa</div><textarea id="notes" maxlength="1600" placeholder="Ex.: Ponte destruída; chefe aparece ao abrir o altar..."></textarea></div>
  </div>
  <div id="tiles" aria-label="Pincéis disponíveis"></div>
  </aside>
@@ -86,12 +86,12 @@ select{min-height:35px}.hidden{display:none!important}
 <div id="statusbar">
  <button id="viewBtn" class="primary">◈ Visão isométrica</button>
  <span class="mini">Grade</span><input id="sizeW" type="number" min="5" max="32" value="12" aria-label="Largura do mapa"><span>×</span><input id="sizeH" type="number" min="5" max="32" value="10" aria-label="Altura do mapa"><button id="resizeBtn">Aplicar</button>
- <select id="preset" aria-label="Modelos de mapa"><option value="ruins">Ruínas</option><option value="village">Vila</option><option value="blank">Vazio</option></select><button id="presetBtn">Carregar modelo</button>
- <button id="importBtn">⇧ Importar</button><button id="clearBtn" class="danger">Limpar</button>
+ <select id="preset" aria-label="Modelos de mapa"><option value="ruins">Ruínas</option><option value="village">Vila</option><option value="forest">Floresta</option><option value="blank">Vazio</option></select><button id="presetBtn">Carregar modelo</button>
+ <button id="notesBtn" title="Editar anotações do mapa">📝 Notas</button><button id="importBtn">⇧ Importar</button><button id="clearBtn" class="danger">Limpar</button>
  <span id="status">Salvo no aparelho</span>
 </div>
 <input id="jsonFile" type="file" accept=".json,application/json" class="hidden">
-<div id="dialogBackdrop" role="dialog" aria-modal="true" aria-label="Compartilhar mapa"><div class="dialog"><h2>Compartilhar com o ChatGPT</h2><p>Copie este esquema e cole na conversa do projeto. Ele inclui os terrenos, os elementos e suas anotações. Para restaurar o desenho no laboratório, use o arquivo JSON.</p><textarea id="shareText" readonly></textarea><div class="dialog-actions"><button id="closeDialog">Fechar</button><button id="copyText" class="primary">Copiar esquema</button></div></div></div>
+<div id="dialogBackdrop" role="dialog" aria-modal="true" aria-label="Compartilhar mapa"><div class="dialog"><h2>Compartilhar com o ChatGPT</h2><p>Copie este esquema e cole na conversa do projeto. Ele inclui os terrenos, a vegetação, os elementos e suas anotações. Para restaurar o desenho no laboratório, use o arquivo JSON.</p><textarea id="shareText" readonly></textarea><div class="dialog-actions"><button id="closeDialog">Fechar</button><button id="copyText" class="primary">Copiar esquema</button></div></div></div>
 </div>
 <script>
 (()=>{'use strict';
@@ -101,17 +101,27 @@ const groundDefs=[
  ['water','Água','a','#287eae'],['sand','Areia','s','#ccb577'],['snow','Neve','n','#c8d7db'],['dark','Solo escuro','d','#4e5265'],
  ['lava','Lava','l','#dc5c37'],['bridge','Ponte','b','#966c45'],['marsh','Pântano','m','#527a62'],['void','Vazio','v','#132029']
 ];
+// A aba Natureza pinta na mesma camada de elementos: mapas antigos continuam compatíveis.
+const natureDefs=[
+ ['tree','Árvore frondosa','A','#438c60'],['pine','Pinheiro','F','#327765'],['palm','Palmeira','Y','#5d9c63'],
+ ['deadTree','Árvore seca','X','#827361'],['bush','Arbusto','u','#3b945b'],['thorns','Espinheiros','z','#5d8060'],
+ ['flowers','Flores','f','#dc8eb5'],['mushroom','Cogumelos','m','#d77759'],['tallGrass','Capim alto','h','#7cb96c'],
+ ['fern','Samambaia','j','#4c9875'],['reeds','Juncos','r','#7ea16b'],['stump','Toco','k','#a17856'],
+ ['log','Tronco caído','L','#a57955'],['rock','Rocha','R','#8f9aa9'],['boulder','Pedregulho','o','#8593a2'],
+ ['crystal','Cristais','*','#79d0dd'],['cactus','Cacto','c','#568c64'],['lily','Vitória-régia','w','#75b994']
+];
 const objectDefs=[
- ['wall','Muro','M','#8c929d'],['door','Porta','P','#b97c4e'],['tree','Árvore','A','#438c60'],['rock','Rocha','R','#8f9aa9'],
+ ['wall','Muro','M','#8c929d'],['door','Porta','P','#b97c4e'],
  ['chest','Baú','B','#dcaf4d'],['enemy','Inimigo','I','#bf5364'],['boss','Chefe','C','#a970cd'],['trap','Armadilha','T','#df7964'],
  ['heal','Cura','H','#55bc8d'],['portal','Portal','O','#7d80e6'],['entrance','Entrada','E','#a4d8ca'],['exit','Saída','S','#f1d080'],
  ['npc','NPC','N','#78b4d9'],['puzzle','Enigma','Q','#d19ad3'],['stairs','Escadas','D','#b6ad95'],['ruin','Ruínas','U','#8d8495']
 ];
-const defs={ground:groundDefs,object:objectDefs};
-const names={ground:Object.fromEntries(groundDefs.map(a=>[a[0],a[1]])),object:Object.fromEntries(objectDefs.map(a=>[a[0],a[1]]))};
-const colors={ground:Object.fromEntries(groundDefs.map(a=>[a[0],a[3]])),object:Object.fromEntries(objectDefs.map(a=>[a[0],a[3]]))};
-const valid={ground:new Set(groundDefs.map(a=>a[0])),object:new Set(objectDefs.map(a=>a[0]))};
-let w=12,h=10,ground=[],objects=[],view='top',layer='ground',tool='paint',selected={ground:'grass',object:'wall'},zoom=1,panX=0,panY=0,editStart=null,edited=false;
+const allObjectDefs=[...natureDefs,...objectDefs];
+const defs={ground:groundDefs,nature:natureDefs,object:objectDefs};
+const names=Object.fromEntries(Object.entries(defs).map(([layer,list])=>[layer,Object.fromEntries(list.map(a=>[a[0],a[1]]))]));
+const colors={ground:Object.fromEntries(groundDefs.map(a=>[a[0],a[3]])),object:Object.fromEntries(allObjectDefs.map(a=>[a[0],a[3]]))};
+const valid={ground:new Set(groundDefs.map(a=>a[0])),nature:new Set(natureDefs.map(a=>a[0])),object:new Set(allObjectDefs.map(a=>a[0]))};
+let w=12,h=10,ground=[],objects=[],view='top',layer='ground',tool='paint',selected={ground:'grass',nature:'tree',object:'wall'},zoom=1,panX=0,panY=0,editStart=null,edited=false;
 let undoStack=[],redoStack=[],cursor=null,activePointers=new Map(),gesture=null,raf=0;
 const canvas=$('map'),ctx=canvas.getContext('2d',{alpha:false});let cw=1,ch=1,dpr=1;
 const key=(x,y)=>y*w+x;const inBounds=(x,y)=>x>=0&&y>=0&&x<w&&y<h;
@@ -129,7 +139,25 @@ function template(type){
   for(let y=7;y<10;y++)for(let x=8;x<12;x++)ground[key(x,y)]='stone';
   objects[key(3,3)]='npc';objects[key(9,8)]='heal';objects[key(6,0)]='entrance';objects[key(13,6)]='exit';objects[key(6,6)]='puzzle';return
  }
- blank(12,10,'void');
+  if(type==='forest'){
+   blank(18,14,'grass');
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=key(x,y),v=hash(x,y,11)%100;
+    if(v<7)ground[i]='dirt';else if(v<12)ground[i]='marsh';
+    if(v>78)objects[i]=v>96?'pine':v>90?'bush':v>86?'fern':'tree';
+    else if(v>72)objects[i]='flowers';
+   }
+   for(let y=0;y<h;y++){
+    const river=8+Math.round(Math.sin(y*.65)*1.6);
+    for(let dx=-1;dx<=1;dx++){const x=river+dx;if(inBounds(x,y)){ground[key(x,y)]='water';objects[key(x,y)]=null}}
+   }
+   for(let x=0;x<w;x++){
+    const y=6+(x>12?1:0);ground[key(x,y)]='path';objects[key(x,y)]=null;
+   }
+   for(let y=6;y<=7;y++)for(let x=5;x<=12;x++)if(ground[key(x,y)]==='water')ground[key(x,y)]='bridge';
+   objects[key(0,6)]='entrance';objects[key(17,7)]='exit';objects[key(14,10)]='chest';return;
+  }
+  blank(12,10,'void');
  for(let y=1;y<9;y++)for(let x=1;x<11;x++){
   if((x>=2&&x<=5&&y>=2&&y<=7)||(x>=7&&x<=10&&y>=3&&y<=6)||(y>=4&&y<=5&&x>=5&&x<=8))ground[key(x,y)]='stone';
  }
@@ -147,12 +175,20 @@ function loadState(snapshot){const d=typeof snapshot==='string'?JSON.parse(snaps
 function remember(old){if(!old||old===state())return;undoStack.push(old);if(undoStack.length>45)undoStack.shift();redoStack=[];persist();updateUndo()}
 function updateUndo(){$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length}
 function persist(){try{localStorage.setItem('rpg-map-lab-v1',state());$('status').textContent='Salvo no aparelho'}catch(e){$('status').textContent='Use JSON para salvar'}}
-function updateMeta(){$('sizeW').value=w;$('sizeH').value=h;$('dimLabel').textContent=`${w}×${h}`;$('viewLabel').textContent=view==='top'?'Planta':'Isométrico';$('brushLabel').textContent=(tool==='erase'?'Apagar · ':tool==='pan'?'Mover · ':tool==='fill'?'Preencher · ':'')+names[layer][selected[layer]];}
-function setTool(value){tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===value));canvas.style.cursor=value==='pan'?'grab':'crosshair';updateMeta()}
-function setLayer(value){layer=value;document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('active',b.dataset.layer===value));buildPalette();updateMeta()}
+function updateMeta(){$('sizeW').value=w;$('sizeH').value=h;$('dimLabel').textContent=`${w}×${h}`;$('viewLabel').textContent=view==='top'?'Planta':'Isométrico';$('brushLabel').textContent=(tool==='erase'?'Apagar · ':tool==='pan'?'Mover · ':tool==='fill'?'Preencher · ':tool==='scatter'?'Bosque · ':'')+names[layer][selected[layer]];}
+function setTool(value){tool=value==='scatter'&&layer!=='nature'?'paint':value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));canvas.style.cursor=tool==='pan'?'grab':'crosshair';updateMeta()}
+function setLayer(value){layer=value;document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('active',b.dataset.layer===value));document.querySelector('[data-tool="scatter"]').disabled=value!=='nature';if(tool==='scatter'&&value!=='nature')setTool('paint');buildPalette();updateMeta()}
 function buildPalette(){const area=$('tiles');area.replaceChildren();for(const [id,title,symbol,color] of defs[layer]){
  const b=document.createElement('button');b.type='button';b.className='tile-btn'+(selected[layer]===id?' selected':'');b.title=title;
- const th=document.createElement('span');th.className='thumb';th.style.background=color;th.textContent=layer==='ground'?'':symbol;
+ const th=document.createElement('span');th.className='thumb';th.style.background=layer==='ground'?color:hexMix(color,-45);
+  if(layer!=='ground'&&pixelSprites[id]){
+   const preview=document.createElement('canvas');preview.width=28;preview.height=28;
+   const pc=preview.getContext('2d');const sprite=pixelSprites[id];
+   for(let sy=0;sy<7;sy++)for(let sx=0;sx<7;sx++){
+    const bit=sprite[sy][sx];if(bit==='0')continue;
+    pc.fillStyle=bit==='1'?hexMix(color,-43):bit==='2'?color:hexMix(color,40);pc.fillRect(sx*4,sy*4,4,4);
+   }th.append(preview);
+  }
  const label=document.createElement('span');label.textContent=title;b.append(th,label);b.addEventListener('click',()=>{selected[layer]=id;if(tool==='erase'||tool==='pan')setTool('paint');buildPalette();updateMeta()});area.append(b);
 }}
 function fitView(){const a=view==='top'?w*44:(w+h)*28;const b=view==='top'?h*44:(w+h)*14;zoom=Math.min(2,Math.max(.28,Math.min((cw-45)/a,(ch-38)/b)));panX=0;panY=0;draw()}
@@ -188,7 +224,23 @@ const pixelSprites={
  wall:['1111111','1222221','1211121','1222221','1211121','1222221','1111111'],
  door:['0111110','0122210','0122210','0122310','0122210','0122210','0111110'],
  tree:['0002000','0022200','0222220','2222222','0222220','0001000','0001000'],
- rock:['0001100','0111110','1112111','1121111','1111111','0111110','0000000'],
+  rock:['0001100','0111110','1112111','1121111','1111111','0111110','0000000'],
+  pine:['0002000','0002200','0022220','0021220','0222222','0011100','0011100'],
+  palm:['0002220','2222210','0222212','0011100','0011000','0011000','0011000'],
+  deadTree:['1000101','0111210','0011100','0011100','0011100','0011100','0111110'],
+  bush:['0000000','0022200','0222220','2223222','1222221','0111110','0000000'],
+  thorns:['0001000','1012201','0111210','1222221','0122210','1011101','0000000'],
+  flowers:['0002000','0203200','0233220','0021200','0001000','0011100','0100010'],
+  mushroom:['0000000','0222200','2333320','1111110','0011100','0011100','0000000'],
+  tallGrass:['1001001','0102010','0122210','1012101','0112110','0011100','0010100'],
+  fern:['0002000','0221220','0122210','2221222','0122210','0011100','0001000'],
+  reeds:['1000101','2100201','1101101','1101101','0111110','0111110','0001000'],
+  stump:['0000000','0111110','1233321','1233321','1222221','0111110','0000000'],
+  log:['0000000','0000000','0111110','1222221','1333331','1111111','0000000'],
+  boulder:['0000000','0011110','0122211','1223221','1122211','0111110','0000000'],
+  crystal:['0002000','0023200','0222220','0123220','0122210','0011100','0001000'],
+  cactus:['0002000','0002002','2002202','2202222','0222220','0011100','0011100'],
+  lily:['0000000','0022200','0222220','2232222','0221220','0022200','0000000'],
  chest:['0000000','0111110','1222221','1332331','1332331','1111111','0000000'],
  enemy:['0022200','0222220','0211210','0222220','0011100','0110110','0100010'],
  boss:['1011101','1122211','1222221','1211211','1222221','0111110','1100011'],
@@ -225,6 +277,23 @@ function render(){raf=0;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1a24
 }
 function resizeCanvas(){const box=canvas.getBoundingClientRect();cw=Math.max(1,box.width);ch=Math.max(1,box.height);dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));canvas.width=Math.round(cw*dpr);canvas.height=Math.round(ch*dpr);fitView()}
 function changeCell(x,y){if(!inBounds(x,y))return false;const i=key(x,y),list=layer==='ground'?ground:objects;const value=tool==='erase'?(layer==='ground'?'void':null):selected[layer];if(list[i]===value)return false;list[i]=value;edited=true;draw();return true}
+function scatter(x,y){
+ if(!inBounds(x,y)||layer!=='nature')return;
+ const id=selected.nature,heavy=['tree','pine','palm','deadTree','boulder','cactus'].includes(id);
+ const density=heavy?32:57;
+ for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+  if(dx*dx+dy*dy>5)continue;
+  const tx=x+dx,ty=y+dy;if(!inBounds(tx,ty))continue;
+  const i=key(tx,ty),old=objects[i];
+  if(old&&!valid.nature.has(old))continue;
+  if(['void','water','lava','bridge'].includes(ground[i])&&id!=='lily')continue;
+  if(id==='lily'&&ground[i]!=='water'&&ground[i]!=='marsh')continue;
+  if((dx||dy)&&(hash(tx,ty,id.length*71)%100)>=density)continue;
+  if(old===id)continue;
+  objects[i]=id;edited=true;
+ }
+ draw();
+}
 function flood(x,y){if(!inBounds(x,y))return;const arr=layer==='ground'?ground:objects,target=tool==='erase'?(layer==='ground'?'void':null):selected[layer];const old=arr[key(x,y)];if(old===target)return;
  const visited=new Uint8Array(w*h),queue=[key(x,y)];visited[queue[0]]=1;for(let k=0;k<queue.length;k++){
   const i=queue[k];if(arr[i]!==old)continue;arr[i]=target;edited=true;
@@ -237,11 +306,11 @@ function pinch(){const points=[...activePointers.values()];return{x:(points[0].x
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);const p=pos(e);activePointers.set(e.pointerId,p);if(activePointers.size>=2){if(editStart){remember(editStart);editStart=null}edited=false;const g=pinch();gesture={...g,zoom,panX,panY};return}
  cursor=mapPoint(p.x,p.y);$('coordLabel').textContent=cursor.inside?` · ${cursor.x+1},${cursor.y+1}`:'';
  if(tool==='pan'){gesture={x:p.x,y:p.y,panX,panY};return}
- editStart=state();edited=false;if(tool==='fill'){flood(cursor.x,cursor.y);remember(editStart);editStart=null}else changeCell(cursor.x,cursor.y);draw();
+ editStart=state();edited=false;if(tool==='fill'){flood(cursor.x,cursor.y);remember(editStart);editStart=null}else if(tool==='scatter')scatter(cursor.x,cursor.y);else changeCell(cursor.x,cursor.y);draw();
 });
 canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;const p=pos(e);activePointers.set(e.pointerId,p);if(activePointers.size>=2&&gesture){const g=pinch();zoom=Math.max(.24,Math.min(3.8,gesture.zoom*(g.d/Math.max(1,gesture.d))));panX=gesture.panX+g.x-gesture.x;panY=gesture.panY+g.y-gesture.y;draw();return}
  if(tool==='pan'&&gesture){panX=gesture.panX+p.x-gesture.x;panY=gesture.panY+p.y-gesture.y;draw();return}
- cursor=mapPoint(p.x,p.y);$('coordLabel').textContent=cursor.inside?` · ${cursor.x+1},${cursor.y+1}`:'';if(editStart&&tool!=='fill')changeCell(cursor.x,cursor.y);draw();
+ cursor=mapPoint(p.x,p.y);$('coordLabel').textContent=cursor.inside?` · ${cursor.x+1},${cursor.y+1}`:'';if(editStart&&tool==='scatter')scatter(cursor.x,cursor.y);else if(editStart&&tool!=='fill')changeCell(cursor.x,cursor.y);draw();
 });
 function pointerDone(e){activePointers.delete(e.pointerId);if(editStart){remember(editStart);editStart=null}if(!activePointers.size)gesture=null;else if(activePointers.size===1)gesture=null;draw()}
 canvas.addEventListener('pointerup',pointerDone);canvas.addEventListener('pointercancel',pointerDone);canvas.addEventListener('lostpointercapture',pointerDone);
@@ -255,19 +324,20 @@ $('viewBtn').addEventListener('click',()=>{view=view==='top'?'iso':'top';$('view
 $('resizeBtn').addEventListener('click',()=>{const W=Number($('sizeW').value),H=Number($('sizeH').value);if(!Number.isInteger(W)||!Number.isInteger(H)||W<5||W>32||H<5||H>32){alert('Use dimensões entre 5 e 32.');return}const old=state(),g=ground.slice(),o=objects.slice(),ow=w,oh=h;blank(W,H,'grass');for(let y=0;y<Math.min(H,oh);y++)for(let x=0;x<Math.min(W,ow);x++){ground[key(x,y)]=g[y*ow+x];objects[key(x,y)]=o[y*ow+x]}remember(old);updateMeta();fitView()});
 $('presetBtn').addEventListener('click',()=>{if(!confirm('Substituir o mapa atual pelo modelo selecionado?'))return;const old=state();template($('preset').value);remember(old);updateMeta();fitView()});
 $('clearBtn').addEventListener('click',()=>{if(!confirm('Limpar terrenos e elementos do mapa?'))return;const old=state();blank(w,h,'grass');remember(old);updateMeta();draw()});
+$('notesBtn').addEventListener('click',()=>{const value=prompt('Anotações do mapa:', $('notes').value);if(value!==null){$('notes').value=value.slice(0,1600);persist()}});
 for(const id of ['name','notes'])$(id).addEventListener('input',persist);
 function download(filename,data,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)}
 function filename(ext){return ($('name').value||'mapa').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)+'.'+ext}
-$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=1;download(filename('json'),JSON.stringify(d,null,2),'application/json')});
+$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=2;download(filename('json'),JSON.stringify(d,null,2),'application/json')});
 $('pngBtn').addEventListener('click',()=>{canvas.toBlob(blob=>{if(!blob){alert('Não foi possível gerar o PNG');return}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename('png');document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)},'image/png')});
 $('importBtn').addEventListener('click',()=>$('jsonFile').click());$('jsonFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const old=state();loadState(parsed);remember(old);fitView();$('status').textContent='Mapa importado'}catch(error){alert('Não foi possível importar: '+error.message)}e.target.value=''});
-function ascii(){const gSym=Object.fromEntries(groundDefs.map(a=>[a[0],a[2]])),oSym=Object.fromEntries(objectDefs.map(a=>[a[0],a[2]]));const usedG=new Set(ground),usedO=new Set(objects.filter(Boolean));const lines=[];
+function ascii(){const gSym=Object.fromEntries(groundDefs.map(a=>[a[0],a[2]])),oSym=Object.fromEntries(allObjectDefs.map(a=>[a[0],a[2]]));const usedG=new Set(ground),usedO=new Set(objects.filter(Boolean));const lines=[];
  lines.push('MAPA RPG PIXEL ART — '+($('name').value||'Sem nome'));lines.push('Tamanho: '+w+'×'+h+' | Coordenadas: x da esquerda para a direita, y de cima para baixo.');
  if($('notes').value.trim())lines.push('Ideias/observações: '+$('notes').value.trim());
  lines.push('TERRENOS:');for(let y=0;y<h;y++)lines.push(ground.slice(y*w,(y+1)*w).map(t=>gSym[t]).join(''));
  lines.push('Legenda terrenos: '+groundDefs.filter(a=>usedG.has(a[0])).map(a=>a[2]+'='+a[1]).join('; '));
  lines.push('ELEMENTOS (. = vazio):');for(let y=0;y<h;y++)lines.push(objects.slice(y*w,(y+1)*w).map(t=>t?oSym[t]:'.').join(''));
- lines.push('Legenda elementos: '+objectDefs.filter(a=>usedO.has(a[0])).map(a=>a[2]+'='+a[1]).join('; '));
+ lines.push('Legenda elementos: '+allObjectDefs.filter(a=>usedO.has(a[0])).map(a=>a[2]+'='+a[1]).join('; '));
  lines.push('Interprete como um rascunho: não implemente no jogo principal sem minha aprovação.');return lines.join('\n')
 }
 $('share').addEventListener('click',()=>{$('shareText').value=ascii();$('dialogBackdrop').classList.add('open');$('shareText').focus();$('shareText').select()});
