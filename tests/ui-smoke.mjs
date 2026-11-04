@@ -703,6 +703,129 @@ try{
    assert.equal(migrated.startRegion,'forest');
    assert.ok(migrated.room.walkable,'personagem continua livre depois da migração');
   }
+
+  // FLORESTA PROCEDURAL: somente um dos três spawns autorais por seed.
+  // As travessias são salas intermediárias de exploração, não novos spawns.
+  if(width===854&&height===480){
+   const forestCheck=await page.evaluate(()=>{
+    const d=window.__rpgDebug,seenSpawns=new Set(),types=new Set(),
+      samples={},errors=[],totals={rooms:0,water:0,trees:0,roads:0};
+    for(let seed=1;seed<=300;seed++){
+     const world=d.worldForSeed(seed),rooms=Object.values(world.rooms);
+     const spawnRooms=rooms.filter(r=>r.spawnTemplate);
+     if(spawnRooms.length!==1||spawnRooms[0].id!==1)
+      errors.push({seed,issue:'spawn deve continuar aleatório e único'});
+     if(world.areas[0].biome!=='forest')
+      errors.push({seed,issue:'região de nascimento deve ser floresta'});
+     seenSpawns.add(spawnRooms[0].spawnTemplate);
+     if(world.rooms[2].kind!=='empty'||!world.rooms[2].forestTraversal)
+      errors.push({seed,issue:'primeira travessia não é uma sala livre'});
+     for(const r of rooms){
+      const biome=world.areas[r.area].biome;
+      if(r.spawnTemplate&&r.forestTraversal)
+       errors.push({seed,room:r.id,issue:'spawn não pode ser travessia genérica'});
+      if(!r.spawnTemplate&&r.area!==2&&world.areas[r.area].type==='wild'&&biome==='forest'&&!r.forestTraversal)
+       errors.push({seed,room:r.id,issue:'sala comum da floresta sem trilha'});
+      if(biome!=='forest'&&r.forestTraversal)
+       errors.push({seed,room:r.id,issue:'travessia florestal fora da floresta'});
+      if(!r.forestTraversal)continue;
+      totals.rooms++;types.add(r.forestTraversal);
+      if(r.id===2&&samples[r.forestTraversal]===undefined)
+       samples[r.forestTraversal]=seed;
+      const shape=d.forestGeometry(seed,r.id);
+      if(!shape||shape.forestTraversal!==r.forestTraversal)
+       {errors.push({seed,room:r.id,issue:'geometria ausente'});continue;}
+      const road=new Map(shape.paths),solid=new Set(shape.solid),walkable=new Set(shape.walkable);
+      totals.trees+=shape.props.filter(p=>p.type==='tree').length;
+      totals.roads+=shape.paths.filter(([,kind])=>kind==='forestTrail').length;
+      if(shape.props.some(p=>p.type!=='tree'))
+       errors.push({seed,room:r.id,issue:'colisão inesperada na vegetação'});
+      for(const p of shape.props)if(!solid.has(p.x+','+p.z))
+       errors.push({seed,room:r.id,issue:'tronco não tem colisão'});
+      for(const [key,kind] of road)if(['forestTrail','forestBridge','forestClearing'].includes(kind)&&solid.has(key))
+       errors.push({seed,room:r.id,issue:'estrada bloqueada por objeto',key});
+      if(shape.decor.some(p=>p.type==='flower'))
+       errors.push({seed,room:r.id,issue:'flora da travessia não deve mexer nos canteiros autorais'});
+      if(r.forestTraversal==='stream'){
+       if(!shape.paths.some(([,kind])=>kind==='forestWater'))
+        errors.push({seed,room:r.id,issue:'riacho sem água'});
+       else totals.water++;
+      }
+      // BFS: toda célula transitável deve ser alcançável a partir do centro.
+      const visited=new Set(['0,0']),queue=[[0,0]];
+      if(!walkable.has('0,0')||solid.has('0,0'))
+       errors.push({seed,room:r.id,issue:'centro inacessível'});
+      for(let i=0;i<queue.length;i++){
+       const [x,z]=queue[i];
+       for(const [dx,dz] of [[1,0],[0,1],[-1,0],[0,-1]]){
+        const key=(x+dx)+','+(z+dz);
+        if(visited.has(key)||!walkable.has(key)||solid.has(key))continue;
+        visited.add(key);queue.push([x+dx,z+dz]);
+       }
+      }
+      for(const key of walkable)if(!solid.has(key)&&!visited.has(key)){
+       errors.push({seed,room:r.id,issue:'trecho de piso isolado',key});break;
+      }
+      for(const e of shape.exits)if(!visited.has(e.at.x+','+e.at.z))
+       errors.push({seed,room:r.id,issue:'saída isolada',dir:e.dir});
+      if(JSON.stringify(shape)!==JSON.stringify(d.forestGeometry(seed,r.id)))
+       errors.push({seed,room:r.id,issue:'seed não determinística'});
+     }
+    }
+    return{spawns:[...seenSpawns],types:[...types],samples,totals,errors:errors.slice(0,18),
+     errorCount:errors.length};
+   });
+   assert.equal(forestCheck.errorCount,0,JSON.stringify(forestCheck.errors));
+   assert.deepEqual(new Set(forestCheck.spawns),new Set(['flower_clearing','ruined_gate','colossal_tree']),
+    'os três spawns existentes devem continuar escolhidos aleatoriamente');
+   assert.deepEqual(new Set(forestCheck.types),new Set(['winding','grove','fork','stream']),
+    'as quatro travessias comuns devem surgir');
+   assert.ok(forestCheck.totals.rooms>1000,'variedade ao longo de muitas salas');
+   assert.ok(forestCheck.totals.water>100,'riachos reais em parte das florestas');
+   assert.ok(forestCheck.totals.trees>1200,'passagens entre árvores sólidas');
+   assert.ok(forestCheck.totals.roads>4000,'trilhas físicas conectam entradas e saídas');
+   for(const [variant,seed] of Object.entries(forestCheck.samples)){
+    const result=await page.evaluate(seed=>{
+     const d=window.__rpgDebug;
+     d.debugStartSeed(seed);
+     const before=d.snapshot().run.world,
+      edge=before.rooms[1].exits.find(x=>x.to===2);
+     const ok=edge&&d.worldTravelNeighbor(edge.dir);
+     if(!ok)return{error:'não conectou o spawn à primeira travessia'};
+     const state=d.snapshot(),position=d.worldRoomInfo();
+     return{from:before.rooms[1].spawnTemplate,
+      variant:state.run.world.rooms[2].forestTraversal,
+      cleared:state.run.cleared,region:state.run.region,
+      location:state.run.world.current,position,foes:state.foes.length};
+    },seed);
+    assert.equal(result.error,undefined,result.error||'');
+    assert.equal(result.location,2);
+    assert.equal(result.variant,variant,'travessia selecionada pela seed');
+    assert.equal(result.region,'forest');
+    assert.equal(result.cleared,true,'primeira travessia é livre');
+    assert.equal(result.foes,0,'sala de travessia segura não gera inimigos indevidos');
+    assert.ok(result.position.walkable,'entrada física não prende o personagem');
+    await page.waitForTimeout(110);
+    await page.screenshot({path:resolve(root,'screenshots','floresta-travessia-'+variant+'.png')});
+    const returned=await page.evaluate(()=>{
+     const d=window.__rpgDebug,previous=d.snapshot().run.world.rooms[2].exits.find(x=>x.to===1);
+     const back=d.worldTravelNeighbor(previous.dir);
+     return{back,room:d.snapshot().run.world.current,visited:d.snapshot().run.world.discovered,
+      variant:d.snapshot().run.world.rooms[2].forestTraversal};
+    });
+    assert.ok(returned.back,'pode voltar ao spawn');
+    assert.equal(returned.room,1,'regresso pela passagem física');
+    assert.ok(returned.visited.includes(2),'travessia permanece descoberta');
+    assert.equal(returned.variant,variant,'retorno não regenera outro mapa');
+   }
+   await page.evaluate(()=>window.__rpgDebug.worldSave());
+   await page.reload();
+   await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+   await page.evaluate(()=>window.__rpgDebug.resumeCampaign(
+    JSON.parse(localStorage.getItem('rpg_pixelart_active_run_v21'))));
+   assert.ok((await page.evaluate(()=>window.__rpgDebug.snapshot().run.world.discovered)).includes(2),
+    'save preserva a descoberta da travessia');
+  }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }
