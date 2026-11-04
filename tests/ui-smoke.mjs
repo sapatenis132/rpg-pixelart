@@ -575,6 +575,8 @@ try{
     for(let seed=1;seed<=300;seed++){
      const data=debug.spawnGeometry(seed),world=debug.worldForSeed(seed);
      const type=data.template,room=data.room,spawn=data.spawn;
+     if(world.areas[0].biome!=='forest')
+      errors.push({seed,type,reason:'spawn fora da floresta',biome:world.areas[0].biome});
      seen.add(type);count[type]=(count[type]||0)+1;
      if(seeds[type]===undefined)seeds[type]=seed;
      if(room.id!==1||room.kind!=='empty'||world.rooms[1].spawnTemplate!==type)
@@ -614,6 +616,8 @@ try{
        errors.push({seed,type,reason:'canteiro invade o caminho/spawn'});
      }
      if(type==='ruined_gate'){
+      if(data.props.filter(x=>x.type==='tree').length<8)
+       errors.push({seed,type,reason:'portão não está cercado pela floresta'});
       if(data.props.filter(x=>x.type==='archPillar').length<10)
        errors.push({seed,type,reason:'pilares do arco ausentes'});
       if(solid.has('0,-4')||solid.has('0,-3'))
@@ -642,6 +646,8 @@ try{
      info:window.__rpgDebug.worldRoomInfo()
     }));
     assert.equal(started.snapshot.run.world.rooms[1].spawnTemplate,kind,'o cenário deve aparecer na campanha real');
+    assert.equal(started.snapshot.run.world.areas[0].biome,'forest','todos os spawns pertencem à floresta');
+    assert.equal(started.snapshot.run.region,'forest','HUD deve indicar floresta');
     assert.equal(started.snapshot.foes.length,0,'jogador não começa no meio de combate');
     assert.equal(started.snapshot.run.cleared,true,'spawn é área segura');
     assert.ok(started.info.walkable,'personagem está no solo e não preso');
@@ -673,6 +679,29 @@ try{
    }));
    assert.equal(restored.kind,last,'retomar campanha conserva mapa inicial sorteado');
    assert.ok(restored.passable,'colisões restauradas corretamente');
+   // Migra um save da antiga classificação indevida do portão.
+   await page.evaluate(seed=>window.__rpgDebug.debugStartSeed(seed),analysis.seeds.ruined_gate);
+   await page.evaluate(()=>{
+    const key='rpg_pixelart_active_run_v21',saved=JSON.parse(localStorage.getItem(key));
+    saved.run.world.areas[0].biome='ruins';
+    saved.run.region='ruins';
+    saved.run.startRegion='ruins';
+    localStorage.setItem(key,JSON.stringify(saved));
+   });
+   await page.reload();await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+   await page.evaluate(()=>window.__rpgDebug.resumeCampaign(
+    JSON.parse(localStorage.getItem('rpg_pixelart_active_run_v21'))));
+   const migrated=await page.evaluate(()=>{
+    const d=window.__rpgDebug,state=d.snapshot().run;
+    return{biome:state.world.areas[0].biome,region:state.region,
+     startRegion:state.startRegion,spawn:state.world.rooms[1].spawnTemplate,
+     room:d.worldRoomInfo()};
+   });
+   assert.equal(migrated.spawn,'ruined_gate','save mantém o portal arruinado');
+   assert.equal(migrated.biome,'forest','saves antigos migram para floresta');
+   assert.equal(migrated.region,'forest','bioma atual migrado sem apagar progresso');
+   assert.equal(migrated.startRegion,'forest');
+   assert.ok(migrated.room.walkable,'personagem continua livre depois da migração');
   }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
