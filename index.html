@@ -1723,8 +1723,10 @@ function generateWorld(seed){
    const room={id,area:ai,kind,
     forestTraversal,name:forestTraversal?FOREST_TRAVERSALS[forestTraversal]:first?template.name:null,
     shape:first?'spawn':forestTraversal==='stream'?'rect':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
-    width:first?template.width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
-    height:first?template.height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
+    width:first?template.width:special==='village'?25:special==='boss'?18:
+     Math.max(forestTraversal==='stream'?20:12,12+2*Math.floor(seeded(seed,id*31+55)*8)),
+    height:first?template.height:special==='village'?23:special==='boss'?18:
+     Math.max(forestTraversal==='stream'?20:12,12+2*Math.floor(seeded(seed,id*53+66)*8)),
     spawnTemplate:first?startTemplate:null,
     exits:[],variant:Math.floor(seeded(seed,id*109+87)*100000)};
    rooms[id]=room;area.rooms.push(id);
