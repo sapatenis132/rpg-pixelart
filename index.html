@@ -1483,6 +1483,188 @@ function buildSpawnGeometry(g){
  return g;
 }
 
+
+// Salas comuns de travessia da floresta: distintas dos três spawns autorais.
+// A seed controla os pequenos desvios, as passagens e a flora. O grafo de
+// regiões define as saídas obrigatórias; nenhuma árvore pode fechá-las.
+const FOREST_TRAVERSALS={
+ winding:'Trilha Sinuosa',
+ grove:'Passagem entre Árvores',
+ fork:'Bifurcação da Mata',
+ stream:'Travessia do Riacho'
+};
+const FOREST_TRAVERSAL_KEYS=Object.keys(FOREST_TRAVERSALS);
+function forestTraversalForRoom(seed,areaIndex,localIndex,id){
+ // As primeiras salas depois do spawn alternam as famílias sem forçar
+ // a mesma sequência visual em todas as campanhas.
+ const start=Math.floor(seeded(seed,5521)*FOREST_TRAVERSAL_KEYS.length);
+ return FOREST_TRAVERSAL_KEYS[(start+localIndex-1+areaIndex*2+Math.floor(seeded(seed,id*41+932)*2))%FOREST_TRAVERSAL_KEYS.length];
+}
+function forestTileKey(x,z){return x+','+z;}
+function forestExitCell(g,e){
+ const dir=ROOM_DIRECTIONS[e.dir];
+ return{x:dir.dx?Math.floor(dir.dx*(g.hw-.72)):0,
+        z:dir.dz?Math.floor(dir.dz*(g.hh-.72)):0};
+}
+function forestTileRoute(g,from,to,noise=0){
+ const key=p=>forestTileKey(p.x,p.z),start=key(from),target=key(to);
+ if(!g.walkable.has(start)||!g.walkable.has(target))return null;
+ if(start===target)return[{...from}];
+ const queue=[from],prev=new Map([[start,null]]);
+ const steps=[[1,0],[0,1],[-1,0],[0,-1]];
+ for(let idx=0;idx<queue.length;idx++){
+  const at=queue[idx],order=Math.floor(seeded(g.room.variant,noise+at.x*331+at.z*257)*4);
+  for(let n=0;n<4;n++){
+   const d=steps[(n+order)%4],p={x:at.x+d[0],z:at.z+d[1]},k=key(p);
+   if(!g.walkable.has(k)||prev.has(k))continue;
+   prev.set(k,key(at));queue.push(p);
+   if(k===target){
+    const route=[];let cursor=k;
+    while(cursor!==null){const [x,z]=cursor.split(',').map(Number);route.push({x,z});cursor=prev.get(cursor);}
+    return route.reverse();
+   }
+  }
+ }
+ return null;
+}
+function buildForestTraversalGeometry(g){
+ const room=g.room,type=room.forestTraversal,seed=room.variant;
+ if(!type)return g;
+ // Descarta entulho genérico para que a distribuição seja controlada.
+ g.solid.clear();g.props.length=0;
+ const protectedTiles=new Set(),routeTiles=new Set();
+ const reserve=(x,z,mark=false)=>{
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+   const k=forestTileKey(x+dx,z+dz);
+   if(g.walkable.has(k))protectedTiles.add(k);
+  }
+  if(mark)routeTiles.add(forestTileKey(x,z));
+ };
+ reserve(0,0,true);
+ const floorX=-Math.floor(room.width/2),floorZ=-Math.floor(room.height/2);
+ const validCell=(x,z)=>g.walkable.has(forestTileKey(x,z));
+ // Os desvios alternam à esquerda e à direita sem alterar a direção real
+ // da saída. Uma busca no piso existente mantém rotas válidas em qualquer forma.
+ for(const [index,e] of room.exits.entries()){
+  const end=forestExitCell(g,e),majorX=e.dir===0||e.dir===2;
+  const drift=(Math.floor(seeded(seed,index*37+791)*5)-2);
+  const midpoint=majorX?
+   {x:Math.round(end.x*.52),z:drift}:
+   {x:drift,z:Math.round(end.z*.52)};
+  const middleValid=validCell(midpoint.x,midpoint.z);
+  const first=middleValid?forestTileRoute(g,{x:0,z:0},midpoint,index*29):null;
+  const second=middleValid?forestTileRoute(g,midpoint,end,index*31+7):null;
+  const direct=forestTileRoute(g,{x:0,z:0},end,index*47+5);
+  const route=first&&second?[...first,...second.slice(1)]:direct;
+  if(!route)continue; // Validação externa verifica que a saída é alcançável.
+  for(const p of route)reserve(p.x,p.z,true);
+  for(const p of route){
+   const k=forestTileKey(p.x,p.z);
+   if(validCell(p.x,p.z))g.paths.set(k,type==='stream'?'forestTrail':'forestTrail');
+  }
+ }
+ // Variações com espaço de encontro ou ramificação terminando no bosque.
+ if(type==='fork'||type==='winding'){
+  const side=Math.floor(seeded(seed,994)*4);
+  const target={x:side===0?Math.floor(g.hw*.6):side===2?-Math.floor(g.hw*.6):0,
+                z:side===1?Math.floor(g.hh*.6):side===3?-Math.floor(g.hh*.6):0};
+  const branch=forestTileRoute(g,{x:0,z:0},target,2231);
+  if(branch&&branch.length>2)for(const p of branch){
+   reserve(p.x,p.z,true);
+   g.paths.set(forestTileKey(p.x,p.z),'forestTrail');
+  }
+ }
+ if(type==='grove'||type==='fork'){
+  for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++){
+   const k=forestTileKey(x,z);
+   if(g.walkable.has(k)&&seeded(seed,x*41+z*67)>.2){
+    g.paths.set(k,'forestClearing');protectedTiles.add(k);
+   }
+  }
+ }
+ // Riacho atravessa uma parte do bosque. A trilha contínua sempre ganha
+ // precedência: os cruzamentos recebem uma ponte rasa, não água sólida.
+ if(type==='stream'){
+  const horizontal=seeded(seed,788)>.5;
+  const offset=Math.floor(seeded(seed,809)*5)-2;
+  for(const tile of g.tiles){
+   const x=tile.x,z=tile.z,k=forestTileKey(x,z);
+   const center=horizontal?
+    offset+Math.round(Math.sin(x*.36+seed*.001)*.75):
+    offset+Math.round(Math.sin(z*.33+seed*.001)*.75);
+   if(Math.abs((horizontal?z:x)-center)>0)continue;
+   if(protectedTiles.has(k)){g.paths.set(k,'forestBridge');continue;}
+   if(!validCell(x,z))continue;
+   g.solid.add(k);g.paths.set(k,'forestWater');
+  }
+ }
+ // Troncos reais ocupam uma célula. Copas desenhadas maiores podem cruzar
+ // a trilha visualmente, mas nunca criam colisão fora da base da árvore.
+ const density=type==='grove'?.23:type==='fork'?.13:type==='stream'?.15:.17;
+ for(const tile of g.tiles){
+  const x=tile.x,z=tile.z,k=forestTileKey(x,z);
+  if(protectedTiles.has(k)||g.solid.has(k))continue;
+  const rand=seeded(seed,x*1913+z*941+1447);
+  const nearEdge=Math.abs(x+.5)>g.hw-2.8||Math.abs(z+.5)>g.hh-2.8;
+  const rate=density+(nearEdge?.23:0);
+  if(rand>rate)continue;
+  // Limita o agrupamento de troncos para não cercar os adversários.
+  const neighbors=[[1,0],[0,1],[-1,0],[0,-1]];
+  if(neighbors.some(([dx,dz])=>g.solid.has(forestTileKey(x+dx,z+dz))))continue;
+  g.solid.add(k);g.props.push({x,z,type:'tree',v:seeded(seed,x*113+z*29+1837)});
+ }
+ // Evita bolsas inacessíveis na geometria: conecta piso isolado liberando
+ // troncos, sem tocar em saídas nem em quaisquer objetos de campanha.
+ const flood=()=>{
+  const first=forestTileKey(0,0),visited=new Set([first]),queue=[[0,0]];
+  for(let i=0;i<queue.length;i++){
+   const [x,z]=queue[i];
+   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[-1,0],[0,-1]]){
+    const k=forestTileKey(x+dx,z+dz);
+    if(visited.has(k)||!g.walkable.has(k)||g.solid.has(k))continue;
+    visited.add(k);queue.push([x+dx,z+dz]);
+   }
+  }
+  return visited;
+ };
+ // Ao invés de confiar na chance de uma distribuição atravessável,
+ // libera individualmente obstáculos que separam áreas de piso.
+ let reachable=flood();
+ for(let repeat=0;repeat<24;repeat++){
+  const unreachable=g.tiles.filter(p=>!g.solid.has(forestTileKey(p.x,p.z))&&!reachable.has(forestTileKey(p.x,p.z)));
+  if(!unreachable.length)break;
+  const border=g.props.find(p=>g.solid.has(forestTileKey(p.x,p.z))&&
+    [[1,0],[0,1],[-1,0],[0,-1]].some(([dx,dz])=>reachable.has(forestTileKey(p.x+dx,p.z+dz)))&&
+    [[1,0],[0,1],[-1,0],[0,-1]].some(([dx,dz])=>unreachable.some(q=>q.x===p.x+dx&&q.z===p.z+dz)));
+  if(!border)break;
+  g.solid.delete(forestTileKey(border.x,border.z));
+  g.props.splice(g.props.indexOf(border),1);
+  reachable=flood();
+ }
+ // Decoração leve: folhas, samambaias, cogumelos; nunca "pinta" um novo
+ // obstáculo sobre os corredores e não mistura nada com canteiros autorais.
+ for(const tile of g.tiles){
+  const x=tile.x,z=tile.z,k=forestTileKey(x,z);
+  if(g.solid.has(k)||routeTiles.has(k))continue;
+  const rnd=seeded(seed,x*797+z*1301+3261);
+  if(rnd<.08)g.decor.push({type:rnd<.022?'mushroom':rnd<.05?'fern':'leaf',
+   x:x+.35+seeded(seed,x*197+z*383)*.3,
+   z:z+.33+seeded(seed,x*233+z*911)*.34,v:Math.floor(seeded(seed,x*39+z*83)*4)});
+ }
+ // Bordas próximas às portas ficam sempre livres, inclusive nos mapas
+ // com formato de cruz ou corredor.
+ for(const e of room.exits){
+  const p=forestExitCell(g,e);
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+   const k=forestTileKey(p.x+dx,p.z+dz);
+   g.solid.delete(k);
+  }
+ }
+ // Evita enfeites sem base depois de abrir passagem.
+ g.props=g.props.filter(o=>g.solid.has(forestTileKey(o.x,o.z)));
+ return g;
+}
+
 function generateWorld(seed){
  const biomes=Object.keys(BIOMES),rooms={},areas=[];
  const startTemplate=spawnForSeed(seed),template=SPAWN_TEMPLATES[startTemplate];
@@ -1507,12 +1689,15 @@ function generateWorld(seed){
   for(let j=0;j<size;j++){
    const id=++nextId,noise=seeded(seed,id*407+31);
    const first=j===0&&ai===0;
-   const kind=first?'empty':special==='boss'?'boss':special==='village'?'rest':noise<.20?'empty':noise<.34?'rest':'combat';
+   const kind=first?'empty':special==='boss'?'boss':special==='village'?'rest':ai===0&&j===1?'empty':noise<.20?'empty':noise<.34?'rest':'combat';
+   const forestTraversal=!first&&special==='wild'&&biome==='forest'?
+    forestTraversalForRoom(seed,ai,j,id):null;
    const room={id,area:ai,kind,
+    forestTraversal,name:forestTraversal?FOREST_TRAVERSALS[forestTraversal]:first?template.name:null,
     shape:first?'spawn':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
     width:first?template.width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
     height:first?template.height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
-    spawnTemplate:first?startTemplate:null,name:first?template.name:null,
+    spawnTemplate:first?startTemplate:null,
     exits:[],variant:Math.floor(seeded(seed,id*109+87)*100000)};
    rooms[id]=room;area.rooms.push(id);
    if(j>0){
@@ -1701,12 +1886,12 @@ function makeRoomGeometry(room){
   tiles.push({x,z});
   const key=x+','+z;walkable.add(key);
   const variation=seeded(room.variant,x*1499+z*701);
-  if(!room.spawnTemplate&&Math.abs(x+.5)>2.5&&Math.abs(z+.5)>2.5&&variation<.055){
+  if(!room.spawnTemplate&&!room.forestTraversal&&Math.abs(x+.5)>2.5&&Math.abs(z+.5)>2.5&&variation<.055){
    solid.add(key);props.push({x,z,type:variation<.024?'stone':'bush'});
   }
  }
  const geometry={room,hw,hh,tiles,walkable,solid,props,decor:[],landmarks:[],paths:new Map()};
- return room.spawnTemplate?buildSpawnGeometry(geometry):geometry;
+ return room.spawnTemplate?buildSpawnGeometry(geometry):room.forestTraversal?buildForestTraversalGeometry(geometry):geometry;
 }
 function worldExtent(){return roomGeometry&&runState?.world?Math.max(roomGeometry.hw,roomGeometry.hh):6.65;}
 function worldPassable(x,z){
@@ -1777,7 +1962,7 @@ function enterWorldRoom(id,from=null){
   enemies:enemies.map(e=>({...e})),region:runState.region};
  setCampaignHud();updateEliteUI();hud();saveCampaign();
  note((BIOMES[runState.region]?.icon||'✦')+' '+area.name,
-  isReturning?'Área conhecida · caminhos preservados':room.spawnTemplate?'Ponto de nascimento · '+room.name:
+  isReturning?'Área conhecida · caminhos preservados':room.spawnTemplate?'Ponto de nascimento · '+room.name:room.forestTraversal?'Travessia florestal · '+room.name:
    room.kind==='boss'?'Um adversário poderoso aguarda':room.kind==='combat'?'Explore ou enfrente os inimigos':'Explore o local e suas passagens',2);
  return true;
 }
