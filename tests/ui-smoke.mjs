@@ -425,7 +425,8 @@ try{
    });
    assert.deepEqual(generated.errors,[],'todas as áreas e passagens devem ser acessíveis');
    assert.ok(generated.worlds>=70,'cada run deve variar bastante');
-   assert.equal(generated.shapes.length,5,'cinco topologias de sala');
+   assert.ok(generated.shapes.includes('spawn'),'salas autorais aparecem entre os formatos');
+    assert.equal(generated.shapes.length,6,'cinco formatos genéricos mais o formato autoral');
    assert.ok(generated.singles>=100,'cada mundo terá áreas de sala única');
    assert.ok(generated.bigs>=100,'salas de tamanho grande');
    await page.evaluate(()=>window.__rpgDebug.newCampaign());
