@@ -561,6 +561,98 @@ try{
    assert.ok(balance.contact.meleeGuard<=.46,'não deve gerar defesa permanente');
    assert.ok(balance.snap.hits>0,'benefício apenas após impacto conectado');
   }
+
+  // ETAPA 27C — dois spawns da floresta baseados nos layouts do Laboratório.
+  // Cada mundo recebe ambos, com spawn inicial escolhido deterministicamente.
+  if(width===854&&height===480){
+   const generated=await page.evaluate(()=>{
+    const d=window.__rpgDebug,bad=[],seen=new Set();
+    for(let seed=1;seed<=100;seed++){
+     const world=d.worldForSeed(seed);
+     const first=world.rooms[1],second=world.rooms[2],templates=[first.template,second.template];
+     seen.add(first.template);
+     if(world.areas[0].biome!=='forest'||templates.sort().join()!=='ancientRoots,flowerClearing')
+      bad.push({seed,reason:'os dois mapas autorais não foram registrados na primeira área'});
+     if(first.kind!=='empty'||second.kind!=='empty'||!first.exits.some(e=>e.to===2))
+      bad.push({seed,reason:'spawns seguros precisam ser conectados'});
+     for(const room of [first,second]){
+      const g=d.worldRoomShape(room),floor=new Set(g.floor),solids=new Set(g.solids);
+      const start=Math.floor(g.spawn.x)+','+Math.floor(g.spawn.z);
+      if(!floor.has(start)||solids.has(start))bad.push({seed,template:room.template,reason:'spawn bloqueado',start});
+      const queue=[start],visited=new Set(queue);
+      for(let n=0;n<queue.length;n++){
+       const [x,z]=queue[n].split(',').map(Number);
+       for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const k=(x+dx)+','+(z+dz);
+        if(!floor.has(k)||solids.has(k)||visited.has(k))continue;
+        visited.add(k);queue.push(k);
+       }
+      }
+      for(const e of g.exits){
+       const goal=Math.floor(e.x)+','+Math.floor(e.z);
+       if(!visited.has(goal))bad.push({seed,template:room.template,reason:'saída inalcançável',goal});
+      }
+      if(room.template==='flowerClearing'){
+       const flowers=g.props.filter(p=>p.type==='flower'),trees=g.props.filter(p=>p.type==='tree');
+       const paths=g.terrain.filter(x=>x[1]==='path').map(x=>x[0].split(',').map(Number));
+       if(flowers.length<9||trees.length<12)bad.push({seed,reason:'perdeu canteiro ou árvores',flowers:flowers.length,trees:trees.length});
+       for(const item of flowers){
+        if(paths.some(([x,z])=>Math.abs(x-item.x)<=1&&Math.abs(z-item.z)<=1))
+         bad.push({seed,reason:'trilha entrou no canteiro'});
+        if(g.props.some(other=>other!==item&&other.type!=='flower'&&Math.abs(other.x-item.x)<=1&&Math.abs(other.z-item.z)<=1))
+         bad.push({seed,reason:'outro tipo de planta misturado às flores'});
+       }
+       if(!trees.every(t=>solids.has(t.x+','+t.z)))bad.push({seed,reason:'árvores sem colisão de tronco'});
+      }else{
+       const giants=g.props.filter(p=>p.type==='colossalTrunk'),
+        pillars=g.props.filter(p=>p.type==='archPillar'),
+        root=g.terrain.filter(x=>x[1]==='root'),
+        water=g.terrain.filter(x=>x[1]==='water');
+       if(giants.length!==2||pillars.length!==2||root.length<20||water.length<15)
+        bad.push({seed,reason:'árvore, raízes, ponte ou arco incompletos',giants:giants.length,pillars:pillars.length,root:root.length,water:water.length});
+       if(water.some(([k])=>floor.has(k)))bad.push({seed,reason:'água bloqueada deve ter colisão'});
+       if(!giants.concat(pillars).every(p=>solids.has(p.x+','+p.z)))
+        bad.push({seed,reason:'colisão de troncos e pilares'});
+      }
+     }
+    }
+    return{bad:bad.slice(0,14),variants:[...seen]};
+   });
+   assert.deepEqual(generated.bad,[],'100 seeds devem manter composição e saídas acessíveis');
+   assert.equal(generated.variants.length,2,'ambos os modelos podem ser o spawn inicial');
+   // Novo personagem nasce no cenário escolhido; a segunda sala contém o outro.
+   await page.evaluate(()=>window.__rpgDebug.newCampaign());
+   const snapshot=await page.evaluate(()=>({
+    run:window.__rpgDebug.snapshot().run,room:window.__rpgDebug.worldRoomInfo()
+   }));
+   assert.ok(['flowerClearing','ancientRoots'].includes(snapshot.room.template),'spawn desenhado ativo');
+   assert.ok(snapshot.room.walkable,'personagem nasce em solo válido');
+   await page.screenshot({path:resolve(root,'screenshots','etapa27c-spawn-inicial.png')});
+   const second=await page.evaluate(()=>{
+    const d=window.__rpgDebug,first=d.worldRoomInfo().id;
+    const exit=d.worldRoomInfo().exits.find(e=>e.to===2);
+    if(!exit)return{error:'segundo mapa sem conexão'};
+    const moved=d.worldTravelNeighbor(exit.dir);
+    return{first,moved,second:d.worldRoomInfo(),run:d.snapshot().run};
+   });
+   assert.equal(second.error,undefined);
+   assert.equal(second.moved,true);
+   assert.equal(second.second.id,2);
+   assert.notEqual(second.second.template,snapshot.room.template,'as duas composições são diferentes');
+   assert.equal(second.second.walkable,true);
+   await page.screenshot({path:resolve(root,'screenshots','etapa27c-segundo-spawn.png')});
+   await page.evaluate(()=>window.__rpgDebug.worldSave());
+   await page.reload();await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+   await page.evaluate(()=>window.__rpgDebug.resumeCampaign(
+    JSON.parse(localStorage.getItem('rpg_pixelart_active_run_v21'))));
+   const restored=await page.evaluate(()=>({
+    room:window.__rpgDebug.worldRoomInfo(),run:window.__rpgDebug.snapshot().run
+   }));
+   assert.equal(restored.room.template,second.second.template,'mapa autoral sobrevive ao save');
+   assert.equal(restored.room.walkable,true,'colisão após carregar mapa salvo');
+   assert.ok(restored.run.world.discovered.includes(1)&&restored.run.world.discovered.includes(2),
+    'ambos os mapas permanecem descobertos');
+  }
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }
