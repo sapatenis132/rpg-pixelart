@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b1722">
-<title>Laboratório de Mapas v4 — Geração Procedural</title>
+<title>Laboratório de Mapas v5 — Clareiras Protegidas</title>
 <style>
 :root{color-scheme:dark;--ink:#edf6ff;--soft:#a9c0d1;--line:#355066;--panel:#132435;--accent:#86e2cc;--gold:#f8cf8d;font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -119,7 +119,7 @@ select{min-height:35px}.hidden{display:none!important}
    <label>Intensidade<select id="procStrength"><option value="1">Suave</option><option value="2" selected>Moderada</option><option value="3">Variada</option></select></label>
   </div>
   <div class="procChecks"><label><input id="procPaths" type="checkbox" checked> Variar caminhos e saídas</label><label><input id="procFlora" type="checkbox" checked> Vegetação e flores</label></div>
-  <div id="procInfo">A geração procura conservar objetos especiais, árvores grandes e saídas marcadas. Se não houver saída marcada, escolhe uma borda conectada.</div>
+  <div id="procInfo">Flores em canteiros formam clareiras protegidas: sem plantas misturadas e sem estrada junto às flores. Cores e pequenas posições mudam; o acesso fica pela grama. Árvores grandes e saídas marcadas são preservadas.</div>
   <div class="procActions"><button id="procClose">Ver mapa</button><button id="procGenerate" class="primary">🎲 Gerar prévia</button><button id="procReset" class="danger">↶ Mapa original</button></div>
  </div>
 </div>
@@ -548,7 +548,7 @@ $('notesBtn').addEventListener('click',()=>{const value=prompt('Anotações do m
 for(const id of ['name','notes'])$(id).addEventListener('input',persist);
 function download(filename,data,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)}
 function filename(ext){return ($('name').value||'mapa').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)+'.'+ext}
-$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=4;d.previewOnly=!!procBase;if(procInfo)d.procedural={seed:procInfo.seed,spawn:procInfo.spawn,exits:procInfo.exits};download(filename('json'),JSON.stringify(d,null,2),'application/json')});
+$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=5;d.previewOnly=!!procBase;if(procInfo)d.procedural={seed:procInfo.seed,spawn:procInfo.spawn,exits:procInfo.exits,flowerClearings:procInfo.flowerClearings};download(filename('json'),JSON.stringify(d,null,2),'application/json')});
 $('pngBtn').addEventListener('click',()=>{canvas.toBlob(blob=>{if(!blob){alert('Não foi possível gerar o PNG');return}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename('png');document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)},'image/png')});
 $('importBtn').addEventListener('click',()=>$('jsonFile').click());$('jsonFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const old=state();loadState(parsed);remember(old);fitView();$('status').textContent='Mapa importado'}catch(error){alert('Não foi possível importar: '+error.message)}e.target.value=''});
 function ascii(){const gSym=Object.fromEntries(groundDefs.map(a=>[a[0],a[2]])),oSym=Object.fromEntries(allObjectDefs.map(a=>[a[0],a[2]]));const usedG=new Set(ground),usedO=new Set(objects.filter(Boolean)),usedL=new Set(largeObjects.map(o=>o.id));const lines=[];
@@ -588,8 +588,55 @@ function procBlocked(x,y,allowNatural=false){if(!inBounds(x,y))return true;const
 function procTraversable(x,y,allowNatural=false){return inBounds(x,y)&&!procBlocked(x,y,allowNatural)&&ground[key(x,y)]!=='void'&&ground[key(x,y)]!=='lava'}
 function procNearest(cx,cy){const spots=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(procTraversable(x,y))spots.push({x,y,dist:Math.abs(x-cx)+Math.abs(y-cy)});
  spots.sort((a,b)=>a.dist-b.dist||a.y-b.y||a.x-b.x);return spots[0]||null}
-function procRoute(start,end,rng){
- // Dijkstra sobre a grade; árvores grandes e elementos estruturais não são atravessados.
+// Protege agrupamentos de flores como clareiras: miolo reservado para flores,
+// anel de uma célula sem novas plantas nem estrada. O mapa-base nunca é alterado.
+function procFlowerSanctuary(){
+ const cells=objects.map((v,i)=>v==='flowers'?i:-1).filter(i=>i>=0),seen=new Uint8Array(w*h),pathMask=new Uint8Array(w*h),coreMask=new Uint8Array(w*h),groups=[];
+ for(const first of cells){
+  if(seen[first])continue;
+  const q=[first];seen[first]=1;
+  for(let n=0;n<q.length;n++){
+   const p=q[n],x=p%w,y=Math.floor(p/w);
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const xx=x+dx,yy=y+dy;if(!inBounds(xx,yy))continue;
+    const j=key(xx,yy);if(!seen[j]&&objects[j]==='flowers'){seen[j]=1;q.push(j)}
+   }
+  }
+  const xs=q.map(i=>i%w),ys=q.map(i=>Math.floor(i/w)),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  // Três ou mais flores formam um canteiro; até flores isoladas têm proteção.
+  const core=[];
+  if(q.length>=3){for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)core.push(key(x,y))}
+  else core.push(...q);
+  for(const i of core){
+   coreMask[i]=1;const x=i%w,y=Math.floor(i/w);
+   for(let yy=Math.max(0,y-1);yy<=Math.min(h-1,y+1);yy++)for(let xx=Math.max(0,x-1);xx<=Math.min(w-1,x+1);xx++)pathMask[key(xx,yy)]=1;
+  }
+  groups.push({flowers:q.slice(),core,coreSet:new Set(core),minX,maxX,minY,maxY});
+ }
+ return {groups,coreMask,pathMask};
+}
+function procGardenGate(start,goal,sanctuary){
+ if(!sanctuary.pathMask[key(start.x,start.y)])return start;
+ // Caminhar entre as flores é permitido, mas o chão da clareira não recebe trilha.
+ // Selecionamos o primeiro espaço LIVRE fora do anel, do lado da saída.
+ const seen=new Uint8Array(w*h),distance=new Int32Array(w*h),q=[key(start.x,start.y)];seen[q[0]]=1;
+ let choice=null,score=Infinity;
+ for(let n=0;n<q.length;n++){
+  const i=q[n],x=i%w,y=Math.floor(i/w);
+  if(!sanctuary.pathMask[i]&&ground[i]==='grass'&&!objects[i]&&!largeAt(x,y)){
+   const touches=[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].some(([xx,yy])=>inBounds(xx,yy)&&sanctuary.pathMask[key(xx,yy)]);
+   if(touches){const value=2*(Math.abs(x-goal.x)+Math.abs(y-goal.y))+distance[i];if(value<score){score=value;choice={x,y}}}
+  }
+  for(const [xx,yy] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
+   if(!procTraversable(xx,yy))continue;const j=key(xx,yy);
+   if(!seen[j]){seen[j]=1;distance[j]=distance[i]+1;q.push(j)}
+  }
+ }
+ return choice;
+}
+function procRoute(start,end,rng,protectedMask=null){
+ // Dijkstra evita troncos, construções e canteiros; não destrói flores para criar estradas.
+ if(protectedMask&&(protectedMask[key(start.x,start.y)]||protectedMask[key(end.x,end.y)]))return null;
  const best=new Float64Array(w*h).fill(Infinity),previous=new Int32Array(w*h).fill(-1),seen=new Uint8Array(w*h);
  const from=key(start.x,start.y),to=key(end.x,end.y);best[from]=0;
  for(let repeat=0;repeat<w*h;repeat++){
@@ -597,9 +644,10 @@ function procRoute(start,end,rng){
   if(at<0)break;if(at===to)break;seen[at]=1;
   const x=at%w,y=Math.floor(at/w);
   for(const [nx,ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
-   if(!procTraversable(nx,ny,true))continue;
-   const ni=key(nx,ny),g=ground[ni],old=g==='path',natural=objects[ni];
-   const penalty=(g==='water'?9:0)+(natural&&valid.nature.has(natural)?(collisionOf(natural)==='none'?1.8:7):0);
+   if(!procTraversable(nx,ny))continue;const ni=key(nx,ny);
+   if(protectedMask&&protectedMask[ni])continue;
+   const g=ground[ni],old=g==='path',natural=objects[ni];
+   const penalty=(g==='water'?9:0)+(natural&&valid.nature.has(natural)?1.8:0);
    const wobble=(strHash(`${nx}/${ny}/${procInfoSeed}`)%101)/115;
    const trial=best[at]+1+penalty+wobble+(old?-.2:0);
    if(trial<best[ni]){best[ni]=trial;previous[ni]=at}
@@ -609,15 +657,36 @@ function procRoute(start,end,rng){
  const route=[];for(let i=to;i!==-1;i=previous[i]){route.push({x:i%w,y:Math.floor(i/w)});if(i===from)break}
  return route.reverse()
 }
+function procShiftFlowers(sanctuary,rng,strength){
+ for(const group of sanctuary.groups){
+  if(group.flowers.length<4)continue;
+  const moves=Math.max(0,Math.floor(group.flowers.length*(strength===1?.06:strength===2?.12:.18)));
+  for(let n=0;n<moves;n++){
+   const active=group.core.filter(i=>objects[i]==='flowers');if(!active.length)break;
+   const source=active[Math.floor(rng()*active.length)],x=source%w,y=Math.floor(source/w);
+   const choices=[];
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;const xx=x+dx,yy=y+dy;if(!inBounds(xx,yy))continue;
+    const target=key(xx,yy);
+    if(!group.coreSet.has(target)||objects[target]||ground[target]!=='grass'||largeAt(xx,yy))continue;
+    // Mesmo se existirem objetos pré-existentes na clareira, não aproximar flores deles.
+    if([[xx-1,yy],[xx+1,yy],[xx,yy-1],[xx,yy+1]].some(([a,b])=>inBounds(a,b)&&objects[key(a,b)]&&objects[key(a,b)]!=='flowers'))continue;
+    choices.push(target);
+   }
+   if(!choices.length)continue;
+   const target=choices[Math.floor(rng()*choices.length)];objects[source]=null;objects[target]='flowers';delete colorOverrides[source];
+  }
+ }
+}
 let procInfoSeed='';
 function procConnectivity(spawn,ends){const seen=new Uint8Array(w*h),q=[spawn],found=[];seen[key(spawn.x,spawn.y)]=1;
  for(let i=0;i<q.length;i++){const {x,y}=q[i];for(const [nx,ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]])if(procTraversable(nx,ny)&&!seen[key(nx,ny)]){seen[key(nx,ny)]=1;q.push({x:nx,y:ny})}}
  return ends.every(p=>seen[key(p.x,p.y)]===1)
 }
-function procEdgeCandidates(spawn,rng){const edges=[];
+function procEdgeCandidates(spawn,rng,protectedMask=null){const edges=[];
  for(let x=0;x<w;x++){edges.push({x,y:0,side:'N'});edges.push({x,y:h-1,side:'S'})}
  for(let y=1;y<h-1;y++){edges.push({x:0,y,side:'W'});edges.push({x:w-1,y,side:'E'})}
- return edges.filter(p=>procTraversable(p.x,p.y)&&Math.abs(p.x-spawn.x)+Math.abs(p.y-spawn.y)>2).map(p=>({...p,weight:rng()})).sort((a,b)=>a.weight-b.weight)
+ return edges.filter(p=>procTraversable(p.x,p.y)&&(!protectedMask||!protectedMask[key(p.x,p.y)])&&Math.abs(p.x-spawn.x)+Math.abs(p.y-spawn.y)>2).map(p=>({...p,weight:rng()})).sort((a,b)=>a.weight-b.weight)
 }
 function procGenerateMap(seed,strength,changePaths,changeFlora){
  procInfoSeed=seed;const rng=randomFrom(JSON.stringify([seed,strength,changePaths,changeFlora,w,h,ground,objects,largeObjects.map(p=>[p.id,p.x,p.y,p.cols,p.rows,p.collision])]));
@@ -626,36 +695,42 @@ function procGenerateMap(seed,strength,changePaths,changeFlora){
   if(objects[key(x,y)]==='entrance')entrances.push({x,y});
   if(objects[key(x,y)]==='exit')fixedExits.push({x,y});
  }
+ const sanctuary=procFlowerSanctuary();
+ // Um canteiro florido é referência visual do spawn. Preserve seu desenho.
  const start=entrances.length?entrances[0]:procNearest(Math.floor((w-1)/2),Math.floor((h-1)/2));
  if(!start)throw Error('Não foi encontrado espaço transitável para nascer.');
  const endpoints=fixedExits.slice(),routes=[];
+ const findRoute=end=>{
+  const gate=procGardenGate(start,end,sanctuary);
+  return gate?procRoute(gate,end,rng,sanctuary.pathMask):null;
+ };
  if(changePaths){
   const original=ground.slice();
   // Somente trilhas propriamente ditas são redesenhadas; manchas de terra e construções permanecem.
   if(original.some(g=>g==='path'))for(let i=0;i<ground.length;i++)if(ground[i]==='path')ground[i]='grass';
-  const candidates=procEdgeCandidates(start,rng);
+  const candidates=procEdgeCandidates(start,rng,sanctuary.pathMask);
   if(!endpoints.length){
-   for(const e of candidates){const r=procRoute(start,e,rng);if(r){endpoints.push({x:e.x,y:e.y});routes.push(r);break}}
+   for(const e of candidates){const r=findRoute(e);if(r){endpoints.push({x:e.x,y:e.y});routes.push(r);break}}
    if(!endpoints.length)throw Error('Não há uma borda acessível para conectar a sala.');
   }else{
-   for(const e of endpoints){const r=procRoute(start,e,rng);if(!r)throw Error('Uma saída obrigatória não pode ser alcançada sem atravessar estruturas.');routes.push(r)}
+   for(const e of endpoints){const r=findRoute(e);if(!r)throw Error('Uma saída obrigatória não pode ser alcançada sem passar pelo canteiro ou atravessar estruturas.');routes.push(r)}
   }
   // Uma pequena ramificação opcional, ligada ao mesmo caminho principal.
   if(strength>=3&&rng()<.48){for(const e of candidates){if(endpoints.some(p=>p.x===e.x&&p.y===e.y))continue;
-   const r=procRoute(start,e,rng);if(r){endpoints.push({x:e.x,y:e.y});routes.push(r);break}}
+   const r=findRoute(e);if(r){endpoints.push({x:e.x,y:e.y});routes.push(r);break}}
   }
-  for(const r of routes)for(const p of r){const i=key(p.x,p.y),g=ground[i];ground[i]=g==='water'?'bridge':'path';if(valid.nature.has(objects[i])){objects[i]=null;delete colorOverrides[i]}}
+  for(const r of routes)for(const p of r){const i=key(p.x,p.y),g=ground[i];if(sanctuary.pathMask[i])continue;ground[i]=g==='water'?'bridge':'path';if(objects[i]&&valid.nature.has(objects[i])&&objects[i]!=='flowers'){objects[i]=null;delete colorOverrides[i]}}
   // Transições de trilha discretas, com largura maior apenas em poucos pontos.
   if(strength>=2)for(const r of routes)for(const p of r)if(rng()<.13*strength){const [dx,dy]=[[0,1],[1,0],[0,-1],[-1,0]][Math.floor(rng()*4)];const x=p.x+dx,y=p.y+dy;
-   if(procTraversable(x,y)&&!['water','bridge'].includes(ground[key(x,y)])&&!objects[key(x,y)])ground[key(x,y)]='path';
+   if(procTraversable(x,y)&&!sanctuary.pathMask[key(x,y)]&&!['water','bridge'].includes(ground[key(x,y)])&&!objects[key(x,y)])ground[key(x,y)]='path';
   }
  }else{ // Sem variar caminhos, preservar saídas existentes e destacar saída possível se não houver marcador.
-  if(!endpoints.length){const e=procEdgeCandidates(start,rng)[0];if(e)endpoints.push({x:e.x,y:e.y})}
+  if(!endpoints.length){const e=procEdgeCandidates(start,rng,sanctuary.pathMask)[0];if(e)endpoints.push({x:e.x,y:e.y})}
  }
  // Espalhamento discreto sem deslocar estruturas ou entidades multicélula.
  if(changeFlora){
   const candidates=[];for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
-   const i=key(x,y);if(procTraversable(x,y)&&ground[i]==='grass'&&!largeObjects.some(p=>covers(p,x,y)))candidates.push(i);
+   const i=key(x,y);if(procTraversable(x,y)&&!sanctuary.pathMask[i]&&ground[i]==='grass'&&!largeObjects.some(p=>covers(p,x,y)))candidates.push(i);
   }
   const swaps=Math.min(candidates.length,Math.max(2,Math.round(w*h*(strength===1?.018:strength===2?.04:.07))));
   for(let n=0;n<swaps&&candidates.length;n++){
@@ -663,22 +738,24 @@ function procGenerateMap(seed,strength,changePaths,changeFlora){
    if(prev&&!valid.nature.has(prev))continue;
    if(rng()<.3){if(prev&&valid.nature.has(prev))objects[i]=null}
    else if(!prev||valid.nature.has(prev)){
-    const opt=changePaths?['bush','fern','tallGrass','tree','flowers','mushroom','pine']:['bush','fern','tallGrass','flowers','mushroom'];
+    const opt=changePaths?['bush','fern','tallGrass','tree','mushroom','pine']:['bush','fern','tallGrass','mushroom'];
     objects[i]=opt[Math.floor(rng()*opt.length)];
    }
    delete colorOverrides[i];
   }
+  // Mudar algumas posições somente dentro da clareira; nunca misturar outras espécies.
+  procShiftFlowers(sanctuary,rng,strength);
   // Flores da mesma seed seguem uma paleta coerente. A tintura é armazenada no JSON.
   const flowerColor=procColors[Math.floor(rng()*procColors.length)];
   for(let i=0;i<objects.length;i++)if(objects[i]==='flowers')colorOverrides[i]=flowerColor;
   // Alterna algumas espécies sem apagar flores nem mover árvores de grande porte.
-  if(strength>=2)for(let i=0;i<objects.length;i++)if(objects[i]==='tree'&&rng()<.12*strength)objects[i]='pine';
+  if(strength>=2)for(let i=0;i<objects.length;i++)if(objects[i]==='tree'&&!sanctuary.pathMask[i]&&rng()<.12*strength)objects[i]='pine';
  }
  // Evita que a própria variação coloque árvores sobre o nascimento ou caminhos já abertos.
  if(changeFlora){const i=key(start.x,start.y);if(objects[i]&&collisionOf(objects[i])!=='none'){objects[i]=null;delete colorOverrides[i]}}
  // Validação da rota só é exigida para as saídas ligadas/criadas por esta geração.
  if(changePaths&&!procConnectivity(start,endpoints))throw Error('A variação bloqueou uma conexão importante; tente outra seed.');
- return {seed,spawn:{x:start.x,y:start.y},exits:endpoints.map(p=>({x:p.x,y:p.y})),strength,changePaths,changeFlora};
+ return {seed,spawn:{x:start.x,y:start.y},exits:endpoints.map(p=>({x:p.x,y:p.y})),flowerClearings:sanctuary.groups.length,strength,changePaths,changeFlora};
 }
 function procLock(active){
  $('palette').classList.toggle('previewLocked',active);$('procBadge').classList.toggle('open',active);
