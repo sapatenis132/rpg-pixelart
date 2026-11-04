@@ -1619,7 +1619,7 @@ function buildForestTraversalGeometry(g){
   const first=forestTileKey(0,0),visited=new Set([first]),queue=[[0,0]];
   for(let i=0;i<queue.length;i++){
    const [x,z]=queue[i];
-   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[-1,0],[0,-1]]){
+   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
     const k=forestTileKey(x+dx,z+dz);
     if(visited.has(k)||!g.walkable.has(k)||g.solid.has(k))continue;
     visited.add(k);queue.push([x+dx,z+dz]);
@@ -1627,18 +1627,46 @@ function buildForestTraversalGeometry(g){
   }
   return visited;
  };
- // Ao invés de confiar na chance de uma distribuição atravessável,
- // libera individualmente obstáculos que separam áreas de piso.
+ // Resolução de conectividade: se dois bolsões de terreno foram separados
+ // por troncos ou água, procura a abertura mais curta (0-1 BFS).
+ // Assim inimigos não ficam em áreas transitáveis isoladas por acaso.
  let reachable=flood();
- for(let repeat=0;repeat<24;repeat++){
-  const unreachable=g.tiles.filter(p=>!g.solid.has(forestTileKey(p.x,p.z))&&!reachable.has(forestTileKey(p.x,p.z)));
-  if(!unreachable.length)break;
-  const border=g.props.find(p=>g.solid.has(forestTileKey(p.x,p.z))&&
-    [[1,0],[0,1],[-1,0],[0,-1]].some(([dx,dz])=>reachable.has(forestTileKey(p.x+dx,p.z+dz)))&&
-    [[1,0],[0,1],[-1,0],[0,-1]].some(([dx,dz])=>unreachable.some(q=>q.x===p.x+dx&&q.z===p.z+dz)));
-  if(!border)break;
-  g.solid.delete(forestTileKey(border.x,border.z));
-  g.props.splice(g.props.indexOf(border),1);
+ for(let repeat=0;repeat<g.tiles.length;repeat++){
+  const target=g.tiles.find(p=>!g.solid.has(forestTileKey(p.x,p.z))&&!reachable.has(forestTileKey(p.x,p.z)));
+  if(!target)break;
+  const targetKey=forestTileKey(target.x,target.z),queue=[targetKey],
+   dist=new Map([[targetKey,0]]),prev=new Map(),moves=[[1,0],[0,1],[-1,0],[0,-1]];
+  let goal=null;
+  while(queue.length){
+   const key=queue.shift(),base=dist.get(key);
+   if(reachable.has(key)){goal=key;break;}
+   const [x,z]=key.split(',').map(Number);
+   for(const [dx,dz] of moves){
+    const next=forestTileKey(x+dx,z+dz);
+    if(!g.walkable.has(next))continue;
+    const cost=g.solid.has(next)?1:0,value=base+cost;
+    if(value>=(dist.get(next)??Infinity))continue;
+    dist.set(next,value);prev.set(next,key);
+    if(cost===0)queue.unshift(next);else queue.push(next);
+   }
+  }
+  if(!goal){
+   // Terreno de base realmente desconectado por causa do formato: não
+   // deixa uma ilha aparentemente transitável se não existe caminho.
+   const isolated=g.tiles.filter(p=>{
+    const k=forestTileKey(p.x,p.z);return !reachable.has(k)&&!g.solid.has(k);
+   });
+   for(const tile of isolated){
+    const k=forestTileKey(tile.x,tile.z);
+    g.solid.add(k);g.paths.set(k,'forestThicket');
+   }
+   break;
+  }
+  for(let key=goal;key!==undefined;key=prev.get(key)){
+   if(!g.solid.has(key))continue;
+   g.solid.delete(key);
+   if(g.paths.get(key)==='forestWater')g.paths.set(key,'forestBridge');
+  }
   reachable=flood();
  }
  // Decoração leve: folhas, samambaias, cogumelos; nunca "pinta" um novo
@@ -1694,7 +1722,7 @@ function generateWorld(seed){
     forestTraversalForRoom(seed,ai,j,id):null;
    const room={id,area:ai,kind,
     forestTraversal,name:forestTraversal?FOREST_TRAVERSALS[forestTraversal]:first?template.name:null,
-    shape:first?'spawn':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
+    shape:first?'spawn':forestTraversal==='stream'?'rect':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
     width:first?template.width:special==='village'?25:special==='boss'?18:12+2*Math.floor(seeded(seed,id*31+55)*8),
     height:first?template.height:special==='village'?23:special==='boss'?18:12+2*Math.floor(seeded(seed,id*53+66)*8),
     spawnTemplate:first?startTemplate:null,
@@ -1988,7 +2016,7 @@ function tryWorldTransition(move){
 function drawSpawnGround(g){
  for(const [key,type] of g.paths){
   const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
-  const color=type==='forestWater'?'#1c5064':
+  const color=type==='forestThicket'?'#29513c':type==='forestWater'?'#1c5064':
    type==='forestBridge'?'#937749':
    type==='forestTrail'?'#746d4d':
    type==='forestClearing'?'#416d50':
@@ -1996,7 +2024,7 @@ function drawSpawnGround(g){
    type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
   polygon(corners,color,type==='rootFloor'?'#a57948':null,.7);
   const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
-  ctx.fillStyle=type==='forestWater'?'#81bcb5':
+  ctx.fillStyle=type==='forestThicket'?'#658c55':type==='forestWater'?'#81bcb5':
    type==='forestBridge'?'#d0a571':
    type==='forestClearing'?'#74ab6b':
    type==='forestTrail'?'#b59e72':
