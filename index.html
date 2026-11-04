@@ -1774,6 +1774,109 @@ function tryWorldTransition(move){
  }
  return false;
 }
+
+function drawSpawnGround(g){
+ for(const [key,type] of g.paths){
+  const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
+  const color=type==='rootFloor'?'#70472d':type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
+  polygon(corners,color,type==='rootFloor'?'#a57948':null,.7);
+  const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
+  ctx.fillStyle=type==='rootFloor'?'#bb8958':type==='stonePath'?'#8c9aa0':'#aa9970';
+  ctx.fillRect(Math.round(at.x+sx*(n-.5)*.3),Math.round(at.y+sy*(n-.5)*.3),sz,sz);
+ }
+}
+function drawSpawnTree(p,v=0){
+ const sz=Math.max(3,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y),shift=Math.floor(v*4)%4;
+ ctx.fillStyle='#18281f';ctx.fillRect(x-2*sz,y-2*sz,4*sz,2*sz);
+ ctx.fillStyle='#513a2b';ctx.fillRect(x-sz,y-9*sz,2*sz,7*sz);
+ ctx.fillStyle='#a47148';ctx.fillRect(x-sz/2,y-8*sz,sz*.6,5*sz);
+ const leaves=['#2b6445','#387c51','#497c42','#2e7450'];
+ for(const [dx,dy,ww,hh,c] of [[-5,-11,10,5,0],[-6,-14,12,5,1],[-4,-17,8,5,2],[-3,-19,6,4,3],[-7,-12,4,4,2],[3,-12,4,4,1],[-5,-15,3,3,3],[2,-17,3,3,0]]){
+  ctx.fillStyle=leaves[(c+shift)%4];ctx.fillRect(x+dx*sz,y+dy*sz,ww*sz,hh*sz);
+ }
+ ctx.fillStyle='#80a963';ctx.fillRect(x-3*sz,y-15*sz,2*sz,sz);
+ ctx.fillRect(x+sz,y-18*sz,2*sz,sz);
+}
+function drawSpawnDebris(p){
+ const sz=Math.max(2,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y);
+ ctx.fillStyle='#172127';ctx.fillRect(x-3*sz,y-sz,7*sz,2*sz);
+ ctx.fillStyle='#515e69';ctx.fillRect(x-2*sz,y-3*sz,5*sz,3*sz);
+ ctx.fillStyle='#a0aca9';ctx.fillRect(x-2*sz,y-3*sz,3*sz,sz);
+}
+function drawColossalTrunk(){
+ const p=point(0,-7),x=Math.round(p.x),y=Math.round(p.y);
+ const sz=Math.max(3,Math.round(sx*.13)),width=22*sz,height=84*sz;
+ // Uma só árvore imensa: o tronco segue acima da câmera, sem copa artificial.
+ ctx.fillStyle='#17251f';ctx.fillRect(x-width*.59,y-height-6*sz,width*1.18,height+12*sz);
+ ctx.fillStyle='#4d3324';ctx.fillRect(x-width*.52,y-height,width,height);
+ ctx.fillStyle='#745033';ctx.fillRect(x-width*.43,y-height,width*.84,height);
+ for(const [a,b,c] of [[-.32,.16,'#94603b'],[-.14,.08,'#403028'],[.08,.1,'#a06b41'],[.31,.10,'#3c3025']]){
+  ctx.fillStyle=c;ctx.fillRect(x+width*a,y-height,width*b,height);
+ }
+ ctx.fillStyle='#52714a';ctx.fillRect(x-width*.47,y-7*sz,width*.3,3*sz);
+ ctx.fillRect(x+width*.18,y-10*sz,width*.28,5*sz);
+ // Raízes largas e expostas sustentam o solo; braços menores colidem.
+ for(const [dx,dz,k] of [[-6,-1,4],[5,0,4],[-4,5,3],[5,7,3]]){
+  const q=point(dx,dz),m=point(dx*.47,-4+dz*.22);
+  ctx.lineCap='square';ctx.strokeStyle='#352821';ctx.lineWidth=k*sz;
+  ctx.beginPath();ctx.moveTo(x,y-8*sz);ctx.lineTo(m.x,m.y-3*sz);ctx.lineTo(q.x,q.y);ctx.stroke();
+  ctx.strokeStyle='#ab794b';ctx.lineWidth=k*sz*.34;
+  ctx.beginPath();ctx.moveTo(x-2*sz,y-9*sz);ctx.lineTo(m.x-2,m.y-4*sz);ctx.lineTo(q.x-2,q.y-2*sz);ctx.stroke();
+ }
+}
+function drawRuinedArch(){
+ const left=point(-3.1,-4.1),right=point(4.1,-4.1),
+ sz=Math.max(3,Math.round(sx*.115)),height=27*sz,
+ stone=['#4b5b66','#7f8a94','#adb4af','#67717e'];
+ for(const [index,p] of [left,right].entries()){
+  const x=Math.round(p.x),y=Math.round(p.y),width=9*sz;
+  ctx.fillStyle='#26313a';ctx.fillRect(x-width*.55,y-height-2*sz,width*1.1,height+4*sz);
+  ctx.fillStyle='#76828a';ctx.fillRect(x-width*.47,y-height,width*.94,height);
+  for(let k=0;k<5;k++){
+   ctx.fillStyle=stone[(k+index)%stone.length];
+   ctx.fillRect(x-width*.45,y-height+k*5*sz,width*.82,2*sz);
+   ctx.fillStyle='#314b46';ctx.fillRect(x+width*.12,y-height+k*5*sz,sz,2*sz);
+  }
+  ctx.fillStyle='#42674d';ctx.fillRect(x-width*.42,y-5*sz,3*sz,sz);
+ }
+ for(let i=0;i<8;i++){
+  if([3,4,6].includes(i))continue; // topo rachado e parcialmente desaparecido
+  const t=i/8,x=left.x+(right.x-left.x)*t,
+  y=left.y+(right.y-left.y)*t-height-(i===2?sz:0);
+  ctx.fillStyle=stone[(i+1)%stone.length];
+  ctx.fillRect(Math.round(x)-2*sz,Math.round(y)-3*sz,4*sz,4*sz);
+  ctx.fillStyle='#bac0b0';ctx.fillRect(Math.round(x)-2*sz,Math.round(y)-3*sz,2*sz,sz);
+ }
+}
+function drawSpawnFeatures(g){
+ if(!g.room.spawnTemplate)return;
+ const props=[...g.decor,...g.props].sort((a,b)=>(a.x+a.z)-(b.x+b.z));
+ for(const o of props){
+  const offset=['flower','leaf','moss'].includes(o.type)?0:.5,
+   p=point(o.x+offset,o.z+offset);
+  if(p.x< -120||p.x>w+120||p.y<-180||p.y>h+100)continue;
+  if(o.type==='tree')drawSpawnTree(p,o.v);
+  else if(o.type==='flower'){
+   const colors=['#f4c6dc','#ebcb62','#b8b4fd','#f0e5c2','#d991c0'],
+    sz=Math.max(2,Math.round(sx*.08)),x=Math.round(p.x),y=Math.round(p.y);
+   ctx.fillStyle='#32754a';ctx.fillRect(x,y-2*sz,sz,3*sz);
+   ctx.fillStyle=colors[o.v%5];ctx.fillRect(x-sz,y-3*sz,3*sz,2*sz);
+   ctx.fillStyle='#fff2c9';ctx.fillRect(x,y-2*sz,sz,sz);
+  }else if(o.type==='rubble'||o.type==='debris')drawSpawnDebris(p);
+  else if(o.type==='rootWall'){
+   const sz=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
+   ctx.fillStyle='#3a2921';ctx.fillRect(x-3*sz,y-3*sz,7*sz,4*sz);
+   ctx.fillStyle='#b28351';ctx.fillRect(x-2*sz,y-4*sz,5*sz,2*sz);
+  }else if(o.type==='leaf'||o.type==='moss'){
+   const sz=Math.max(2,Math.round(sx*.11));
+   ctx.fillStyle=o.type==='moss'?'#587b59':'#6d9659';
+   ctx.fillRect(Math.round(p.x),Math.round(p.y)-sz,2*sz,sz);
+  }
+ }
+ if(g.room.spawnTemplate==='ruined_gate')drawRuinedArch();
+ if(g.room.spawnTemplate==='colossal_tree')drawColossalTrunk();
+}
+
 function drawWorldFloor(){
  const g=roomGeometry,room=g.room,b=BIOMES[runState.region]||BIOMES.forest;
  ctx.fillStyle='#07151f';ctx.fillRect(0,0,w,h);
@@ -1792,7 +1895,8 @@ function drawWorldFloor(){
   }
  }
  ctx.fillStyle=b.tint;ctx.fillRect(0,0,w,h);
- for(const prop of g.props){
+ if(room.spawnTemplate){drawSpawnGround(g);drawSpawnFeatures(g);}
+ for(const prop of (room.spawnTemplate?[]:g.props)){
   const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
   if(p.x< -30||p.x>w+30||p.y< -40||p.y>h+40)continue;
   ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
@@ -1831,7 +1935,7 @@ function showCampaignMenu(){saveCampaign();const saved=loadedRun||readSave();con
  {label:'✦ Criar personagem · nova campanha',action:()=>{if(active||saved){if(!window.confirm('Abandonar a campanha atual? Todo o progresso desta run será perdido.'))return;}openCharacterCreator();}},
  ...(!active?[{label:'⚔ Laboratório de combate (sem XP)',secondary:true,action:()=>{closeCampaignOverlay();runState=null;eliteMode=false;drill.active=false;reset();openLab();}}]:[])
  ]);}
-function newCampaign(character=DEFAULT_HERO){progress=safeProgress(null);clearSave();loadedRun=null;runState={active:true,seed:randSeed(),region:'forest',startRegion:null,room:1,visited:[],visitedRegions:[],bossKills:0,character:safeCharacter(character),cleared:false,createdAt:Date.now(),cause:null};runState.world=generateWorld(runState.seed);runState.room=runState.world.current;runState.region=runState.world.areas[0].biome;runState.startRegion=runState.region;runState.visitedRegions=[runState.region];eliteMode=false;eliteVictory=false;drill.active=false;game.classList.remove('in-drill');reset();enterRoom(true);closeCampaignOverlay();note((BIOMES[runState.region].icon+' '+BIOMES[runState.region].name).toUpperCase(),BIOMES[runState.region].intro,3.5);}
+function newCampaign(character=DEFAULT_HERO,debugSeed=null){progress=safeProgress(null);clearSave();loadedRun=null;runState={active:true,seed:Number.isInteger(debugSeed)&&debugSeed>0?debugSeed:randSeed(),region:'forest',startRegion:null,room:1,visited:[],visitedRegions:[],bossKills:0,character:safeCharacter(character),cleared:false,createdAt:Date.now(),cause:null};runState.world=generateWorld(runState.seed);runState.room=runState.world.current;runState.region=runState.world.areas[0].biome;runState.startRegion=runState.region;runState.visitedRegions=[runState.region];eliteMode=false;eliteVictory=false;drill.active=false;game.classList.remove('in-drill');reset();enterRoom(true);closeCampaignOverlay();note((BIOMES[runState.region].icon+' '+BIOMES[runState.region].name).toUpperCase(),BIOMES[runState.region].intro,3.5);}
 function resumeCampaign(data){loadedRun=null;runState={...data.run,character:safeCharacter(data.run?.character),visitedRegions:Array.isArray(data.run?.visitedRegions)?data.run.visitedRegions.filter(x=>BIOMES[x]):[data.run.region],bossKills:Number(data.run?.bossKills)||0,active:true};progress=safeProgress(data.progress);eliteMode=!!data.eliteMode;eliteVictory=!!data.eliteVictory;drill.active=false;game.classList.remove('in-drill');reset();
  const rebuiltMaxHp=player.maxHp,rebuiltMaxMp=player.maxMp;player={...player,...data.player};if(runState.world){roomGeometry=makeRoomGeometry(roomById());roomTransitionCooldown=.9;}player.guardWindow=0;projectileEpoch++;rangedShots=[];if(player.maxHp!==rebuiltMaxHp){const ratio=Math.max(0,Math.min(1,Number(player.hp||0)/Math.max(1,Number(player.maxHp)||1)));player.maxHp=rebuiltMaxHp;player.hp=Math.max(1,Math.round(rebuiltMaxHp*ratio));}if(player.maxMp!==rebuiltMaxMp){const ratio=Math.max(0,Math.min(1,Number(player.mp||0)/Math.max(1,Number(player.maxMp)||1)));player.maxMp=rebuiltMaxMp;player.mp=Math.round(rebuiltMaxMp*ratio);}player.hp=Math.max(1,Math.min(player.maxHp,player.hp));player.act=null;player.buffer=null;player.bufferTime=0;player.parryWindow=0;player.parryRecovery=0;player.invuln=Math.min(.6,player.invuln||0);player.attackLock=0;
  enemies=(Array.isArray(data.enemies)?data.enemies:[]).slice(0,5).map(x=>({...x,face:x.face||{x:-1,z:0},phase:['chase','windup','strike','recover','dead','guard','feint'].includes(x.phase)?x.phase:'chase'}));selectedEnemy=Number.isInteger(data.selectedEnemy)?data.selectedEnemy:0;squadSize=Number.isInteger(data.squadSize)?data.squadSize:3;clock=Math.max(0,Number(data.clock)||0);kills=Math.max(0,Number(data.kills)||0);wavesCleared=Math.max(0,Number(data.wavesCleared)||0);nextEnemyId=Math.max(0,Number(data.nextEnemyId)||0);respawn=0;focusId=data.focusId||null;chooseTarget();
@@ -3200,6 +3304,15 @@ window.__rpgDebug.weaponDisplayFacing=(face,joystick,archetype,progress=.5,attac
 window.__rpgDebug.combatMoveFactor=combatMoveFactor;
 window.__rpgDebug.combatProfile=()=>({archetype:currentArchetype(),meleeGuard:player.meleeGuard||0});
 window.__rpgDebug.mapData=(tab='area')=>mapData(tab);window.__rpgDebug.openWorldMap=openWorldMap;window.__rpgDebug.closeWorldMap=closeWorldMap;
+window.__rpgDebug.debugStartSeed=seed=>newCampaign(DEFAULT_HERO,seed);
+window.__rpgDebug.spawnTemplates=()=>JSON.parse(JSON.stringify(SPAWN_TEMPLATES));
+window.__rpgDebug.spawnForSeed=seed=>spawnForSeed(seed);
+window.__rpgDebug.spawnGeometry=seed=>{
+ const world=generateWorld(seed),room=world.rooms[1],g=makeRoomGeometry(room);
+ return{template:room.spawnTemplate,room,spawn:SPAWN_TEMPLATES[room.spawnTemplate].spawn,
+  props:g.props.map(o=>({...o})),decor:g.decor.map(o=>({...o})),
+  paths:[...g.paths],walkable:[...g.walkable],solid:[...g.solid]};
+};
 window.__rpgDebug.worldForSeed=seed=>generateWorld(seed);
 window.__rpgDebug.worldRoomShape=room=>{const g=makeRoomGeometry(room);return{width:g.room.width,height:g.room.height,
  shape:g.room.shape,walkable:g.walkable.size,blocked:g.solid.size,
