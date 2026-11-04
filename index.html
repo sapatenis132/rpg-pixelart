@@ -1491,7 +1491,18 @@ const FOREST_TRAVERSALS={
  winding:'Trilha Sinuosa',
  grove:'Passagem entre Árvores',
  fork:'Bifurcação da Mata',
- stream:'Travessia do Riacho'
+ stream:'Travessia do Riacho',
+ moss:'Trilha de Musgo',
+ fallen:'Tronco Caído',
+ stones:'Passagem Pedregosa',
+ ferns:'Vale das Samambaias',
+ ring:'Círculo de Árvores',
+ roots:'Raízes Expostas',
+ marsh:'Brejo Raso',
+ mist:'Bosque Nebuloso',
+ fireflies:'Clareira dos Vagalumes',
+ ridge:'Encosta de Pedra',
+ hollow:'Mata Fechada'
 };
 const FOREST_TRAVERSAL_KEYS=Object.keys(FOREST_TRAVERSALS);
 function forestTraversalForRoom(seed,areaIndex,localIndex,id){
@@ -1618,7 +1629,9 @@ function buildForestTraversalGeometry(g){
  }
  // Troncos reais ocupam uma célula. Copas desenhadas maiores podem cruzar
  // a trilha visualmente, mas nunca criam colisão fora da base da árvore.
- const density=type==='grove'?.23:type==='fork'?.13:type==='stream'?.15:.17;
+ const density=({grove:.23,fork:.13,stream:.15,moss:.17,fallen:.14,
+  stones:.10,ferns:.16,ring:.16,roots:.14,marsh:.10,mist:.15,
+  fireflies:.12,ridge:.10,hollow:.28})[type]??.17;
  for(const tile of g.tiles){
   const x=tile.x,z=tile.z,k=forestTileKey(x,z);
   if(protectedTiles.has(k)||g.solid.has(k))continue;
@@ -1631,6 +1644,8 @@ function buildForestTraversalGeometry(g){
   if(neighbors.some(([dx,dz])=>g.solid.has(forestTileKey(x+dx,z+dz))))continue;
   g.solid.add(k);g.props.push({x,z,type:'tree',v:seeded(seed,x*113+z*29+1837)});
  }
+ // A identidade de cada mapa é construída sem fechar o grafo de saída.
+ applyForestTraversalIdentity(g,protectedTiles,routeTiles);
  // Evita bolsas inacessíveis na geometria: conecta piso isolado liberando
  // troncos, sem tocar em saídas nem em quaisquer objetos de campanha.
  const flood=()=>{
@@ -1711,6 +1726,115 @@ function buildForestTraversalGeometry(g){
  return g;
 }
 
+/* Etapa 28 — 11 travessias adicionais: piso, marcos e flora com variação
+   controlada por seed. Nenhuma peça sólida é aplicada sobre uma rota
+   reservada. A resolução de conectividade permanece no gerador anterior. */
+function applyForestTraversalIdentity(g,protectedTiles,routeTiles){
+ const type=g.room.forestTraversal,seed=g.room.variant;
+ if(['winding','grove','fork','stream'].includes(type))return;
+ const key=forestTileKey;
+ const valid=(x,z)=>g.walkable.has(key(x,z));
+ const protectedAt=(x,z)=>protectedTiles.has(key(x,z));
+ const free=(x,z)=>valid(x,z)&&!protectedAt(x,z)&&!g.solid.has(key(x,z));
+ const path=(x,z,kind)=>{
+  const k=key(x,z);
+  if(valid(x,z)&&!protectedAt(x,z)&&!routeTiles.has(k)&&!g.solid.has(k)&&!g.paths.has(k))
+   g.paths.set(k,kind);
+ };
+ const prop=(x,z,kind,v=0)=>{
+  if(!free(x,z))return false;
+  const k=key(x,z);g.solid.add(k);g.props.push({x,z,type:kind,v});return true;
+ };
+ const decor=(x,z,kind,v=0)=>{
+  if(!valid(x,z)||g.solid.has(key(x,z))||routeTiles.has(key(x,z)))return;
+  g.decor.push({x:x+.22+seeded(seed,x*137+z*79+89)*.45,
+   z:z+.20+seeded(seed,x*41+z*157+93)*.48,type:kind,v});
+ };
+ const nearRoute=(x,z,range=2)=>{
+  for(let dx=-range;dx<=range;dx++)for(let dz=-range;dz<=range;dz++)
+   if(routeTiles.has(key(x+dx,z+dz)))return true;
+  return false;
+ };
+ const pick=(x,z,salt)=>seeded(seed,x*1031+z*601+salt);
+ const radius=Math.min(g.hw*.52,g.hh*.52,7);
+ // Cada identidade tem seu próprio desenho. Plantas decorativas não colidem;
+ // pedras, troncos e raízes só colidem na célula real de sua base.
+ if(type==='fallen'){
+  const horizontal=seeded(seed,708)>.5;
+  const axis=horizontal?[1,0]:[0,1],candidates=[];
+  for(const p of g.tiles){
+   const x=p.x,z=p.z;
+   if(!nearRoute(x,z,4))continue;
+   if([0,1,2,3].every(n=>free(x+axis[0]*n,z+axis[1]*n)))
+    candidates.push(p);
+  }
+  if(candidates.length){
+   const start=candidates[Math.floor(seeded(seed,714)*candidates.length)];
+   for(let n=0;n<4;n++){
+    const x=start.x+axis[0]*n,z=start.z+axis[1]*n;
+    prop(x,z,'log',n);g.paths.set(key(x,z),'forestRoot');
+   }
+  }
+ }
+ for(const p of g.tiles){
+  const x=p.x,z=p.z,k=key(x,z),r=pick(x,z,3049);
+  const dist=Math.hypot(x+.5,z+.5);
+  if(type==='moss'){
+   if(r<.39)path(x,z,'forestMoss');
+   if(r>.81&&r<.93)decor(x,z,r>.88?'mushroom':'moss');
+  }else if(type==='fallen'){
+   if(r<.23)path(x,z,'forestRoot');
+   if(r>.89)decor(x,z,'moss');
+  }else if(type==='stones'){
+   if(r<.34)path(x,z,'forestStone');
+   if(r>.75&&r<.91)prop(x,z,'stone',Math.floor(r*11)%4);
+   if(r>.92)decor(x,z,'moss');
+  }else if(type==='ferns'){
+   if(r<.35)path(x,z,'forestFern');
+   if((nearRoute(x,z,3)&&r<.33)||r>.89)decor(x,z,'fern');
+  }else if(type==='ring'){
+   // Um anel de árvores com clareira central, interrompido apenas pelas
+   // passagens necessárias. A colisão continua restrita aos troncos.
+   if(dist<radius-1.8)path(x,z,'forestClearing');
+   if(Math.abs(dist-radius)<.95&&r<.91)prop(x,z,'tree',pick(x,z,3061));
+   if(dist<radius-2.5&&r>.93)decor(x,z,'moss');
+  }else if(type==='roots'){
+   if(r<.34||Math.abs(z-Math.sin(x*.5+seed*.001)*2)<1.1)
+    path(x,z,'forestRoot');
+   if(r>.91&&nearRoute(x,z,4))prop(x,z,'rootWall',r);
+   if(r>.77&&r<.84)decor(x,z,'fern');
+  }else if(type==='marsh'){
+   const pool=Math.sin(x*.41+seed*.001)*Math.cos(z*.37-seed*.002);
+   if(pool>.24&&r<.91)path(x,z,'forestShallow');
+   if(pool>.55&&r>.62&&r<.74&&free(x,z)){
+    g.solid.add(k);g.paths.set(k,'forestWater');
+   }
+   if(pool>.10&&r>.77)decor(x,z,'reed');
+  }else if(type==='mist'){
+   if(r<.37||Math.sin(x*.29+z*.35+seed*.001)>.66)path(x,z,'forestMist');
+   if(r>.86)decor(x,z,'mist');
+   if(r>.70&&r<.76)decor(x,z,'moss');
+  }else if(type==='fireflies'){
+   if(dist<radius+1.5&&r<.67)path(x,z,'forestGlade');
+   if(r>.76&&dist<radius+3)decor(x,z,'firefly',Math.floor(r*30)%3);
+   if(r>.68&&r<.72)decor(x,z,'mushroom');
+  }else if(type==='ridge'){
+   const band=z-x*.38-Math.sin(x*.35+seed*.001)*1.5;
+   if(Math.abs(band)<3.4||r<.24)path(x,z,'forestStone');
+   if(Math.abs(band)>2.8&&r>.79&&r<.94)
+    prop(x,z,'stone',Math.floor(r*16)%4);
+   if(r>.94)decor(x,z,'moss');
+  }else if(type==='hollow'){
+   const edge=Math.max(Math.abs(x+.5)/g.hw,Math.abs(z+.5)/g.hh);
+   if(edge>.47&&r<.58)prop(x,z,'tree',pick(x,z,3121));
+   if(edge>.49&&r<.68)path(x,z,'forestShade');
+   if(r>.83&&r<.92)decor(x,z,'fern');
+  }
+ }
+ // Alguns obstáculos novos podem tornar-se desnecessários após abertura
+ // de passagem; a limpeza final de props no gerador remove peças retiradas.
+}
+
 function generateWorld(seed){
  const biomes=Object.keys(BIOMES),rooms={},areas=[];
  const startTemplate=spawnForSeed(seed),template=SPAWN_TEMPLATES[startTemplate];
@@ -1740,11 +1864,11 @@ function generateWorld(seed){
     forestTraversalForRoom(seed,ai,j,id):null;
    const room={id,area:ai,kind,
     forestTraversal,name:forestTraversal?FOREST_TRAVERSALS[forestTraversal]:first?template.name:null,
-    shape:first?'spawn':forestTraversal==='stream'?'rect':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
+    shape:first?'spawn':['stream','fallen','ring','marsh','fireflies'].includes(forestTraversal)?'rect':['rect','ellipse','cross','bend','channel'][Math.floor(seeded(seed,id*67+11)*5)],
     width:first?template.width:special==='village'?25:special==='boss'?18:
-     Math.max(forestTraversal==='stream'?20:12,12+2*Math.floor(seeded(seed,id*31+55)*8)),
+     Math.max(['stream','fallen','ring','marsh','fireflies'].includes(forestTraversal)?20:12,12+2*Math.floor(seeded(seed,id*31+55)*8)),
     height:first?template.height:special==='village'?23:special==='boss'?18:
-     Math.max(forestTraversal==='stream'?20:12,12+2*Math.floor(seeded(seed,id*53+66)*8)),
+     Math.max(['stream','fallen','ring','marsh','fireflies'].includes(forestTraversal)?20:12,12+2*Math.floor(seeded(seed,id*53+66)*8)),
     spawnTemplate:first?startTemplate:null,
     exits:[],variant:Math.floor(seeded(seed,id*109+87)*100000)};
    rooms[id]=room;area.rooms.push(id);
@@ -2033,23 +2157,32 @@ function tryWorldTransition(move){
  return false;
 }
 
+
 function drawSpawnGround(g){
+ const palette={
+  forestThicket:['#29513c','#658c55'],forestWater:['#1c5064','#81bcb5'],
+  forestBridge:['#937749','#d0a571'],forestTrail:['#746d4d','#b59e72'],
+  forestClearing:['#416d50','#74ab6b'],water:['#1b4258','#5595a2'],
+  rootFloor:['#70472d','#bb8958'],stonePath:['#5a6670','#8c9aa0'],
+  clearing:['#506c51','#aa9970'],
+  forestMoss:['#326a46','#7bad60'],forestStone:['#556167','#a3aaa0'],
+  forestFern:['#325c41','#71ad72'],forestRoot:['#604830','#b58a54'],
+  forestShallow:['#315e61','#87c4b4'],forestMist:['#52766d','#a4c4b6'],
+  forestGlade:['#416e53','#b5c887'],forestShade:['#294a3c','#4e8065']
+ };
  for(const [key,type] of g.paths){
   const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
-  const color=type==='forestThicket'?'#29513c':type==='forestWater'?'#1c5064':
-   type==='forestBridge'?'#937749':
-   type==='forestTrail'?'#746d4d':
-   type==='forestClearing'?'#416d50':
-   type==='water'?'#1b4258':type==='rootFloor'?'#70472d':
-   type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
-  polygon(corners,color,type==='rootFloor'?'#a57948':null,.7);
+  const colors=palette[type]||['#8d815f','#aa9970'];
+  polygon(corners,colors[0],type==='rootFloor'?'#a57948':null,.7);
   const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
-  ctx.fillStyle=type==='forestThicket'?'#658c55':type==='forestWater'?'#81bcb5':
-   type==='forestBridge'?'#d0a571':
-   type==='forestClearing'?'#74ab6b':
-   type==='forestTrail'?'#b59e72':
-   type==='water'?'#5595a2':type==='rootFloor'?'#bb8958':type==='stonePath'?'#8c9aa0':'#aa9970';
+  ctx.fillStyle=colors[1];
   ctx.fillRect(Math.round(at.x+sx*(n-.5)*.3),Math.round(at.y+sy*(n-.5)*.3),sz,sz);
+  if(type==='forestShallow'||type==='forestMist'||type==='forestGlade'){
+   ctx.globalAlpha=type==='forestGlade'?.34:.22;
+   ctx.fillStyle=type==='forestGlade'?'#e8e0a0':'#cdeae1';
+   ctx.fillRect(Math.round(at.x-sz*1.7),Math.round(at.y+sz*.4),sz*3,sz);
+   ctx.globalAlpha=1;
+  }
  }
 }
 function drawSpawnTree(p,v=0){
@@ -2123,6 +2256,13 @@ function drawSpawnFeatures(g){
    p=point(o.x+offset,o.z+offset);
   if(p.x< -120||p.x>w+120||p.y<-180||p.y>h+100)continue;
   if(o.type==='tree')drawSpawnTree(p,o.v);
+  else if(o.type==='log'){
+   const s=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
+   ctx.fillStyle='#2c251e';ctx.fillRect(x-4*s,y-2*s,8*s,3*s);
+   ctx.fillStyle='#78523a';ctx.fillRect(x-4*s,y-3*s,8*s,2*s);
+   ctx.fillStyle='#b18455';ctx.fillRect(x-3*s,y-3*s,5*s,s);
+   ctx.fillStyle='#53734a';ctx.fillRect(x+s,y-4*s,2*s,s);
+  }else if(o.type==='stone')drawSpawnDebris(p);
   else if(o.type==='flower'){
    const colors=['#f4c6dc','#ebcb62','#b8b4fd','#f0e5c2','#d991c0'],
     sz=Math.max(2,Math.round(sx*.08)),x=Math.round(p.x),y=Math.round(p.y);
@@ -2134,6 +2274,19 @@ function drawSpawnFeatures(g){
    const sz=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
    ctx.fillStyle='#3a2921';ctx.fillRect(x-3*sz,y-3*sz,7*sz,4*sz);
    ctx.fillStyle='#b28351';ctx.fillRect(x-2*sz,y-4*sz,5*sz,2*sz);
+  }else if(o.type==='firefly'){
+   const s=Math.max(2,Math.round(sx*.085)),x=Math.round(p.x),y=Math.round(p.y);
+   ctx.fillStyle='rgba(224,244,161,.25)';ctx.fillRect(x-2*s,y-5*s,s*5,s*5);
+   ctx.fillStyle=['#fff5a5','#b5f1ac','#f6d1a8'][o.v%3];ctx.fillRect(x,y-3*s,s*2,s*2);
+  }else if(o.type==='mist'){
+   const s=Math.max(2,Math.round(sx*.1)),x=Math.round(p.x),y=Math.round(p.y);
+   ctx.fillStyle='rgba(184,214,206,.26)';
+   ctx.fillRect(x-4*s,y-2*s,7*s,s);ctx.fillRect(x-2*s,y-3*s,6*s,s);
+  }else if(o.type==='reed'){
+   const s=Math.max(2,Math.round(sx*.11)),x=Math.round(p.x),y=Math.round(p.y);
+   ctx.fillStyle='#578c63';ctx.fillRect(x-s,y-4*s,s,5*s);
+   ctx.fillRect(x+s,y-5*s,s,6*s);
+   ctx.fillStyle='#b7a56d';ctx.fillRect(x+s,y-5*s,s,s*2);
   }else if(o.type==='leaf'||o.type==='moss'||o.type==='fern'||o.type==='mushroom'){
    const sz=Math.max(2,Math.round(sx*.105)),px=Math.round(p.x),py=Math.round(p.y);
    if(o.type==='mushroom'){
