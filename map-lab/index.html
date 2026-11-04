@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b1722">
+<title>Laboratório de Mapas — RPG Pixel Art</title>
+<style>
+:root{color-scheme:dark;--ink:#edf6ff;--soft:#a9c0d1;--line:#355066;--panel:#132435;--accent:#86e2cc;--gold:#f8cf8d;font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;background:#08121b;color:var(--ink);overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{border:1px solid #527087;background:#243c4e;border-radius:9px;padding:8px 10px;cursor:pointer;font-weight:750;white-space:nowrap;min-height:35px}
+button:active{filter:brightness(1.25)}button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:#25695f;border-color:#64bfaa;color:#edfff7}
+button.active{background:#326a70;border-color:#93f8e3;box-shadow:inset 0 0 0 1px #93f8e345}
+button.danger{background:#56353c;border-color:#ad6669}
+input,textarea,select{background:#0b1b29;border:1px solid #3a5a70;border-radius:9px;padding:8px;min-width:0;outline:none}
+input:focus,textarea:focus,select:focus{border-color:#a0decb}
+#app{display:flex;flex-direction:column;width:100%;height:100%;height:100dvh;overflow:hidden}
+header{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:7px max(10px,env(safe-area-inset-left));background:#142636;border-bottom:1px solid #345366}
+.titlebox{min-width:155px}.titlebox strong{display:block;font-size:15px;letter-spacing:.015em}.titlebox small{display:block;color:var(--soft);font-size:10px}
+#name{flex:1;max-width:280px;height:35px}
+.header-actions{display:flex;gap:6px;margin-left:auto}
+#workspace{display:flex;flex:1;min-height:0}
+#viewer{position:relative;flex:1;min-width:0;overflow:hidden;background:#0a151d}
+#map{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;image-rendering:pixelated}
+#viewer:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 25%,#01070d79 100%)}
+#viewerInfo{position:absolute;top:9px;left:9px;pointer-events:none;background:#06131bd9;border:1px solid #40627a;border-radius:9px;padding:6px 9px;font-size:10px;color:#d7ecf8;max-width:calc(100% - 110px)}
+#viewerInfo b{color:#a8ffe2}
+#zoomBar{position:absolute;right:9px;top:9px;display:flex;gap:5px}
+#zoomBar button{min-width:33px;height:34px;padding:4px 7px;background:#0a2130ed}
+#palette{width:246px;flex:none;min-height:0;display:flex;flex-direction:column;background:#122536;border-left:1px solid #38586b}
+.section{padding:10px 10px 7px;border-bottom:1px solid #334f61}.sectionTitle{font-size:11px;letter-spacing:.08em;color:#b2c9d8;font-weight:850;text-transform:uppercase;margin-bottom:7px}
+.pair{display:flex;gap:5px}.pair>*{flex:1;min-width:0}
+#tools button{padding:7px 4px;font-size:11px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:3px}
+#tools .toolLabel{display:none}#tools button span[aria-hidden]{font-size:18px}
+#tabs button{padding:7px 6px}
+#tiles{flex:1;overflow-y:auto;min-height:0;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:6px;padding:10px;overscroll-behavior:contain}
+.tile-btn{display:flex;align-items:center;text-align:left;gap:7px;min-width:0;height:49px;padding:5px 6px;font-size:11px;white-space:normal;line-height:1.05;border-color:#39566a;background:#1a3142}
+.tile-btn .thumb{display:grid;place-items:center;width:30px;height:30px;flex:none;border:2px solid #ffffff26;border-radius:6px;box-shadow:inset 0 4px 0 #ffffff16;color:#fff;text-shadow:0 2px 2px #000b;font-size:18px;font-weight:950}
+.tile-btn.selected{background:#245d58;border-color:#b0fbea;box-shadow:inset 0 0 0 1px #e2fff449}
+#notes{resize:none;width:100%;height:53px;font-size:11px;line-height:1.3}
+#statusbar{height:52px;flex:none;display:flex;align-items:center;gap:6px;background:#0f202e;border-top:1px solid #345267;padding:5px max(9px,env(safe-area-inset-left)) 5px 9px;overflow-x:auto;overscroll-behavior:contain;scrollbar-width:none}
+#statusbar::-webkit-scrollbar{display:none}
+#statusbar button{font-size:11px;padding:6px 10px;flex:none}
+#status{margin-left:auto;color:#b3d6dc;white-space:nowrap;font-size:11px;flex:none}
+fieldset{border:0;padding:0;margin:0}
+#sizeW,#sizeH{width:47px;min-height:34px;padding:5px;text-align:center}
+.mini{font-size:10px;color:var(--soft)}
+#dialogBackdrop{position:fixed;inset:0;background:#040a12dd;z-index:20;display:none;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(6px)}
+#dialogBackdrop.open{display:flex}
+.dialog{width:min(640px,100%);max-height:90dvh;overflow:auto;background:#183043;border:1px solid #668b9c;border-radius:15px;padding:16px;box-shadow:0 24px 90px #000b}
+.dialog h2{font-size:17px;margin:0 0 7px}.dialog p{font-size:12px;color:#bbd2e1;margin:6px 0 9px}.dialog textarea{width:100%;height:190px;resize:vertical;font:11px/1.36 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:9px}
+select{min-height:35px}.hidden{display:none!important}
+@media(max-width:740px){header{height:50px;padding:5px 7px}.titlebox{min-width:115px}.titlebox strong{font-size:12px}.titlebox small{font-size:9px}#name{max-width:155px}header button{padding:6px;font-size:10px}#palette{width:188px}.section{padding:7px 7px 6px}.sectionTitle{margin-bottom:4px;font-size:10px}#tiles{padding:6px;gap:4px}.tile-btn{font-size:10px;gap:4px;height:44px;padding:3px}.tile-btn .thumb{width:25px;height:25px;font-size:14px}#notes{height:42px}#statusbar{height:46px}}
+@media(max-height:450px){header{height:45px}.section{padding:5px 7px}.sectionTitle{margin-bottom:3px}#notes{height:32px}#statusbar{height:43px}}
+@media(orientation:portrait) and (max-width:600px){header{height:83px;flex-wrap:wrap;align-content:center;row-gap:4px}.titlebox{min-width:126px}.header-actions{margin-left:auto}#name{order:3;flex-basis:100%;max-width:none;height:29px}#workspace{flex-direction:column}#viewer{flex:1;min-height:30%}#palette{height:43%;width:100%;border-left:0;border-top:1px solid #426075;display:grid;grid-template-columns:145px 1fr;grid-template-rows:auto 1fr}#palette .section:nth-child(1){grid-column:1;grid-row:1 / span 2;border-right:1px solid #38586b}#palette .section:nth-child(2){grid-column:2;grid-row:1}#tiles{grid-column:2;grid-row:2;grid-template-columns:1fr 1fr}.tile-btn{height:39px}#notes{height:50px}#palette .sectionTitle{font-size:9px}#status{display:none}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+ <div class="titlebox"><strong>🧭 Laboratório de Mapas</strong><small>RPG Pixel Art · independente</small></div>
+ <input id="name" aria-label="Nome do mapa" maxlength="70" value="Ruínas do Vale" placeholder="Nome do mapa">
+ <div class="header-actions"><button id="share" class="primary">✉ Compartilhar</button><button id="jsonBtn">⇩ JSON</button><button id="pngBtn">▣ PNG</button></div>
+</header>
+<div id="workspace">
+ <main id="viewer" aria-label="Área de edição de mapas"><canvas id="map" aria-label="Editor do mapa: toque para pintar"></canvas>
+  <div id="viewerInfo"><b id="viewLabel">Planta</b> · <span id="dimLabel">12×10</span> · <span id="brushLabel">Grama</span><span id="coordLabel"></span></div>
+  <div id="zoomBar"><button id="zoomOut" aria-label="Diminuir zoom">−</button><button id="zoomIn" aria-label="Aumentar zoom">+</button><button id="fit" aria-label="Enquadrar mapa">⤢</button></div>
+ </main>
+ <aside id="palette">
+ <div class="section"><div class="sectionTitle">Ferramentas</div><div id="tools" class="pair"><button data-tool="paint" class="active" aria-label="Pintar" title="Pintar"><span aria-hidden="true">✏</span><span class="toolLabel">Pintar</span></button><button data-tool="erase" aria-label="Apagar" title="Apagar"><span aria-hidden="true">⌫</span><span class="toolLabel">Apagar</span></button><button data-tool="fill" aria-label="Preencher" title="Preencher"><span aria-hidden="true">▤</span><span class="toolLabel">Preencher</span></button><button data-tool="pan" aria-label="Mover" title="Mover"><span aria-hidden="true">✋</span><span class="toolLabel">Mover</span></button></div>
+  <div class="pair" style="margin-top:6px"><button id="undo">↶ Desfazer</button><button id="redo">↷ Refazer</button></div>
+  <div class="mini" style="margin-top:7px">Arraste para desenhar. Use “Mover” para deslocar o mapa.</div>
+ </div>
+ <div class="section"><div id="tabs" class="pair"><button data-layer="ground" class="active">🌿 Terrenos</button><button data-layer="object">⚔ Elementos</button></div>
+  <div style="margin-top:8px"><div class="sectionTitle">Anotações do mapa</div><textarea id="notes" maxlength="1600" placeholder="Ex.: Ponte destruída; chefe aparece ao abrir o altar..."></textarea></div>
+ </div>
+ <div id="tiles" aria-label="Pincéis disponíveis"></div>
+ </aside>
+</div>
+<div id="statusbar">
+ <button id="viewBtn" class="primary">◈ Visão isométrica</button>
+ <span class="mini">Grade</span><input id="sizeW" type="number" min="5" max="32" value="12" aria-label="Largura do mapa"><span>×</span><input id="sizeH" type="number" min="5" max="32" value="10" aria-label="Altura do mapa"><button id="resizeBtn">Aplicar</button>
+ <select id="preset" aria-label="Modelos de mapa"><option value="ruins">Ruínas</option><option value="village">Vila</option><option value="blank">Vazio</option></select><button id="presetBtn">Carregar modelo</button>
+ <button id="importBtn">⇧ Importar</button><button id="clearBtn" class="danger">Limpar</button>
+ <span id="status">Salvo no aparelho</span>
+</div>
+<input id="jsonFile" type="file" accept=".json,application/json" class="hidden">
+<div id="dialogBackdrop" role="dialog" aria-modal="true" aria-label="Compartilhar mapa"><div class="dialog"><h2>Compartilhar com o ChatGPT</h2><p>Copie este esquema e cole na conversa do projeto. Ele inclui os terrenos, os elementos e suas anotações. Para restaurar o desenho no laboratório, use o arquivo JSON.</p><textarea id="shareText" readonly></textarea><div class="dialog-actions"><button id="closeDialog">Fechar</button><button id="copyText" class="primary">Copiar esquema</button></div></div></div>
+</div>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const groundDefs=[
+ ['grass','Grama','g','#49855a'],['dirt','Terra','t','#8c6444'],['stone','Pedra','p','#727c86'],['path','Estrada','e','#b69c73'],
+ ['water','Água','a','#287eae'],['sand','Areia','s','#ccb577'],['snow','Neve','n','#c8d7db'],['dark','Solo escuro','d','#4e5265'],
+ ['lava','Lava','l','#dc5c37'],['bridge','Ponte','b','#966c45'],['marsh','Pântano','m','#527a62'],['void','Vazio','v','#132029']
+];
+const objectDefs=[
+ ['wall','Muro','M','#8c929d'],['door','Porta','P','#b97c4e'],['tree','Árvore','A','#438c60'],['rock','Rocha','R','#8f9aa9'],
+ ['chest','Baú','B','#dcaf4d'],['enemy','Inimigo','I','#bf5364'],['boss','Chefe','C','#a970cd'],['trap','Armadilha','T','#df7964'],
+ ['heal','Cura','H','#55bc8d'],['portal','Portal','O','#7d80e6'],['entrance','Entrada','E','#a4d8ca'],['exit','Saída','S','#f1d080'],
+ ['npc','NPC','N','#78b4d9'],['puzzle','Enigma','Q','#d19ad3'],['stairs','Escadas','D','#b6ad95'],['ruin','Ruínas','U','#8d8495']
+];
+const defs={ground:groundDefs,object:objectDefs};
+const names={ground:Object.fromEntries(groundDefs.map(a=>[a[0],a[1]])),object:Object.fromEntries(objectDefs.map(a=>[a[0],a[1]]))};
+const colors={ground:Object.fromEntries(groundDefs.map(a=>[a[0],a[3]])),object:Object.fromEntries(objectDefs.map(a=>[a[0],a[3]]))};
+const valid={ground:new Set(groundDefs.map(a=>a[0])),object:new Set(objectDefs.map(a=>a[0]))};
+let w=12,h=10,ground=[],objects=[],view='top',layer='ground',tool='paint',selected={ground:'grass',object:'wall'},zoom=1,panX=0,panY=0,editStart=null,edited=false;
+let undoStack=[],redoStack=[],cursor=null,activePointers=new Map(),gesture=null,raf=0;
+const canvas=$('map'),ctx=canvas.getContext('2d',{alpha:false});let cw=1,ch=1,dpr=1;
+const key=(x,y)=>y*w+x;const inBounds=(x,y)=>x>=0&&y>=0&&x<w&&y<h;
+const hexMix=(hex,amount)=>{const n=parseInt(hex.slice(1),16);return '#'+[16,8,0].map(shift=>Math.max(0,Math.min(255,((n>>shift)&255)+amount)).toString(16).padStart(2,'0')).join('')};
+const hash=(x,y,s=0)=>{let v=(x*92837111 ^ y*689287499 ^ s*283923481)>>>0;v^=v>>>13;v=Math.imul(v,1274126177)>>>0;return(v^(v>>>16))>>>0};
+function blank(W=12,H=10,tile='grass'){w=W;h=H;ground=Array(w*h).fill(tile);objects=Array(w*h).fill(null)}
+function template(type){
+ if(type==='blank'){blank(12,10,'grass');return}
+ if(type==='village'){
+  blank(14,12,'grass');for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   if(Math.abs(x-6)<2||Math.abs(y-6)<2)ground[key(x,y)]='path';
+   if((x<3||x>11)&&hash(x,y,9)%4===0)objects[key(x,y)]='tree';
+  }
+  for(let y=2;y<5;y++)for(let x=2;x<5;x++)ground[key(x,y)]='stone';
+  for(let y=7;y<10;y++)for(let x=8;x<12;x++)ground[key(x,y)]='stone';
+  objects[key(3,3)]='npc';objects[key(9,8)]='heal';objects[key(6,0)]='entrance';objects[key(13,6)]='exit';objects[key(6,6)]='puzzle';return
+ }
+ blank(12,10,'void');
+ for(let y=1;y<9;y++)for(let x=1;x<11;x++){
+  if((x>=2&&x<=5&&y>=2&&y<=7)||(x>=7&&x<=10&&y>=3&&y<=6)||(y>=4&&y<=5&&x>=5&&x<=8))ground[key(x,y)]='stone';
+ }
+ for(let x=0;x<w;x++){if(x>=1&&x<=10){ground[key(x,8)]='water';if(x>=5&&x<=6)ground[key(x,8)]='bridge'}}
+ objects[key(3,3)]='chest';objects[key(3,6)]='entrance';objects[key(6,4)]='door';objects[key(8,4)]='boss';objects[key(9,5)]='portal';objects[key(5,5)]='enemy';objects[key(2,5)]='heal';objects[key(7,6)]='trap';objects[key(5,8)]='exit';
+ objects[key(7,3)]='wall';objects[key(9,3)]='ruin';
+}
+function state(){return JSON.stringify({w,h,ground,objects,name:$('name').value,notes:$('notes').value})}
+function loadState(snapshot){const d=typeof snapshot==='string'?JSON.parse(snapshot):snapshot;
+ if(!Number.isInteger(d.w)||!Number.isInteger(d.h)||d.w<5||d.h<5||d.w>32||d.h>32||!Array.isArray(d.ground)||!Array.isArray(d.objects)||d.ground.length!==d.w*d.h||d.objects.length!==d.w*d.h)throw Error('Formato de mapa inválido');
+ w=d.w;h=d.h;ground=d.ground.map(v=>valid.ground.has(v)?v:'grass');objects=d.objects.map(v=>valid.object.has(v)?v:null);
+ $('name').value=String(d.name||'Mapa sem nome').slice(0,70);$('notes').value=String(d.notes||'').slice(0,1600);
+ updateMeta();draw();
+}
+function remember(old){if(!old||old===state())return;undoStack.push(old);if(undoStack.length>45)undoStack.shift();redoStack=[];persist();updateUndo()}
+function updateUndo(){$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length}
+function persist(){try{localStorage.setItem('rpg-map-lab-v1',state());$('status').textContent='Salvo no aparelho'}catch(e){$('status').textContent='Use JSON para salvar'}}
+function updateMeta(){$('sizeW').value=w;$('sizeH').value=h;$('dimLabel').textContent=`${w}×${h}`;$('viewLabel').textContent=view==='top'?'Planta':'Isométrico';$('brushLabel').textContent=(tool==='erase'?'Apagar · ':tool==='pan'?'Mover · ':tool==='fill'?'Preencher · ':'')+names[layer][selected[layer]];}
+function setTool(value){tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===value));canvas.style.cursor=value==='pan'?'grab':'crosshair';updateMeta()}
+function setLayer(value){layer=value;document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('active',b.dataset.layer===value));buildPalette();updateMeta()}
+function buildPalette(){const area=$('tiles');area.replaceChildren();for(const [id,title,symbol,color] of defs[layer]){
+ const b=document.createElement('button');b.type='button';b.className='tile-btn'+(selected[layer]===id?' selected':'');b.title=title;
+ const th=document.createElement('span');th.className='thumb';th.style.background=color;th.textContent=layer==='ground'?'':symbol;
+ const label=document.createElement('span');label.textContent=title;b.append(th,label);b.addEventListener('click',()=>{selected[layer]=id;if(tool==='erase'||tool==='pan')setTool('paint');buildPalette();updateMeta()});area.append(b);
+}}
+function fitView(){const a=view==='top'?w*44:(w+h)*28;const b=view==='top'?h*44:(w+h)*14;zoom=Math.min(2,Math.max(.28,Math.min((cw-45)/a,(ch-38)/b)));panX=0;panY=0;draw()}
+function camera(){
+ if(view==='top'){const size=44*zoom;return{size,ox:(cw-w*size)/2+panX,oy:(ch-h*size)/2+panY}}
+ const tw=56*zoom,th=28*zoom;return{tw,th,ox:cw/2-(w-h)*tw/4+panX,oy:ch/2-(w+h-2)*th/4+panY}
+}
+function tileCenter(x,y,c){return view==='top'?{x:c.ox+(x+.5)*c.size,y:c.oy+(y+.5)*c.size}:{x:c.ox+(x-y)*c.tw/2,y:c.oy+(x+y)*c.th/2}}
+function mapPoint(px,py){const c=camera();let x,y;
+ if(view==='top'){x=Math.floor((px-c.ox)/c.size);y=Math.floor((py-c.oy)/c.size)}
+ else{const u=(px-c.ox)/(c.tw/2),v=(py-c.oy)/(c.th/2);x=Math.floor((u+v)/2+.5);y=Math.floor((v-u)/2+.5)}
+ return {x,y,inside:inBounds(x,y)};
+}
+function poly(points,fill,stroke,width=1){ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}}
+function terrain(x,y,c){const id=ground[key(x,y)];const base=colors.ground[id]||'#49855a';const pos=tileCenter(x,y,c);
+ if(view==='top'){
+  const size=c.size;ctx.fillStyle=base;ctx.fillRect(pos.x-size/2,pos.y-size/2,size+.25,size+.25);
+  ctx.strokeStyle='#07141a83';ctx.lineWidth=Math.max(.55,zoom*.7);ctx.strokeRect(pos.x-size/2,pos.y-size/2,size,size);
+  if(id==='void')return;
+  const pix=Math.max(1.3,zoom*3);for(let i=0;i<3;i++){const rx=(hash(x,y,i)%71)/100-.35,ry=(hash(x,y,i+5)%73)/100-.35;ctx.fillStyle=hexMix(base,(i%2?23:-20));ctx.fillRect(pos.x+rx*size,pos.y+ry*size,pix,pix)}
+  if(id==='water'||id==='lava'){ctx.fillStyle='#ffffff35';ctx.fillRect(pos.x-size*.32,pos.y-size*.12,size*.27,Math.max(1,zoom*2));ctx.fillRect(pos.x+size*.04,pos.y+size*.21,size*.18,Math.max(1,zoom*2))}
+  if(id==='bridge'||id==='path'){ctx.strokeStyle=id==='bridge'?'#423526b3':'#e1c89b42';ctx.lineWidth=Math.max(1,zoom*1.5);for(let i=-1;i<2;i++){ctx.beginPath();ctx.moveTo(pos.x+i*size*.25,pos.y-size*.4);ctx.lineTo(pos.x+i*size*.25,pos.y+size*.4);ctx.stroke()}}
+ }else{
+  const tw=c.tw,th=c.th;const points=[[pos.x,pos.y-th/2],[pos.x+tw/2,pos.y],[pos.x,pos.y+th/2],[pos.x-tw/2,pos.y]];
+  poly(points,base,'#081923a6',Math.max(.6,zoom));
+  if(id==='void')return;
+  const pix=Math.max(1,zoom*3);for(let i=0;i<2;i++){const rx=(hash(x,y,i)%37)/100-.18,ry=(hash(x,y,i+7)%35)/100-.17;ctx.fillStyle=hexMix(base,(i?23:-21));ctx.fillRect(pos.x+rx*tw,pos.y+ry*th,pix,pix)}
+  if(id==='water'||id==='lava'){ctx.fillStyle='#e3f9ff59';ctx.fillRect(pos.x-tw*.13,pos.y-th*.1,tw*.23,Math.max(1,zoom*1.5))}
+  if(id==='bridge'){ctx.strokeStyle='#4d3326b8';ctx.lineWidth=Math.max(1,zoom*2);for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(pos.x+i*tw*.13,pos.y-th*.19);ctx.lineTo(pos.x+i*tw*.13,pos.y+th*.19);ctx.stroke()}}
+ }
+}
+const pixelSprites={
+ wall:['1111111','1222221','1211121','1222221','1211121','1222221','1111111'],
+ door:['0111110','0122210','0122210','0122310','0122210','0122210','0111110'],
+ tree:['0002000','0022200','0222220','2222222','0222220','0001000','0001000'],
+ rock:['0001100','0111110','1112111','1121111','1111111','0111110','0000000'],
+ chest:['0000000','0111110','1222221','1332331','1332331','1111111','0000000'],
+ enemy:['0022200','0222220','0211210','0222220','0011100','0110110','0100010'],
+ boss:['1011101','1122211','1222221','1211211','1222221','0111110','1100011'],
+ trap:['0001000','0011100','0111110','1112111','0111110','0011100','0001000'],
+ heal:['0001000','0001000','0011100','1111111','0011100','0001000','0001000'],
+ portal:['0011100','0111210','1122211','1222221','1122211','0111210','0011100'],
+ entrance:['0011100','0111110','1100011','1100011','1100011','1111111','0000000'],
+ exit:['0001000','0001100','1111110','1111111','1111110','0001100','0001000'],
+ npc:['0011100','0111110','0121210','0111110','0011100','0111110','1100011'],
+ puzzle:['0111110','1100011','0000110','0001100','0011000','0000000','0011000'],
+ stairs:['0000111','0001111','0011111','0111111','1111111','1111111','1111111'],
+ ruin:['1100011','1101011','1111111','1111111','1100011','1100011','1100011']
+};
+function drawObj(x,y,c){const id=objects[key(x,y)];if(!id)return;const pos=tileCenter(x,y,c),sprite=pixelSprites[id];if(!sprite)return;
+ const size=Math.max(1.25,Math.min(5.1,view==='top'?c.size/10:c.tw/11));const topOffset=view==='iso'?size*2:0;
+ const ox=Math.round(pos.x-size*3.5),oy=Math.round(pos.y-size*3.5-topOffset);
+ ctx.fillStyle='#04101688';ctx.beginPath();ctx.ellipse(pos.x,pos.y,3.5*size,1.4*size,0,0,Math.PI*2);ctx.fill();
+ const main=colors.object[id]||'#fff';let shadow=hexMix(main,-43),light=hexMix(main,40);
+ for(let row=0;row<7;row++)for(let col=0;col<7;col++){const bit=sprite[row][col];if(bit==='0')continue;
+ ctx.fillStyle=bit==='1'?shadow:bit==='2'?main:light;
+ ctx.fillRect(ox+col*size,oy+row*size,Math.ceil(size+.2),Math.ceil(size+.2))}
+ if(view==='top'&&c.size>=32&&['boss','portal','enemy','chest'].includes(id)){ctx.font=`bold ${Math.max(9,c.size*.22)}px monospace`;ctx.fillStyle='#fff9';ctx.textAlign='center';ctx.fillText(id==='boss'?'!':id==='portal'?'◎':id==='enemy'?'⚔':'$',pos.x,pos.y+c.size*.43)}
+}
+function draw(){if(raf)return;raf=requestAnimationFrame(render)}
+function render(){raf=0;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1a24';ctx.fillRect(0,0,cw,ch);const c=camera();
+ ctx.strokeStyle='#183342';ctx.lineWidth=1;for(let x=0;x<cw;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ch);ctx.stroke()}for(let y=0;y<ch;y+=36){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cw,y);ctx.stroke()}
+ if(view==='top'){
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)terrain(x,y,c);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)drawObj(x,y,c);
+ }else{
+  for(let sum=0;sum<w+h-1;sum++)for(let y=0;y<h;y++){const x=sum-y;if(!inBounds(x,y))continue;terrain(x,y,c);drawObj(x,y,c)}
+ }
+ if(cursor&&cursor.inside){const pos=tileCenter(cursor.x,cursor.y,c);if(view==='top'){ctx.strokeStyle='#d4ffe3';ctx.lineWidth=2;ctx.strokeRect(pos.x-c.size/2+1,pos.y-c.size/2+1,c.size-2,c.size-2)}else{const tw=c.tw,th=c.th;poly([[pos.x,pos.y-th/2],[pos.x+tw/2,pos.y],[pos.x,pos.y+th/2],[pos.x-tw/2,pos.y]],'#c7fff115','#d9ffe8',Math.max(1.5,zoom*2))}}
+}
+function resizeCanvas(){const box=canvas.getBoundingClientRect();cw=Math.max(1,box.width);ch=Math.max(1,box.height);dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));canvas.width=Math.round(cw*dpr);canvas.height=Math.round(ch*dpr);fitView()}
+function changeCell(x,y){if(!inBounds(x,y))return false;const i=key(x,y),list=layer==='ground'?ground:objects;const value=tool==='erase'?(layer==='ground'?'void':null):selected[layer];if(list[i]===value)return false;list[i]=value;edited=true;draw();return true}
+function flood(x,y){if(!inBounds(x,y))return;const arr=layer==='ground'?ground:objects,target=tool==='erase'?(layer==='ground'?'void':null):selected[layer];const old=arr[key(x,y)];if(old===target)return;
+ const visited=new Uint8Array(w*h),queue=[key(x,y)];visited[queue[0]]=1;for(let k=0;k<queue.length;k++){
+  const i=queue[k];if(arr[i]!==old)continue;arr[i]=target;edited=true;
+  const cx=i%w,cy=Math.floor(i/w);for(const [nx,ny] of [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]])if(inBounds(nx,ny)&&!visited[key(nx,ny)]){visited[key(nx,ny)]=1;queue.push(key(nx,ny))}
+ }draw();
+}
+// Gestos: um dedo desenha; dois dedos movem/ampliam a câmera.
+function pos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function pinch(){const points=[...activePointers.values()];return{x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2,d:Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y)}}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);const p=pos(e);activePointers.set(e.pointerId,p);if(activePointers.size>=2){if(editStart){remember(editStart);editStart=null}edited=false;const g=pinch();gesture={...g,zoom,panX,panY};return}
+ cursor=mapPoint(p.x,p.y);$('coordLabel').textContent=cursor.inside?` · ${cursor.x+1},${cursor.y+1}`:'';
+ if(tool==='pan'){gesture={x:p.x,y:p.y,panX,panY};return}
+ editStart=state();edited=false;if(tool==='fill'){flood(cursor.x,cursor.y);remember(editStart);editStart=null}else changeCell(cursor.x,cursor.y);draw();
+});
+canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;const p=pos(e);activePointers.set(e.pointerId,p);if(activePointers.size>=2&&gesture){const g=pinch();zoom=Math.max(.24,Math.min(3.8,gesture.zoom*(g.d/Math.max(1,gesture.d))));panX=gesture.panX+g.x-gesture.x;panY=gesture.panY+g.y-gesture.y;draw();return}
+ if(tool==='pan'&&gesture){panX=gesture.panX+p.x-gesture.x;panY=gesture.panY+p.y-gesture.y;draw();return}
+ cursor=mapPoint(p.x,p.y);$('coordLabel').textContent=cursor.inside?` · ${cursor.x+1},${cursor.y+1}`:'';if(editStart&&tool!=='fill')changeCell(cursor.x,cursor.y);draw();
+});
+function pointerDone(e){activePointers.delete(e.pointerId);if(editStart){remember(editStart);editStart=null}if(!activePointers.size)gesture=null;else if(activePointers.size===1)gesture=null;draw()}
+canvas.addEventListener('pointerup',pointerDone);canvas.addEventListener('pointercancel',pointerDone);canvas.addEventListener('lostpointercapture',pointerDone);
+canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.24,Math.min(3.8,zoom*(e.deltaY<0?1.12:.89)));draw()},{passive:false});
+function undoRedo(from,to){if(!from.length)return;const old=state(),next=from.pop();to.push(old);loadState(next);persist();updateUndo()}
+$('undo').addEventListener('click',()=>undoRedo(undoStack,redoStack));$('redo').addEventListener('click',()=>undoRedo(redoStack,undoStack));
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+document.querySelectorAll('[data-layer]').forEach(b=>b.addEventListener('click',()=>setLayer(b.dataset.layer)));
+$('zoomIn').addEventListener('click',()=>{zoom=Math.min(3.8,zoom*1.2);draw()});$('zoomOut').addEventListener('click',()=>{zoom=Math.max(.24,zoom/1.2);draw()});$('fit').addEventListener('click',fitView);
+$('viewBtn').addEventListener('click',()=>{view=view==='top'?'iso':'top';$('viewBtn').textContent=view==='top'?'◈ Visão isométrica':'▦ Visão de planta';updateMeta();fitView()});
+$('resizeBtn').addEventListener('click',()=>{const W=Number($('sizeW').value),H=Number($('sizeH').value);if(!Number.isInteger(W)||!Number.isInteger(H)||W<5||W>32||H<5||H>32){alert('Use dimensões entre 5 e 32.');return}const old=state(),g=ground.slice(),o=objects.slice(),ow=w,oh=h;blank(W,H,'grass');for(let y=0;y<Math.min(H,oh);y++)for(let x=0;x<Math.min(W,ow);x++){ground[key(x,y)]=g[y*ow+x];objects[key(x,y)]=o[y*ow+x]}remember(old);updateMeta();fitView()});
+$('presetBtn').addEventListener('click',()=>{if(!confirm('Substituir o mapa atual pelo modelo selecionado?'))return;const old=state();template($('preset').value);remember(old);updateMeta();fitView()});
+$('clearBtn').addEventListener('click',()=>{if(!confirm('Limpar terrenos e elementos do mapa?'))return;const old=state();blank(w,h,'grass');remember(old);updateMeta();draw()});
+for(const id of ['name','notes'])$(id).addEventListener('input',persist);
+function download(filename,data,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)}
+function filename(ext){return ($('name').value||'mapa').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)+'.'+ext}
+$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=1;download(filename('json'),JSON.stringify(d,null,2),'application/json')});
+$('pngBtn').addEventListener('click',()=>{canvas.toBlob(blob=>{if(!blob){alert('Não foi possível gerar o PNG');return}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename('png');document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)},'image/png')});
+$('importBtn').addEventListener('click',()=>$('jsonFile').click());$('jsonFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const old=state();loadState(parsed);remember(old);fitView();$('status').textContent='Mapa importado'}catch(error){alert('Não foi possível importar: '+error.message)}e.target.value=''});
+function ascii(){const gSym=Object.fromEntries(groundDefs.map(a=>[a[0],a[2]])),oSym=Object.fromEntries(objectDefs.map(a=>[a[0],a[2]]));const usedG=new Set(ground),usedO=new Set(objects.filter(Boolean));const lines=[];
+ lines.push('MAPA RPG PIXEL ART — '+($('name').value||'Sem nome'));lines.push('Tamanho: '+w+'×'+h+' | Coordenadas: x da esquerda para a direita, y de cima para baixo.');
+ if($('notes').value.trim())lines.push('Ideias/observações: '+$('notes').value.trim());
+ lines.push('TERRENOS:');for(let y=0;y<h;y++)lines.push(ground.slice(y*w,(y+1)*w).map(t=>gSym[t]).join(''));
+ lines.push('Legenda terrenos: '+groundDefs.filter(a=>usedG.has(a[0])).map(a=>a[2]+'='+a[1]).join('; '));
+ lines.push('ELEMENTOS (. = vazio):');for(let y=0;y<h;y++)lines.push(objects.slice(y*w,(y+1)*w).map(t=>t?oSym[t]:'.').join(''));
+ lines.push('Legenda elementos: '+objectDefs.filter(a=>usedO.has(a[0])).map(a=>a[2]+'='+a[1]).join('; '));
+ lines.push('Interprete como um rascunho: não implemente no jogo principal sem minha aprovação.');return lines.join('\n')
+}
+$('share').addEventListener('click',()=>{$('shareText').value=ascii();$('dialogBackdrop').classList.add('open');$('shareText').focus();$('shareText').select()});
+$('closeDialog').addEventListener('click',()=>$('dialogBackdrop').classList.remove('open'));
+$('dialogBackdrop').addEventListener('click',e=>{if(e.target===$('dialogBackdrop'))$('dialogBackdrop').classList.remove('open')});
+$('copyText').addEventListener('click',async()=>{const txt=$('shareText').value;try{await navigator.clipboard.writeText(txt);$('copyText').textContent='✓ Copiado!';setTimeout(()=>$('copyText').textContent='Copiar esquema',1400)}catch(e){$('shareText').select();if(document.execCommand('copy'))$('copyText').textContent='✓ Copiado!';else alert('Selecione o texto e use Copiar no celular.')}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape')$('dialogBackdrop').classList.remove('open');if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undoRedo(undoStack,redoStack)}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();undoRedo(redoStack,undoStack)}});
+try{const data=localStorage.getItem('rpg-map-lab-v1');if(data)loadState(data);else{template('ruins');persist()}}catch(e){template('ruins')}
+updateUndo();setLayer('ground');setTool('paint');updateMeta();new ResizeObserver(resizeCanvas).observe($('viewer'));
+})();
+</script>
+</body>
+</html>
