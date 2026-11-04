@@ -1416,9 +1416,9 @@ function buildSpawnGeometry(g){
   for(let x=-8;x<=8;x++)for(let z=2;z<=6;z++)if(seeded(seed,x*23+z*43)>.25)paintPath(x,z,'stonePath');
   for(const side of [-1,1]){
    for(let x=side<0?-4:3;x<(side<0?-2:5);x++)
-    for(let z=-5;z<=-3;z++)solid(x,z,'archPillar',side);
+    for(let z=-2;z<=0;z++)solid(x,z,'archPillar',side);
   }
-  g.landmarks.push({type:'arch',x:0,z:-4});
+  g.landmarks.push({type:'arch',x:0,z:-1});
   for(const [x,z] of [[-6,-1],[6,0],[-7,4],[7,5],[-5,-7],[6,-7]]){
    if(seeded(seed,x*39+z*71)>.23)solid(x,z,'rubble',0);
    else decoration('debris',x+.1,z+.1,seeded(seed,x*13+z*17));
@@ -1441,6 +1441,15 @@ function buildSpawnGeometry(g){
    if(z>=1&&Math.abs(x)<1.9)paintPath(x,z,'rootFloor');
    if(x>=0&&Math.abs(z-(3-x*.21))<1.6)paintPath(x,z,'rootFloor');
    if(x<=0&&Math.abs(z-(3+x*.27))<1.25)paintPath(x,z,'rootFloor');
+  }
+  // Sob as raízes existem lâminas de água. O piso feito de raízes permanece
+  // caminhável; água fora dos corredores funciona como limite físico.
+  for(let x=-10;x<=9;x++)for(let z=-2;z<=8;z++){
+   const key=x+','+z;
+   if(!cell(x,z)||g.paths.has(key)||hasRoute(x+.5,z+.5))continue;
+   if(seeded(seed,x*371+z*71)>.19){
+    g.paths.set(key,'water');g.solid.add(key);
+   }
   }
   // Veios de raiz menores podem variar, sem cobrir a rota principal.
   for(const [x,z] of [[-7,-4],[7,-4],[-8,0],[8,5],[-5,7],[5,8]]){
@@ -1778,10 +1787,10 @@ function tryWorldTransition(move){
 function drawSpawnGround(g){
  for(const [key,type] of g.paths){
   const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
-  const color=type==='rootFloor'?'#70472d':type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
+  const color=type==='water'?'#1b4258':type==='rootFloor'?'#70472d':type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
   polygon(corners,color,type==='rootFloor'?'#a57948':null,.7);
   const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
-  ctx.fillStyle=type==='rootFloor'?'#bb8958':type==='stonePath'?'#8c9aa0':'#aa9970';
+  ctx.fillStyle=type==='water'?'#5595a2':type==='rootFloor'?'#bb8958':type==='stonePath'?'#8c9aa0':'#aa9970';
   ctx.fillRect(Math.round(at.x+sx*(n-.5)*.3),Math.round(at.y+sy*(n-.5)*.3),sz,sz);
  }
 }
@@ -1825,7 +1834,7 @@ function drawColossalTrunk(){
  }
 }
 function drawRuinedArch(){
- const left=point(-3.1,-4.1),right=point(4.1,-4.1),
+ const left=point(-3.1,-1.1),right=point(4.1,-1.1),
  sz=Math.max(3,Math.round(sx*.115)),height=27*sz,
  stone=['#4b5b66','#7f8a94','#adb4af','#67717e'];
  for(const [index,p] of [left,right].entries()){
@@ -2774,7 +2783,10 @@ function drawInteractables(){
  avgX=weights?avgX/weights:player.x;avgZ=weights?avgZ/weights:player.z;
  const blend=active.length>1?.24:.19;
  const response=1-Math.exp(-dt*(settings.dynamicCamera?4.6:7.2));
- cam.x=mix(cam.x,mix(player.x,avgX,blend),response);cam.z=mix(cam.z,mix(player.z,avgZ,blend),response);if(Math.floor(clock*8)!==Math.floor((clock-dt)*8))updateFoePicker();if(Math.floor(clock*4)!==Math.floor((clock-dt)*4)){updateTrainingReadout();if(drill.active)drillRefresh();}hud();rhythmReadout();}
+ cam.x=mix(cam.x,mix(player.x,avgX,blend),response);// Enquadramento sutilmente deslocado para mostrar o tronco colossal
+ // sem trazer sua copa para dentro da câmera.
+ const showColossal=runState?.world&&roomById()?.spawnTemplate==='colossal_tree';
+ cam.z=mix(cam.z,mix(player.z,avgZ,blend)-(showColossal?2.6:0),response);if(Math.floor(clock*8)!==Math.floor((clock-dt)*8))updateFoePicker();if(Math.floor(clock*4)!==Math.floor((clock-dt)*4)){updateTrainingReadout();if(drill.active)drillRefresh();}hud();rhythmReadout();}
 
 function point(x,z){return{x:w*.5+(x-cam.x-z+cam.z)*sx,y:h*.49+(x-cam.x+z-cam.z)*sy};}
 function polygon(pts,fill,stroke,width=1){ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();}}
