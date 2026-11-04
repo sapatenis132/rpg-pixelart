@@ -1988,10 +1988,19 @@ function tryWorldTransition(move){
 function drawSpawnGround(g){
  for(const [key,type] of g.paths){
   const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
-  const color=type==='water'?'#1b4258':type==='rootFloor'?'#70472d':type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
+  const color=type==='forestWater'?'#1c5064':
+   type==='forestBridge'?'#937749':
+   type==='forestTrail'?'#746d4d':
+   type==='forestClearing'?'#416d50':
+   type==='water'?'#1b4258':type==='rootFloor'?'#70472d':
+   type==='stonePath'?'#5a6670':type==='clearing'?'#506c51':'#8d815f';
   polygon(corners,color,type==='rootFloor'?'#a57948':null,.7);
   const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
-  ctx.fillStyle=type==='water'?'#5595a2':type==='rootFloor'?'#bb8958':type==='stonePath'?'#8c9aa0':'#aa9970';
+  ctx.fillStyle=type==='forestWater'?'#81bcb5':
+   type==='forestBridge'?'#d0a571':
+   type==='forestClearing'?'#74ab6b':
+   type==='forestTrail'?'#b59e72':
+   type==='water'?'#5595a2':type==='rootFloor'?'#bb8958':type==='stonePath'?'#8c9aa0':'#aa9970';
   ctx.fillRect(Math.round(at.x+sx*(n-.5)*.3),Math.round(at.y+sy*(n-.5)*.3),sz,sz);
  }
 }
@@ -2059,7 +2068,7 @@ function drawRuinedArch(){
  }
 }
 function drawSpawnFeatures(g){
- if(!g.room.spawnTemplate)return;
+ if(!g.room.spawnTemplate&&!g.room.forestTraversal)return;
  const props=[...g.decor,...g.props].sort((a,b)=>(a.x+a.z)-(b.x+b.z));
  for(const o of props){
   const offset=['flower','leaf','moss'].includes(o.type)?0:.5,
@@ -2077,10 +2086,20 @@ function drawSpawnFeatures(g){
    const sz=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
    ctx.fillStyle='#3a2921';ctx.fillRect(x-3*sz,y-3*sz,7*sz,4*sz);
    ctx.fillStyle='#b28351';ctx.fillRect(x-2*sz,y-4*sz,5*sz,2*sz);
-  }else if(o.type==='leaf'||o.type==='moss'){
-   const sz=Math.max(2,Math.round(sx*.11));
-   ctx.fillStyle=o.type==='moss'?'#587b59':'#6d9659';
-   ctx.fillRect(Math.round(p.x),Math.round(p.y)-sz,2*sz,sz);
+  }else if(o.type==='leaf'||o.type==='moss'||o.type==='fern'||o.type==='mushroom'){
+   const sz=Math.max(2,Math.round(sx*.105)),px=Math.round(p.x),py=Math.round(p.y);
+   if(o.type==='mushroom'){
+    ctx.fillStyle='#d1bca0';ctx.fillRect(px,py-sz,sz,sz*2);
+    ctx.fillStyle='#b66362';ctx.fillRect(px-sz,py-2*sz,sz*3,sz);
+    ctx.fillStyle='#f0d8c0';ctx.fillRect(px,py-2*sz,sz,sz);
+   }else if(o.type==='fern'){
+    ctx.fillStyle='#2c6948';ctx.fillRect(px,py-3*sz,sz,sz*4);
+    ctx.fillStyle='#65a06a';ctx.fillRect(px-2*sz,py-2*sz,sz*5,sz);
+    ctx.fillRect(px-sz,py-4*sz,sz*3,sz);
+   }else{
+    ctx.fillStyle=o.type==='moss'?'#587b59':'#6d9659';
+    ctx.fillRect(px,py-sz,2*sz,sz);
+   }
   }
  }
  if(g.room.spawnTemplate==='ruined_gate')drawRuinedArch();
@@ -2105,8 +2124,8 @@ function drawWorldFloor(){
   }
  }
  ctx.fillStyle=b.tint;ctx.fillRect(0,0,w,h);
- if(room.spawnTemplate){drawSpawnGround(g);drawSpawnFeatures(g);}
- for(const prop of (room.spawnTemplate?[]:g.props)){
+ if(room.spawnTemplate||room.forestTraversal){drawSpawnGround(g);drawSpawnFeatures(g);}
+ for(const prop of (room.spawnTemplate||room.forestTraversal?[]:g.props)){
   const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
   if(p.x< -30||p.x>w+30||p.y< -40||p.y>h+40)continue;
   ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
@@ -3530,6 +3549,14 @@ window.__rpgDebug.mapData=(tab='area')=>mapData(tab);window.__rpgDebug.openWorld
 window.__rpgDebug.debugStartSeed=seed=>newCampaign(DEFAULT_HERO,seed);
 window.__rpgDebug.spawnTemplates=()=>JSON.parse(JSON.stringify(SPAWN_TEMPLATES));
 window.__rpgDebug.spawnForSeed=seed=>spawnForSeed(seed);
+window.__rpgDebug.forestTraversalTypes=()=>({...FOREST_TRAVERSALS});
+window.__rpgDebug.forestGeometry=(seed,id)=>{
+ const world=generateWorld(seed),room=world.rooms[id];if(!room?.forestTraversal)return null;
+ const g=makeRoomGeometry(room);
+ return {seed,room,forestTraversal:room.forestTraversal,props:g.props.map(x=>({...x})),
+  decor:g.decor.map(x=>({...x})),paths:[...g.paths],solid:[...g.solid],walkable:[...g.walkable],
+  exits:room.exits.map(e=>({...e,at:forestExitCell(g,e)}))};
+};
 window.__rpgDebug.spawnGeometry=seed=>{
  const world=generateWorld(seed),room=world.rooms[1],g=makeRoomGeometry(room);
  return{template:room.spawnTemplate,room,spawn:SPAWN_TEMPLATES[room.spawnTemplate].spawn,
