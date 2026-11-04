@@ -1534,6 +1534,173 @@ function toggleWorldMap(){
 }
 
 function roomById(id=runState?.room){return runState?.world?.rooms?.[id]||null;}
+
+// ETAPA 27C — salas de spawn aprovadas: modelos autorais com microvariação procedural.
+// A floreira nunca se mistura com arbustos; o tronco é o único bloqueio das árvores.
+// A segunda composição preserva a árvore colossal, raízes transitáveis e arco quebrado.
+function makeAuthoredSpawnGeometry(room){
+ const flower=room.template==='flowerClearing',hw=room.width/2,hh=room.height/2;
+ const tiles=[],walkable=new Set(),solid=new Set(),props=[],terrain=new Map();
+ const key=(x,z)=>x+','+z,noise=(x,z,salt=0)=>seeded(room.variant,x*1217+z*607+salt*791);
+ const canopyColors=['#43895a','#387b51','#4c9263','#477a58'];
+ const flowerColors=['#f2a0ca','#f0d47c','#bd9be8','#e9f5dd','#f29b74','#9dd5e9'];
+ const flowerColor=flowerColors[Math.floor(noise(0,0,56)*flowerColors.length)];
+ const treeSpots=[[-10,-8],[-8,-9],[-4,-9],[3,-9],[8,-9],[10,-7],[-10,-4],
+   [10,-4],[-10,4],[10,4],[-9,8],[-4,9],[4,9],[9,8],[-8,-2],
+   [8,-2],[-8,2],[8,2],[-9,1],[9,1]];
+ const trees=new Set(treeSpots.map(p=>key(p[0],p[1])));
+ const ringX=6+Math.floor(noise(1,1,10)*2),ringZ=6+Math.floor(noise(2,2,11)*2);
+ for(let x=-hw;x<hw;x++)for(let z=-hh;z<hh;z++){
+  const k=key(x,z),a=Math.abs(x+.5),b=Math.abs(z+.5);
+  const n=noise(x,z),core=flower&&a<=2.5&&b<=2.5;
+  const floralBuffer=flower&&a<4.7&&b<4.7;
+  let type='grass';
+  if(flower){
+   // Uma trilha contorna o canteiro em vez de destruí-lo.
+   const around=(Math.abs(a-ringX)<.65&&b<ringZ+.65)||
+    (Math.abs(b-ringZ)<.65&&a<ringX+.65);
+   const sideEntry=b<.65&&a>=ringX-.5;
+   const verticalEntry=a<.65&&b>=ringZ-.5;
+   if(!floralBuffer&&(around||sideEntry||verticalEntry))type='path';
+   else if(noise(x,z,61)<.08)type='dirt';
+   if(core)type='flowerbed';
+  }else{
+   const stream=b<2.65&&a<hw-2.5;
+   const crossRoot=b<=1.5,verticalRoot=a<=1.5;
+   const roots=crossRoot||verticalRoot&&b<hh-1.5;
+   const branch=(a>=2&&a<=6&&z>=-5&&z<=-2&&Math.abs((x>0?x-2:-x-2)+(z+3))<2);
+   if(stream&&!roots)type='water';
+   else if(roots||branch)type='root';
+   else if(noise(x,z,60)<.12)type='dirt';
+   if((a>6&&b>6)&&noise(x,z,67)<.23)type='stone';
+  }
+  tiles.push({x,z});terrain.set(k,type);
+  if(type!=='water')walkable.add(k);
+  if(flower){
+   if(trees.has(k)){
+    solid.add(k);props.push({x,z,type:'tree',size:1.55+noise(x,z,17)*.55,
+     color:canopyColors[Math.floor(noise(x,z,39)*canopyColors.length)]});
+   }else if(core){
+    if(noise(x,z,20)>.26)props.push({x,z,type:'flower',color:flowerColor});
+   }else if(!floralBuffer&&type!=='path'&&n<.055){
+    props.push({x,z,type:n<.018?'rock':'bush'});
+   }
+  }else{
+   if((x===-5&&z===-4)||(x===4&&z===-4)){
+    solid.add(k);props.push({x,z,type:'colossalTrunk',half:x<0?'left':'right'});
+   }
+   // Duas colunas, verga derrubada, passagem central aberta.
+   else if((x===3||x===8)&&z===5){
+    solid.add(k);props.push({x,z,type:'archPillar',side:x===3?'left':'right'});
+   }else if((a>4.5||b>5)&&type!=='root'&&type!=='water'&&n<.075){
+    if(n<.021){solid.add(k);props.push({x,z,type:'rock'});}
+    else props.push({x,z,type:n<.051?'bush':'fallenStone'});
+   }
+  }
+ }
+ if(!flower)props.push({x:5,z:5,type:'ruinedArch'}); // centro livre; somente pilares colidem
+ // Todas as saídas cardeais ficam ligadas ao chão transitável.
+ const exits=room.exits.map(e=>({dir:e.dir,to:e.to}));
+ const spawn=flower?{x:0,z:7.5}:{x:0,z:.5};
+ return{room,hw,hh,tiles,walkable,solid,props,terrain,authored:true,spawn,exits,
+  flowerColor,ringX,ringZ};
+}
+function drawAuthoredWorldFloor(g){
+ ctx.fillStyle='#081820';ctx.fillRect(0,0,w,h);ctx.imageSmoothingEnabled=false;
+ const palette={grass:'#477d52',flowerbed:'#4d8054',path:'#a99064',dirt:'#6f644c',
+  stone:'#777e78',water:'#28627b',root:'#775139'};
+ for(const tile of g.tiles){
+  const x=tile.x,z=tile.z,p=point(x+.5,z+.5);
+  if(p.x< -sx*2||p.x>w+sx*2||p.y< -sy*3||p.y>h+sy*3)continue;
+  const type=g.terrain.get(x+','+z),n=seeded(g.room.variant,x*451+z*227+61);
+  let c=palette[type]||palette.grass;
+  if(n<.26){const d=Math.floor(n*15);c=type==='grass'?'#3c744c':c;}
+  polygon([point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)],c,'#10252c77',.7);
+  const size=Math.max(2,Math.round(sx*.08)),px=Math.round(p.x),py=Math.round(p.y);
+  if(type==='water'){
+   ctx.fillStyle=n<.48?'#65a8b9':'#3d8ba2';
+   ctx.fillRect(px-size*2,py,Math.round(sx*.20),Math.max(1,Math.round(sy*.09)));
+  }else if(type==='root'){
+   ctx.fillStyle=n>.55?'#9f754d':'#5b3d2d';
+   ctx.fillRect(px-size*2,py-size,Math.round(sx*.24),Math.max(2,Math.round(sy*.14)));
+  }else if(type==='path'||type==='stone'){
+   ctx.fillStyle=type==='path'?'#cab18a':'#9ca6a0';
+   if(n<.58)ctx.fillRect(px+size,py-size,2,2);
+  }else if(type==='grass'||type==='flowerbed'){
+   ctx.fillStyle=n>.5?'#70a976':'#315d46';
+   if(n>.27)ctx.fillRect(px+size,py-size,2,3);
+  }
+ }
+ // Desenhar ao fundo, preservando espaço transitável entre copas sobrepostas.
+ for(const p of [...g.props].sort((a,b)=>a.x+a.z-b.x-b.z)){
+  const center=point(p.x+.5,p.z+.5),x=Math.round(center.x),y=Math.round(center.y);
+  if(x< -180||x>w+180||y< -330||y>h+90)continue;
+  const q=Math.max(2,Math.round(sx*.21));
+  if(p.type==='flower'){
+   const color=p.color||g.flowerColor;
+   ctx.fillStyle='#1c5145';ctx.fillRect(x-1,y-9,3,11);
+   ctx.fillStyle=color;ctx.fillRect(x-5,y-13,5,5);ctx.fillRect(x+1,y-13,5,5);
+   ctx.fillRect(x-2,y-16,5,5);ctx.fillStyle='#ffe9a5';ctx.fillRect(x-1,y-12,3,3);
+  }else if(p.type==='tree'){
+   const t=Math.max(12,Math.round(sx*.70*(p.size||1.4))),cy=y-Math.round(t*2.05);
+   ctx.fillStyle='#102d29';ctx.fillRect(x-q,y-t*2,q*2,t*2);
+   ctx.fillStyle='#634a35';ctx.fillRect(x-q+2,y-t*2,q*2-4,t*2);
+   ctx.fillStyle='#a47e50';ctx.fillRect(x-q+3,y-t*1.8,Math.max(2,q*.35),t*1.5);
+   ctx.fillStyle='#173e32';ctx.fillRect(x-t*.96,cy-t*.43,t*1.9,t*.95);
+   ctx.fillStyle=p.color||'#3e8157';ctx.fillRect(x-t*.90,cy-t*.78,t*1.8,t*1.05);
+   ctx.fillStyle='#61a76f';ctx.fillRect(x-t*.48,cy-t*.94,t*.97,t*.46);
+   ctx.fillStyle='#24563c';ctx.fillRect(x-t*.74,cy+t*.12,t*1.4,t*.29);
+  }else if(p.type==='colossalTrunk'){
+   const body=Math.round(sx*1.65),high=Math.round(sx*8.8),edge=p.half==='left'?-1:1;
+   ctx.fillStyle='#172c2a';ctx.fillRect(x-body*.60,y-high,body*1.2,high);
+   ctx.fillStyle='#4e392a';ctx.fillRect(x-body*.5,y-high,body,high);
+   ctx.fillStyle='#8b6041';ctx.fillRect(x-body*.35,y-high,body*.23,high);
+   ctx.fillStyle='#30291f';ctx.fillRect(x+body*.22,y-high,body*.16,high);
+   for(let b=0;b<4;b++){
+    ctx.fillStyle=b%2?'#745039':'#443526';
+    const yy=y-b*q*2.8;ctx.fillRect(x-body*.4-edge*b*3,yy,body*.8,Math.max(2,q*.8));
+   }
+   // Raízes colossais substituem visualmente as antigas tábuas da ponte.
+   ctx.fillStyle='#523a2b';ctx.fillRect(x-body*.6,y-7,body*1.4,Math.max(9,q*1.2));
+   ctx.fillStyle='#99704e';ctx.fillRect(x+edge*body*.4,y+2,edge*q*2,Math.max(3,q*.38));
+   // A copa ultrapassa os limites superiores da câmera.
+   ctx.fillStyle='#214a37';ctx.fillRect(x-body*1.45,y-high-body*.5,body*2.9,body*.85);
+   ctx.fillStyle='#356748';ctx.fillRect(x-body*1.15,y-high-body*.75,body*2.3,body*.5);
+  }else if(p.type==='archPillar'){
+   ctx.fillStyle='#262f32';ctx.fillRect(x-q,y-q*5,q*2.3,q*5);
+   ctx.fillStyle='#818786';ctx.fillRect(x-q+2,y-q*5+2,q*1.8,q*4.6);
+   ctx.fillStyle='#556562';ctx.fillRect(x-q,y-q*2,q*1.1,q*.65);
+   ctx.fillStyle='#4d8762';ctx.fillRect(x-q+3,y-q*4,q*.55,q*.45);
+  }else if(p.type==='ruinedArch'){
+   // Verga destruída: fragmentos nas pontas, abertura central realmente vazia.
+   const left=point(p.x-1.5,p.z+.5),right=point(p.x+3.4,p.z+.5),yy=Math.min(left.y,right.y)-q*5.8;
+   ctx.fillStyle='#7b8581';
+   ctx.fillRect(left.x-q,yy,q*2.5,q*1.0);
+   ctx.fillRect(right.x-q*1.1,yy+q*.5,q*1.8,q*.9);
+   ctx.fillStyle='#a6aaa4';ctx.fillRect(left.x-q,yy-q*.32,q*1.2,q*.4);
+  }else if(p.type==='rock'||p.type==='fallenStone'){
+   ctx.fillStyle='#343f44';ctx.fillRect(x-q,y-q*.6,q*2,q);
+   ctx.fillStyle='#8a9692';ctx.fillRect(x-q+2,y-q*1.25,q*1.6,q*.8);
+   ctx.fillStyle='#a2aaa3';ctx.fillRect(x-q*.62,y-q*1.25,q*.65,q*.38);
+  }else if(p.type==='bush'){
+   ctx.fillStyle='#1c4d37';ctx.fillRect(x-q,y-q,q*2,q*1.5);
+   ctx.fillStyle='#4b9b65';ctx.fillRect(x-q*.85,y-q*1.5,q*1.65,q*.8);
+   ctx.fillStyle='#79b879';ctx.fillRect(x-q*.25,y-q*1.55,q*.66,q*.35);
+  }
+ }
+ for(const exit of g.room.exits){
+  const d=ROOM_DIRECTIONS[exit.dir],loc=worldExitAt(exit),p=point(loc.x,loc.z);
+  if(p.x< -70||p.x>w+70||p.y< -70||p.y>h+70)continue;
+  ctx.fillStyle='#93f0c9';ctx.globalAlpha=.83;
+  ctx.beginPath();ctx.ellipse(p.x,p.y,Math.max(14,sx*.48),Math.max(8,sy*.39),0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle='#f1fff3';ctx.font='bold 10px system-ui,sans-serif';ctx.textAlign='center';
+  ctx.fillText('PASSAGEM',p.x,p.y-16);
+ }
+ const v=ctx.createRadialGradient(w*.5,h*.46,h*.12,w*.5,h*.5,Math.max(w,h)*.82);
+ v.addColorStop(0,'#00000000');v.addColorStop(1,'#03101aaf');
+ ctx.fillStyle=v;ctx.fillRect(0,0,w,h);
+}
+
 function makeRoomGeometry(room){
  if(room.template==='flowerClearing'||room.template==='ancientRoots')return makeAuthoredSpawnGeometry(room);
  const tiles=[],walkable=new Set(),solid=new Set(),props=[];
@@ -1651,6 +1818,7 @@ function tryWorldTransition(move){
 }
 function drawWorldFloor(){
  const g=roomGeometry,room=g.room,b=BIOMES[runState.region]||BIOMES.forest;
+ if(g.authored){drawAuthoredWorldFloor(g);return;}
  ctx.fillStyle='#07151f';ctx.fillRect(0,0,w,h);
  ctx.imageSmoothingEnabled=false;
  for(const tile of g.tiles){
