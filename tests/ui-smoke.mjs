@@ -738,8 +738,8 @@ try{
       const road=new Map(shape.paths),solid=new Set(shape.solid),walkable=new Set(shape.walkable);
       totals.trees+=shape.props.filter(p=>p.type==='tree').length;
       totals.roads+=shape.paths.filter(([,kind])=>kind==='forestTrail').length;
-      if(shape.props.some(p=>p.type!=='tree'))
-       errors.push({seed,room:r.id,issue:'colisão inesperada na vegetação'});
+      if(shape.props.some(p=>!['tree','stone','log','rootWall'].includes(p.type)))
+       errors.push({seed,room:r.id,issue:'tipo de obstáculo desconhecido'});
       for(const p of shape.props)if(!solid.has(p.x+','+p.z))
        errors.push({seed,room:r.id,issue:'tronco não tem colisão'});
       for(const [key,kind] of road)if(['forestTrail','forestBridge','forestClearing'].includes(kind)&&solid.has(key))
@@ -778,12 +778,38 @@ try{
    assert.equal(forestCheck.errorCount,0,JSON.stringify(forestCheck.errors));
    assert.deepEqual(new Set(forestCheck.spawns),new Set(['flower_clearing','ruined_gate','colossal_tree']),
     'os três spawns existentes devem continuar escolhidos aleatoriamente');
-   assert.deepEqual(new Set(forestCheck.types),new Set(['winding','grove','fork','stream']),
-    'as quatro travessias comuns devem surgir');
+   assert.deepEqual(new Set(forestCheck.types),
+    new Set(['winding','grove','fork','stream','moss','fallen','stones','ferns',
+     'ring','roots','marsh','mist','fireflies','ridge','hollow']),
+    'os 15 mapas-base de travessia devem surgir em seeds diferentes');
    assert.ok(forestCheck.totals.rooms>1000,'variedade ao longo de muitas salas');
    assert.ok(forestCheck.totals.water>100,'riachos reais em parte das florestas');
    assert.ok(forestCheck.totals.trees>1200,'passagens entre árvores sólidas');
    assert.ok(forestCheck.totals.roads>4000,'trilhas físicas conectam entradas e saídas');
+
+   const uniqueFeatures=await page.evaluate(()=>{
+    const d=window.__rpgDebug,found={},want={
+     moss:'forestMoss',fallen:'log',stones:'stone',ferns:'forestFern',
+     ring:'forestClearing',roots:'forestRoot',marsh:'forestShallow',
+     mist:'forestMist',fireflies:'firefly',ridge:'forestStone',
+     hollow:'forestShade'
+    };
+    for(let seed=1;seed<=300;seed++){
+     const world=d.worldForSeed(seed);
+     for(const room of Object.values(world.rooms)){
+      const feature=want[room.forestTraversal];
+      if(!feature||found[room.forestTraversal])continue;
+      const g=d.forestGeometry(seed,room.id);
+      if(g.paths.some(([,kind])=>kind===feature)||
+         g.props.some(o=>o.type===feature)||
+         g.decor.some(o=>o.type===feature))found[room.forestTraversal]=seed;
+     }
+    }
+    return{found,want};
+   });
+   assert.deepEqual(Object.keys(uniqueFeatures.found).sort(),Object.keys(uniqueFeatures.want).sort(),
+    'cada um dos 11 novos mapas deve ter uma característica física ou visual própria');
+
    for(const [variant,seed] of Object.entries(forestCheck.samples)){
     const result=await page.evaluate(seed=>{
      const d=window.__rpgDebug;
