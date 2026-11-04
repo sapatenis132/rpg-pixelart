@@ -3244,11 +3244,11 @@ window.__rpgDebug.combatMoveFactor=combatMoveFactor;
 window.__rpgDebug.combatProfile=()=>({archetype:currentArchetype(),meleeGuard:player.meleeGuard||0});
 window.__rpgDebug.mapData=(tab='area')=>mapData(tab);window.__rpgDebug.openWorldMap=openWorldMap;window.__rpgDebug.closeWorldMap=closeWorldMap;
 window.__rpgDebug.worldForSeed=seed=>generateWorld(seed);
-window.__rpgDebug.worldRoomShape=room=>{const g=makeRoomGeometry(room);return{width:g.room.width,height:g.room.height,
+window.__rpgDebug.worldRoomShape=room=>{const g=makeRoomGeometry(room);return{template:room.template||null,spawn:g.spawn||{x:0,z:0},props:g.authored?g.props:[],terrain:g.terrain?[...g.terrain]:[],width:g.room.width,height:g.room.height,
  shape:g.room.shape,walkable:g.walkable.size,blocked:g.solid.size,
  exits:room.exits.map(e=>({dir:e.dir,x:ROOM_DIRECTIONS[e.dir].dx*(g.hw-.72),z:ROOM_DIRECTIONS[e.dir].dz*(g.hh-.72)})),
  floor:[...g.walkable],solids:[...g.solid]};};
-window.__rpgDebug.worldRoomInfo=()=>roomGeometry?{id:runState.room,halfWidth:roomGeometry.hw,
+window.__rpgDebug.worldRoomInfo=()=>roomGeometry?{id:runState.room,template:roomGeometry.room.template||null,title:roomGeometry.room.title||null,spawn:roomGeometry.spawn||null,halfWidth:roomGeometry.hw,
  halfHeight:roomGeometry.hh,shape:roomGeometry.room.shape,
  exits:roomGeometry.room.exits.map(e=>({...e,at:worldExitAt(e)})),
  walkable:worldPassable(player.x,player.z),camera:{x:cam.x,z:cam.z}}:null;
