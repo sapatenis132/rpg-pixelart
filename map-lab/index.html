@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b1722">
-<title>Laboratório de Mapas v3 — RPG Pixel Art</title>
+<title>Laboratório de Mapas v4 — Geração Procedural</title>
 <style>
 :root{color-scheme:dark;--ink:#edf6ff;--soft:#a9c0d1;--line:#355066;--panel:#132435;--accent:#86e2cc;--gold:#f8cf8d;font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -45,6 +45,18 @@ header{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:7p
 #footprintSize{flex:1;min-height:32px;padding:5px;font-weight:800}
 #objectOptions small{font-size:9px;color:#96bbc8}
 #collisionBtn.active{background:#754b31;border-color:#eda56f}
+#procBtn{background:#315b50;border-color:#6aa898;color:#e5fff2}
+#procBadge{position:absolute;bottom:11px;left:11px;right:11px;display:none;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 9px;border-radius:12px;background:#081a24ed;border:1px solid #85dec0aa;box-shadow:0 7px 26px #000b;z-index:5;font-size:11px}
+#procBadge.open{display:flex}#procBadge strong{margin-right:auto;color:#adf9df}#procBadge button{font-size:10px;padding:5px 8px;min-height:30px}
+#palette.previewLocked{pointer-events:none;opacity:.57}
+#procBackdrop{position:fixed;inset:0;background:#050b12e3;z-index:24;display:none;align-items:center;justify-content:center;padding:9px;backdrop-filter:blur(5px)}
+#procBackdrop.open{display:flex}#procDialog{width:min(490px,100%);max-height:calc(100dvh - 18px);overflow-y:auto;background:#142c3d;border:1px solid #5e988b;border-radius:15px;padding:15px;box-shadow:0 25px 70px #000c}
+#procDialog h2{font-size:17px;margin:0 0 6px}#procDialog p{font-size:11px;color:#bdd4dd;margin:6px 0}
+.procControls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}.procControls label{font-size:11px;color:#d2e9ef;display:flex;flex-direction:column;gap:5px}
+.procControls input,.procControls select{width:100%;height:37px}.procChecks{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.procChecks label{display:flex;gap:6px;align-items:center;font-size:11px;color:#e6f4f6}
+.procChecks input{accent-color:#54b99f}.procActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.procActions button{flex:1;padding:7px 5px;font-size:11px}
+#procInfo{font-size:10px;color:#bdd9e0;line-height:1.45;background:#0c202d;border-radius:9px;padding:9px;margin-top:8px}
+@media(max-height:450px){#procDialog{padding:9px 12px}#procDialog p{margin:3px 0}.procControls{margin-top:5px}.procChecks{margin:5px 0}}
 #notes{resize:none;width:100%;height:53px;font-size:11px;line-height:1.3}
 #statusbar{height:52px;flex:none;display:flex;align-items:center;gap:6px;background:#0f202e;border-top:1px solid #345267;padding:5px max(9px,env(safe-area-inset-left)) 5px 9px;overflow-x:auto;overscroll-behavior:contain;scrollbar-width:none}
 #statusbar::-webkit-scrollbar{display:none}
@@ -75,12 +87,13 @@ select{min-height:35px}.hidden{display:none!important}
 <div id="workspace">
  <main id="viewer" aria-label="Área de edição de mapas"><canvas id="map" aria-label="Editor do mapa: toque para pintar"></canvas>
   <div id="viewerInfo"><b id="viewLabel">Planta</b> · <span id="dimLabel">12×10</span> · <span id="brushLabel">Grama</span><span id="coordLabel"></span></div>
+  <div id="procBadge"><strong id="procBadgeText">Prévia procedural</strong><button id="procMore">⚙ Opções</button><button id="procNext">🎲 Outra</button><button id="procApply" class="primary">✓ Aplicar</button><button id="procRevert">↶ Original</button></div>
   <div id="zoomBar"><button id="zoomOut" aria-label="Diminuir zoom">−</button><button id="zoomIn" aria-label="Aumentar zoom">+</button><button id="fit" aria-label="Enquadrar mapa">⤢</button></div>
  </main>
  <aside id="palette">
  <div class="section"><div class="sectionTitle">Ferramentas</div><div id="tools" class="pair"><button data-tool="paint" class="active" aria-label="Pintar" title="Pintar"><span aria-hidden="true">✏</span><span class="toolLabel">Pintar</span></button><button data-tool="erase" aria-label="Apagar" title="Apagar"><span aria-hidden="true">⌫</span><span class="toolLabel">Apagar</span></button><button data-tool="fill" aria-label="Preencher" title="Preencher"><span aria-hidden="true">▤</span><span class="toolLabel">Preencher</span></button><button data-tool="pan" aria-label="Mover câmera" title="Mover câmera"><span aria-hidden="true">✋</span><span class="toolLabel">Mover</span></button><button data-tool="scatter" aria-label="Espalhar vegetação" title="Bosque: espalhar vegetação (aba Natureza)" disabled><span aria-hidden="true">🌳</span><span class="toolLabel">Bosque</span></button><button data-tool="relocate" aria-label="Mover objeto inteiro" title="Mover objeto inteiro"><span aria-hidden="true">⤧</span><span class="toolLabel">Mover objeto</span></button></div>
   <div class="pair" style="margin-top:6px"><button id="undo">↶ Desfazer</button><button id="redo">↷ Refazer</button></div>
-  <div class="mini" style="margin-top:7px">Pinte 1×1 arrastando. Para árvores maiores, selecione 2×2, 3×3 ou 5×5. ⤧ move objetos inteiros; ⌫ apaga tudo.</div>
+  <div class="mini" style="margin-top:7px">Use os pincéis para desenhar o mapa-base. 🎲 Procedural testa variações por seed sem alterar seu desenho.</div>
  </div>
  <div class="section"><div id="tabs" class="pair"><button data-layer="ground" class="active">▦ Terreno</button><button data-layer="nature">🌳 Natureza</button><button data-layer="object">⚔ Outros</button></div>
   <div id="objectOptions" class="hidden"><label for="footprintSize">Tamanho</label><select id="footprintSize" aria-label="Tamanho do objeto na grade"><option value="1x1">1×1</option><option value="2x2">2×2</option><option value="3x3">3×3</option><option value="5x5">5×5</option><option value="2x3">2×3</option><option value="3x2">3×2</option></select></div>
@@ -93,10 +106,23 @@ select{min-height:35px}.hidden{display:none!important}
  <button id="viewBtn" class="primary">◈ Visão isométrica</button>
  <span class="mini">Grade</span><input id="sizeW" type="number" min="5" max="32" value="12" aria-label="Largura do mapa"><span>×</span><input id="sizeH" type="number" min="5" max="32" value="10" aria-label="Altura do mapa"><button id="resizeBtn">Aplicar</button>
  <select id="preset" aria-label="Modelos de mapa"><option value="ruins">Ruínas</option><option value="village">Vila</option><option value="forest">Floresta</option><option value="blank">Vazio</option></select><button id="presetBtn">Carregar modelo</button>
-  <button id="collisionBtn" title="Mostrar a área de colisão: vermelho bloqueia, verde é visual">▦ Colisão</button><button id="notesBtn">📝 Notas</button><button id="importBtn">⇧ Importar</button><button id="clearBtn" class="danger">Limpar</button>
+  <button id="procBtn" title="Gerar variações por seed sem alterar o mapa original">🎲 Procedural</button><button id="collisionBtn" title="Mostrar a área de colisão: vermelho bloqueia, verde é visual">▦ Colisão</button><button id="notesBtn">📝 Notas</button><button id="importBtn">⇧ Importar</button><button id="clearBtn" class="danger">Limpar</button>
  <span id="status">Salvo no aparelho</span>
 </div>
 <input id="jsonFile" type="file" accept=".json,application/json" class="hidden">
+<div id="procBackdrop" role="dialog" aria-modal="true" aria-label="Geração procedural de mapas">
+ <div id="procDialog">
+  <h2>🎲 Pré-visualização procedural</h2>
+  <p>Experimente alterações leves no seu mapa-base. A mesma seed e as mesmas opções sempre produzem o mesmo resultado. A prévia não substitui o desenho original.</p>
+  <div class="procControls">
+   <label>Seed do mapa<input id="procSeed" type="text" maxlength="70" value="clareira-001" placeholder="Ex.: floresta-42"></label>
+   <label>Intensidade<select id="procStrength"><option value="1">Suave</option><option value="2" selected>Moderada</option><option value="3">Variada</option></select></label>
+  </div>
+  <div class="procChecks"><label><input id="procPaths" type="checkbox" checked> Variar caminhos e saídas</label><label><input id="procFlora" type="checkbox" checked> Vegetação e flores</label></div>
+  <div id="procInfo">A geração procura conservar objetos especiais, árvores grandes e saídas marcadas. Se não houver saída marcada, escolhe uma borda conectada.</div>
+  <div class="procActions"><button id="procClose">Ver mapa</button><button id="procGenerate" class="primary">🎲 Gerar prévia</button><button id="procReset" class="danger">↶ Mapa original</button></div>
+ </div>
+</div>
 <div id="dialogBackdrop" role="dialog" aria-modal="true" aria-label="Compartilhar mapa"><div class="dialog"><h2>Compartilhar com o ChatGPT</h2><p>Copie este esquema e cole na conversa do projeto. Ele inclui terrenos, objetos individuais, objetos multicélula e suas máscaras de colisão, além das anotações. Para restaurar o desenho no laboratório, use o arquivo JSON.</p><textarea id="shareText" readonly></textarea><div class="dialog-actions"><button id="closeDialog">Fechar</button><button id="copyText" class="primary">Copiar esquema</button></div></div></div>
 </div>
 <script>
@@ -127,8 +153,9 @@ const defs={ground:groundDefs,nature:natureDefs,object:objectDefs};
 const names=Object.fromEntries(Object.entries(defs).map(([layer,list])=>[layer,Object.fromEntries(list.map(a=>[a[0],a[1]]))]));
 const colors={ground:Object.fromEntries(groundDefs.map(a=>[a[0],a[3]])),object:Object.fromEntries(allObjectDefs.map(a=>[a[0],a[3]]))};
 const valid={ground:new Set(groundDefs.map(a=>a[0])),nature:new Set(natureDefs.map(a=>a[0])),object:new Set(allObjectDefs.map(a=>a[0]))};
-let w=12,h=10,ground=[],objects=[],largeObjects=[],nextLargeId=1,view='top',layer='ground',tool='paint',selected={ground:'grass',nature:'tree',object:'wall'},zoom=1,panX=0,panY=0,editStart=null,edited=false,showCollision=false,moveDraft=null;
+let w=12,h=10,ground=[],objects=[],largeObjects=[],nextLargeId=1,colorOverrides={},layoutMeta=null,view='top',layer='ground',tool='paint',selected={ground:'grass',nature:'tree',object:'wall'},zoom=1,panX=0,panY=0,editStart=null,edited=false,showCollision=false,moveDraft=null;
 let undoStack=[],redoStack=[],cursor=null,activePointers=new Map(),gesture=null,raf=0;
+let procBase=null,procInfo=null,procPreviousTool='paint';
 const canvas=$('map'),ctx=canvas.getContext('2d',{alpha:false});let cw=1,ch=1,dpr=1;
 const key=(x,y)=>y*w+x;const inBounds=(x,y)=>x>=0&&y>=0&&x<w&&y<h;
 const treeIds=new Set(['tree','ancientTree','pine','palm','deadTree']);
@@ -146,7 +173,7 @@ function collisionCells(p){if(p.collision==='none')return[];if(p.collision==='fu
 
 const hexMix=(hex,amount)=>{const n=parseInt(hex.slice(1),16);return '#'+[16,8,0].map(shift=>Math.max(0,Math.min(255,((n>>shift)&255)+amount)).toString(16).padStart(2,'0')).join('')};
 const hash=(x,y,s=0)=>{let v=(x*92837111 ^ y*689287499 ^ s*283923481)>>>0;v^=v>>>13;v=Math.imul(v,1274126177)>>>0;return(v^(v>>>16))>>>0};
-function blank(W=12,H=10,tile='grass'){w=W;h=H;ground=Array(w*h).fill(tile);objects=Array(w*h).fill(null);largeObjects=[];nextLargeId=1}
+function blank(W=12,H=10,tile='grass'){w=W;h=H;ground=Array(w*h).fill(tile);objects=Array(w*h).fill(null);largeObjects=[];nextLargeId=1;colorOverrides={};layoutMeta=null}
 function template(type){
  if(type==='blank'){blank(12,10,'grass');return}
  if(type==='village'){
@@ -190,10 +217,13 @@ function template(type){
  objects[key(3,3)]='chest';objects[key(3,6)]='entrance';objects[key(6,4)]='door';objects[key(8,4)]='boss';objects[key(9,5)]='portal';objects[key(5,5)]='enemy';objects[key(2,5)]='heal';objects[key(7,6)]='trap';objects[key(5,8)]='exit';
  objects[key(7,3)]='wall';objects[key(9,3)]='ruin';
 }
-function state(){return JSON.stringify({w,h,ground,objects,largeObjects,name:$('name').value,notes:$('notes').value})}
+function state(){return JSON.stringify({w,h,ground,objects,largeObjects,tints:colorOverrides,procedural:layoutMeta,name:$('name').value,notes:$('notes').value})}
 function loadState(snapshot){const d=typeof snapshot==='string'?JSON.parse(snapshot):snapshot;
  if(!Number.isInteger(d.w)||!Number.isInteger(d.h)||d.w<5||d.h<5||d.w>32||d.h>32||!Array.isArray(d.ground)||!Array.isArray(d.objects)||d.ground.length!==d.w*d.h||d.objects.length!==d.w*d.h)throw Error('Formato de mapa inválido');
  w=d.w;h=d.h;ground=d.ground.map(v=>valid.ground.has(v)?v:'grass');objects=d.objects.map(v=>valid.object.has(v)?v:null);
+ colorOverrides={};
+ if(d.tints&&typeof d.tints==='object'&&!Array.isArray(d.tints))for(const [idx,v] of Object.entries(d.tints))if(/^\d+$/.test(idx)&&+idx<w*h&&objects[+idx]==='flowers'&&/^#[0-9a-fA-F]{6}$/.test(v))colorOverrides[idx]=v;
+ layoutMeta=d.procedural&&typeof d.procedural==='object'&&typeof d.procedural.seed==='string'&&d.procedural.spawn&&Number.isInteger(d.procedural.spawn.x)&&Number.isInteger(d.procedural.spawn.y)?{seed:d.procedural.seed.slice(0,70),spawn:{x:d.procedural.spawn.x,y:d.procedural.spawn.y},exits:Array.isArray(d.procedural.exits)?d.procedural.exits.filter(p=>p&&Number.isInteger(p.x)&&Number.isInteger(p.y)).slice(0,10):[]}:null;
  largeObjects=[];nextLargeId=1;
  if(d.largeObjects!==undefined&&!Array.isArray(d.largeObjects))throw Error('Lista de objetos multicélula inválida');
  for(const raw of (d.largeObjects||[]).slice(0,1024)){
@@ -207,8 +237,8 @@ function loadState(snapshot){const d=typeof snapshot==='string'?JSON.parse(snaps
  updateMeta();draw();
 }
 function remember(old){if(!old||old===state())return;undoStack.push(old);if(undoStack.length>45)undoStack.shift();redoStack=[];persist();updateUndo()}
-function updateUndo(){$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length}
-function persist(){try{localStorage.setItem('rpg-map-lab-v1',state());$('status').textContent='Salvo no aparelho'}catch(e){$('status').textContent='Use JSON para salvar'}}
+function updateUndo(){$('undo').disabled=!!procBase||!undoStack.length;$('redo').disabled=!!procBase||!redoStack.length}
+function persist(){if(procBase)return;try{localStorage.setItem('rpg-map-lab-v1',state());$('status').textContent='Salvo no aparelho'}catch(e){$('status').textContent='Use JSON para salvar'}}
 function updateMeta(){$('sizeW').value=w;$('sizeH').value=h;$('dimLabel').textContent=`${w}×${h}`;$('viewLabel').textContent=view==='top'?'Planta':'Isométrico';$('brushLabel').textContent=(tool==='erase'?'Apagar · ':tool==='pan'?'Câmera · ':tool==='relocate'?'Mover objeto · ':tool==='fill'?'Preencher · ':tool==='scatter'?'Bosque · ':'')+names[layer][selected[layer]]+(layer==='ground'?'':` · ${$('footprintSize').value.replace('x','×')}`);}
 function setTool(value){tool=value==='scatter'&&layer!=='nature'?'paint':value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));canvas.style.cursor=tool==='pan'?'grab':tool==='relocate'?'move':'crosshair';updateMeta();draw()}
 function setLayer(value){layer=value;document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('active',b.dataset.layer===value));document.querySelector('[data-tool="scatter"]').disabled=value!=='nature';$('objectOptions').classList.toggle('hidden',value==='ground');if(tool==='scatter'&&value!=='nature')setTool('paint');buildPalette();updateMeta();draw()}
@@ -293,7 +323,7 @@ function drawObj(x,y,c){const id=objects[key(x,y)];if(!id)return;const pos=tileC
  const size=Math.max(1.25,Math.min(5.1,view==='top'?c.size/10:c.tw/11));const topOffset=view==='iso'?size*2:0;
  const ox=Math.round(pos.x-size*3.5),oy=Math.round(pos.y-size*3.5-topOffset);
  ctx.fillStyle='#04101688';ctx.beginPath();ctx.ellipse(pos.x,pos.y,3.5*size,1.4*size,0,0,Math.PI*2);ctx.fill();
- const main=colors.object[id]||'#fff';let shadow=hexMix(main,-43),light=hexMix(main,40);
+ const main=colorOverrides[key(x,y)]||colors.object[id]||'#fff';let shadow=hexMix(main,-43),light=hexMix(main,40);
  for(let row=0;row<7;row++)for(let col=0;col<7;col++){const bit=sprite[row][col];if(bit==='0')continue;
  ctx.fillStyle=bit==='1'?shadow:bit==='2'?main:light;
  ctx.fillRect(ox+col*size,oy+row*size,Math.ceil(size+.2),Math.ceil(size+.2))}
@@ -379,6 +409,14 @@ function render(){raf=0;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1a24
  toDraw.sort((a,b)=>a.depth-b.depth||(a.kind==='large'?1:-1));
  for(const item of toDraw){if(item.kind==='large')drawLargeObject(item.p,c);else drawObj(item.x,item.y,c)}
  if(showCollision)for(const p of largeObjects)footprintCells(p,c,'','',true);
+ if(procInfo){
+  const markers=[{at:procInfo.spawn,label:'INÍCIO',color:'#a9ffdd'},...procInfo.exits.map(at=>({at,label:'SAÍDA',color:'#fbd38a'}))];
+  for(const m of markers){if(!inBounds(m.at.x,m.at.y))continue;const pt=tileCenter(m.at.x,m.at.y,c);
+   ctx.beginPath();ctx.arc(pt.x,pt.y-7,Math.max(4,zoom*6),0,Math.PI*2);ctx.fillStyle=m.color;ctx.fill();ctx.strokeStyle='#12303b';ctx.lineWidth=2;ctx.stroke();
+   ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#071822';ctx.strokeText(m.label,pt.x,pt.y-14);ctx.fillStyle='#eafff9';ctx.fillText(m.label,pt.x,pt.y-14);
+  }
+ }
+
  // Prévia ao passar o mouse ou mover o dedo: verde indica espaço livre, vermelho indica conflito.
  if(moveDraft){const draft={...moveDraft.source,x:moveDraft.x,y:moveDraft.y};
   if(moveDraft.kind==='large'){
@@ -388,7 +426,7 @@ function render(){raf=0;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1a24
    const pos=tileCenter(draft.x,draft.y,c);
    footprintCells({...draft,cols:1,rows:1,collision:'full'},c,'#72e9bb22','#8affd5');
   }
- }else if(cursor&&cursor.inside){
+ }else if(!procBase&&cursor&&cursor.inside){
   if(tool==='paint'&&layer!=='ground'){
    const {cols,rows}=sizeChoice();if(cols>1||rows>1){const p={...rectAt(cursor.x,cursor.y,cols,rows),id:selected[layer],collision:collisionOf(selected[layer]),uid:nextLargeId};
     const can=validPlacement(p);if(can){ctx.globalAlpha=.42;drawLargeObject(p,c);ctx.globalAlpha=1}
@@ -400,12 +438,12 @@ function render(){raf=0;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1a24
  }
 }
 function resizeCanvas(){const box=canvas.getBoundingClientRect();cw=Math.max(1,box.width);ch=Math.max(1,box.height);dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));canvas.width=Math.round(cw*dpr);canvas.height=Math.round(ch*dpr);fitView()}
-function paintLarge(x,y){const {cols,rows}=sizeChoice();const p={...rectAt(x,y,cols,rows),uid:nextLargeId,id:selected[layer],collision:collisionOf(selected[layer])};
+function paintLarge(x,y){if(procBase)return false;const {cols,rows}=sizeChoice();const p={...rectAt(x,y,cols,rows),uid:nextLargeId,id:selected[layer],collision:collisionOf(selected[layer])};
  if(!validPlacement(p)){$('status').textContent='Não cabe ou já existe outro objeto grande aqui';return false}
  // O solo é preservado: a copa ocupa várias células, mas a árvore é um só objeto.
  largeObjects.push(p);nextLargeId++;edited=true;draw();return true
 }
-function changeCell(x,y){if(!inBounds(x,y))return false;
+function changeCell(x,y){if(procBase||!inBounds(x,y))return false;
  const i=key(x,y);
  if(layer!=='ground'&&tool==='erase'){
   const p=largeAt(x,y);if(p){largeObjects=largeObjects.filter(o=>o.uid!==p.uid);edited=true;draw();return true}
@@ -415,7 +453,7 @@ function changeCell(x,y){if(!inBounds(x,y))return false;
   if(largeAt(x,y)){$('status').textContent='Área de objeto grande: use ⌫ ou ⤧';return false}
  }
  const list=layer==='ground'?ground:objects;const value=tool==='erase'?(layer==='ground'?'void':null):selected[layer];
- if(list[i]===value)return false;list[i]=value;edited=true;draw();return true
+ if(list[i]===value)return false;if(layer!=='ground')delete colorOverrides[i];list[i]=value;edited=true;draw();return true
 }
 function beginMove(x,y){if(layer==='ground')setLayer('nature');const p=largeAt(x,y);
  if(p){moveDraft={kind:'large',source:{...p},x:p.x,y:p.y,offsetX:x-p.x,offsetY:y-p.y};return}
@@ -427,11 +465,11 @@ function finishMove(){if(!moveDraft)return;
   const p=largeObjects.find(o=>o.uid===m.source.uid);if(p&&(p.x!==m.x||p.y!==m.y)){p.x=m.x;p.y=m.y;edited=true}
  }else if(m.kind==='single'&&inBounds(m.x,m.y)&&!largeAt(m.x,m.y)&&
   (m.x===m.source.x&&m.y===m.source.y||!objects[key(m.x,m.y)])){
-  if(m.x!==m.source.x||m.y!==m.source.y){objects[key(m.source.x,m.source.y)]=null;objects[key(m.x,m.y)]=m.source.id;edited=true}
+  if(m.x!==m.source.x||m.y!==m.source.y){const from=key(m.source.x,m.source.y),to=key(m.x,m.y),tint=colorOverrides[from];delete colorOverrides[from];if(tint&&m.source.id==='flowers')colorOverrides[to]=tint;objects[from]=null;objects[to]=m.source.id;edited=true}
  }
  draw();
 }
-function scatter(x,y){
+function scatter(x,y){if(procBase)return;
  if(!inBounds(x,y)||layer!=='nature')return;
  const id=selected.nature,heavy=['tree','pine','palm','deadTree','boulder','cactus'].includes(id);
  const density=heavy?32:57;
@@ -444,13 +482,13 @@ function scatter(x,y){
   if(id==='lily'&&ground[i]!=='water'&&ground[i]!=='marsh')continue;
   if((dx||dy)&&(hash(tx,ty,id.length*71)%100)>=density)continue;
   if(old===id)continue;
-  objects[i]=id;edited=true;
+  objects[i]=id;delete colorOverrides[i];edited=true;
  }
  draw();
 }
-function flood(x,y){if(!inBounds(x,y))return;const arr=layer==='ground'?ground:objects,target=tool==='erase'?(layer==='ground'?'void':null):selected[layer];const old=arr[key(x,y)];if(old===target)return;
+function flood(x,y){if(procBase)return;if(!inBounds(x,y))return;const arr=layer==='ground'?ground:objects,target=tool==='erase'?(layer==='ground'?'void':null):selected[layer];const old=arr[key(x,y)];if(old===target)return;
  const visited=new Uint8Array(w*h),queue=[key(x,y)];visited[queue[0]]=1;for(let k=0;k<queue.length;k++){
-  const i=queue[k];if(arr[i]!==old)continue;arr[i]=target;edited=true;
+  const i=queue[k];if(arr[i]!==old)continue;arr[i]=target;if(layer!=='ground')delete colorOverrides[i];edited=true;
   const cx=i%w,cy=Math.floor(i/w);for(const [nx,ny] of [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]])if(inBounds(nx,ny)&&!visited[key(nx,ny)]){visited[key(nx,ny)]=1;queue.push(key(nx,ny))}
  }draw();
 }
@@ -460,6 +498,7 @@ function pinch(){const points=[...activePointers.values()];return{x:(points[0].x
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);const p=pos(e);activePointers.set(e.pointerId,p);
  if(activePointers.size>=2){if(editStart){remember(editStart);editStart=null}moveDraft=null;edited=false;const g=pinch();gesture={...g,zoom,panX,panY};draw();return}
  cursor=mapPoint(p.x,p.y);$('coordLabel').textContent=cursor.inside?` · ${cursor.x+1},${cursor.y+1}`:'';
+ if(procBase&&tool!=='pan')return;
  if(tool==='pan'){gesture={x:p.x,y:p.y,panX,panY};return}
  if(!cursor.inside)return;
  editStart=state();edited=false;
@@ -490,7 +529,7 @@ function pointerDone(e){activePointers.delete(e.pointerId);
 canvas.addEventListener('pointerup',pointerDone);canvas.addEventListener('pointercancel',pointerDone);canvas.addEventListener('lostpointercapture',pointerDone);
 canvas.addEventListener('pointerleave',()=>{if(!activePointers.size){cursor=null;draw()}});
 canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.24,Math.min(3.8,zoom*(e.deltaY<0?1.12:.89)));draw()},{passive:false});
-function undoRedo(from,to){if(!from.length)return;const old=state(),next=from.pop();to.push(old);loadState(next);persist();updateUndo()}
+function undoRedo(from,to){if(procBase||!from.length)return;const old=state(),next=from.pop();to.push(old);loadState(next);persist();updateUndo()}
 $('undo').addEventListener('click',()=>undoRedo(undoStack,redoStack));$('redo').addEventListener('click',()=>undoRedo(redoStack,undoStack));
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 document.querySelectorAll('[data-layer]').forEach(b=>b.addEventListener('click',()=>setLayer(b.dataset.layer)));
@@ -509,7 +548,7 @@ $('notesBtn').addEventListener('click',()=>{const value=prompt('Anotações do m
 for(const id of ['name','notes'])$(id).addEventListener('input',persist);
 function download(filename,data,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)}
 function filename(ext){return ($('name').value||'mapa').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)+'.'+ext}
-$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=3;download(filename('json'),JSON.stringify(d,null,2),'application/json')});
+$('jsonBtn').addEventListener('click',()=>{const d=JSON.parse(state());d.format='rpg-pixelart-map-lab';d.version=4;d.previewOnly=!!procBase;if(procInfo)d.procedural={seed:procInfo.seed,spawn:procInfo.spawn,exits:procInfo.exits};download(filename('json'),JSON.stringify(d,null,2),'application/json')});
 $('pngBtn').addEventListener('click',()=>{canvas.toBlob(blob=>{if(!blob){alert('Não foi possível gerar o PNG');return}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename('png');document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)},'image/png')});
 $('importBtn').addEventListener('click',()=>$('jsonFile').click());$('jsonFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const old=state();loadState(parsed);remember(old);fitView();$('status').textContent='Mapa importado'}catch(error){alert('Não foi possível importar: '+error.message)}e.target.value=''});
 function ascii(){const gSym=Object.fromEntries(groundDefs.map(a=>[a[0],a[2]])),oSym=Object.fromEntries(allObjectDefs.map(a=>[a[0],a[2]]));const usedG=new Set(ground),usedO=new Set(objects.filter(Boolean)),usedL=new Set(largeObjects.map(o=>o.id));const lines=[];
@@ -528,13 +567,152 @@ function ascii(){const gSym=Object.fromEntries(groundDefs.map(a=>[a[0],a[2]])),o
   for(const [x,y] of collisionCells(p))mask[key(x,y)]='X';}
  for(let y=0;y<h;y++)lines.push(mask.slice(y*w,(y+1)*w).join(''));
  lines.push('Objetos grandes: '+allObjectDefs.filter(a=>usedL.has(a[0])).map(a=>a[1]).join(', '));
+ const info=procInfo||layoutMeta;if(info)lines.push('VARIAÇÃO PROCEDURAL: seed='+info.seed+(procBase?' (somente prévia)':' (aplicada)')+'; nascimento: '+(info.spawn.x+1)+','+(info.spawn.y+1)+'; saídas: '+info.exits.map(p=>(p.x+1)+','+(p.y+1)).join(' | '));
  lines.push('Interprete como um rascunho: não implemente no jogo principal sem minha aprovação.');return lines.join('\n')
 }
 $('share').addEventListener('click',()=>{$('shareText').value=ascii();$('dialogBackdrop').classList.add('open');$('shareText').focus();$('shareText').select()});
 $('closeDialog').addEventListener('click',()=>$('dialogBackdrop').classList.remove('open'));
 $('dialogBackdrop').addEventListener('click',e=>{if(e.target===$('dialogBackdrop'))$('dialogBackdrop').classList.remove('open')});
 $('copyText').addEventListener('click',async()=>{const txt=$('shareText').value;try{await navigator.clipboard.writeText(txt);$('copyText').textContent='✓ Copiado!';setTimeout(()=>$('copyText').textContent='Copiar esquema',1400)}catch(e){$('shareText').select();if(document.execCommand('copy'))$('copyText').textContent='✓ Copiado!';else alert('Selecione o texto e use Copiar no celular.')}});
-window.addEventListener('keydown',e=>{if(e.key==='Escape')$('dialogBackdrop').classList.remove('open');if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undoRedo(undoStack,redoStack)}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();undoRedo(redoStack,undoStack)}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){$('dialogBackdrop').classList.remove('open');$('procBackdrop').classList.remove('open');}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undoRedo(undoStack,redoStack)}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();undoRedo(redoStack,undoStack)}});
+// Geração de variações seedadas. O mapa-base é restaurado antes de toda nova tentativa.
+function strHash(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),16777619)>>>0}return h>>>0}
+function randomFrom(seed){let a=strHash(seed);return()=>{a=(a+0x6d2b79f5)>>>0;let t=Math.imul(a^(a>>>15),a|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}}
+const procNatures=['tree','pine','bush','fern','tallGrass','mushroom','flowers','deadTree','palm','thorns','reeds'];
+const procColors=['#f18db8','#f4d86e','#c5a5f4','#f6f5e8','#fa9b6a','#8ecdd8'];
+function procIsProtected(id){return !!id&&!valid.nature.has(id)&&id!=='entrance'&&id!=='exit'}
+function procBlocked(x,y,allowNatural=false){if(!inBounds(x,y))return true;const k=key(x,y),id=objects[k];
+ if(procIsProtected(id)||(id&&collisionOf(id)!=='none'&&!allowNatural&&id!=='entrance'&&id!=='exit'))return true;
+ return largeObjects.some(p=>collisionCells(p).some(([a,b])=>a===x&&b===y));
+}
+function procTraversable(x,y,allowNatural=false){return inBounds(x,y)&&!procBlocked(x,y,allowNatural)&&ground[key(x,y)]!=='void'&&ground[key(x,y)]!=='lava'}
+function procNearest(cx,cy){const spots=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(procTraversable(x,y))spots.push({x,y,dist:Math.abs(x-cx)+Math.abs(y-cy)});
+ spots.sort((a,b)=>a.dist-b.dist||a.y-b.y||a.x-b.x);return spots[0]||null}
+function procRoute(start,end,rng){
+ // Dijkstra sobre a grade; árvores grandes e elementos estruturais não são atravessados.
+ const best=new Float64Array(w*h).fill(Infinity),previous=new Int32Array(w*h).fill(-1),seen=new Uint8Array(w*h);
+ const from=key(start.x,start.y),to=key(end.x,end.y);best[from]=0;
+ for(let repeat=0;repeat<w*h;repeat++){
+  let at=-1,cost=Infinity;for(let i=0;i<best.length;i++)if(!seen[i]&&best[i]<cost){cost=best[i];at=i}
+  if(at<0)break;if(at===to)break;seen[at]=1;
+  const x=at%w,y=Math.floor(at/w);
+  for(const [nx,ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
+   if(!procTraversable(nx,ny,true))continue;
+   const ni=key(nx,ny),g=ground[ni],old=g==='path',natural=objects[ni];
+   const penalty=(g==='water'?9:0)+(natural&&valid.nature.has(natural)?(collisionOf(natural)==='none'?1.8:7):0);
+   const wobble=(strHash(`${nx}/${ny}/${procInfoSeed}`)%101)/115;
+   const trial=best[at]+1+penalty+wobble+(old?-.2:0);
+   if(trial<best[ni]){best[ni]=trial;previous[ni]=at}
+  }
+ }
+ if(!Number.isFinite(best[to]))return null;
+ const route=[];for(let i=to;i!==-1;i=previous[i]){route.push({x:i%w,y:Math.floor(i/w)});if(i===from)break}
+ return route.reverse()
+}
+let procInfoSeed='';
+function procConnectivity(spawn,ends){const seen=new Uint8Array(w*h),q=[spawn],found=[];seen[key(spawn.x,spawn.y)]=1;
+ for(let i=0;i<q.length;i++){const {x,y}=q[i];for(const [nx,ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]])if(procTraversable(nx,ny)&&!seen[key(nx,ny)]){seen[key(nx,ny)]=1;q.push({x:nx,y:ny})}}
+ return ends.every(p=>seen[key(p.x,p.y)]===1)
+}
+function procEdgeCandidates(spawn,rng){const edges=[];
+ for(let x=0;x<w;x++){edges.push({x,y:0,side:'N'});edges.push({x,y:h-1,side:'S'})}
+ for(let y=1;y<h-1;y++){edges.push({x:0,y,side:'W'});edges.push({x:w-1,y,side:'E'})}
+ return edges.filter(p=>procTraversable(p.x,p.y)&&Math.abs(p.x-spawn.x)+Math.abs(p.y-spawn.y)>2).map(p=>({...p,weight:rng()})).sort((a,b)=>a.weight-b.weight)
+}
+function procGenerateMap(seed,strength,changePaths,changeFlora){
+ procInfoSeed=seed;const rng=randomFrom(JSON.stringify([seed,strength,changePaths,changeFlora,w,h,ground,objects,largeObjects.map(p=>[p.id,p.x,p.y,p.cols,p.rows,p.collision])]));
+ const entrances=[],fixedExits=[];
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  if(objects[key(x,y)]==='entrance')entrances.push({x,y});
+  if(objects[key(x,y)]==='exit')fixedExits.push({x,y});
+ }
+ const start=entrances.length?entrances[0]:procNearest(Math.floor((w-1)/2),Math.floor((h-1)/2));
+ if(!start)throw Error('Não foi encontrado espaço transitável para nascer.');
+ const endpoints=fixedExits.slice(),routes=[];
+ if(changePaths){
+  const original=ground.slice();
+  // Somente trilhas propriamente ditas são redesenhadas; manchas de terra e construções permanecem.
+  if(original.some(g=>g==='path'))for(let i=0;i<ground.length;i++)if(ground[i]==='path')ground[i]='grass';
+  const candidates=procEdgeCandidates(start,rng);
+  if(!endpoints.length){
+   for(const e of candidates){const r=procRoute(start,e,rng);if(r){endpoints.push({x:e.x,y:e.y});routes.push(r);break}}
+   if(!endpoints.length)throw Error('Não há uma borda acessível para conectar a sala.');
+  }else{
+   for(const e of endpoints){const r=procRoute(start,e,rng);if(!r)throw Error('Uma saída obrigatória não pode ser alcançada sem atravessar estruturas.');routes.push(r)}
+  }
+  // Uma pequena ramificação opcional, ligada ao mesmo caminho principal.
+  if(strength>=3&&rng()<.48){for(const e of candidates){if(endpoints.some(p=>p.x===e.x&&p.y===e.y))continue;
+   const r=procRoute(start,e,rng);if(r){endpoints.push({x:e.x,y:e.y});routes.push(r);break}}
+  }
+  for(const r of routes)for(const p of r){const i=key(p.x,p.y),g=ground[i];ground[i]=g==='water'?'bridge':'path';if(valid.nature.has(objects[i])){objects[i]=null;delete colorOverrides[i]}}
+  // Transições de trilha discretas, com largura maior apenas em poucos pontos.
+  if(strength>=2)for(const r of routes)for(const p of r)if(rng()<.13*strength){const [dx,dy]=[[0,1],[1,0],[0,-1],[-1,0]][Math.floor(rng()*4)];const x=p.x+dx,y=p.y+dy;
+   if(procTraversable(x,y)&&!['water','bridge'].includes(ground[key(x,y)])&&!objects[key(x,y)])ground[key(x,y)]='path';
+  }
+ }else{ // Sem variar caminhos, preservar saídas existentes e destacar saída possível se não houver marcador.
+  if(!endpoints.length){const e=procEdgeCandidates(start,rng)[0];if(e)endpoints.push({x:e.x,y:e.y})}
+ }
+ // Espalhamento discreto sem deslocar estruturas ou entidades multicélula.
+ if(changeFlora){
+  const candidates=[];for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+   const i=key(x,y);if(procTraversable(x,y)&&ground[i]==='grass'&&!largeObjects.some(p=>covers(p,x,y)))candidates.push(i);
+  }
+  const swaps=Math.min(candidates.length,Math.max(2,Math.round(w*h*(strength===1?.018:strength===2?.04:.07))));
+  for(let n=0;n<swaps&&candidates.length;n++){
+   const k=Math.floor(rng()*candidates.length),i=candidates.splice(k,1)[0],prev=objects[i];
+   if(prev&&!valid.nature.has(prev))continue;
+   if(rng()<.3){if(prev&&valid.nature.has(prev))objects[i]=null}
+   else if(!prev||valid.nature.has(prev)){
+    const opt=changePaths?['bush','fern','tallGrass','tree','flowers','mushroom','pine']:['bush','fern','tallGrass','flowers','mushroom'];
+    objects[i]=opt[Math.floor(rng()*opt.length)];
+   }
+   delete colorOverrides[i];
+  }
+  // Flores da mesma seed seguem uma paleta coerente. A tintura é armazenada no JSON.
+  const flowerColor=procColors[Math.floor(rng()*procColors.length)];
+  for(let i=0;i<objects.length;i++)if(objects[i]==='flowers')colorOverrides[i]=flowerColor;
+  // Alterna algumas espécies sem apagar flores nem mover árvores de grande porte.
+  if(strength>=2)for(let i=0;i<objects.length;i++)if(objects[i]==='tree'&&rng()<.12*strength)objects[i]='pine';
+ }
+ // Evita que a própria variação coloque árvores sobre o nascimento ou caminhos já abertos.
+ if(changeFlora){const i=key(start.x,start.y);if(objects[i]&&collisionOf(objects[i])!=='none'){objects[i]=null;delete colorOverrides[i]}}
+ // Validação da rota só é exigida para as saídas ligadas/criadas por esta geração.
+ if(changePaths&&!procConnectivity(start,endpoints))throw Error('A variação bloqueou uma conexão importante; tente outra seed.');
+ return {seed,spawn:{x:start.x,y:start.y},exits:endpoints.map(p=>({x:p.x,y:p.y})),strength,changePaths,changeFlora};
+}
+function procLock(active){
+ $('palette').classList.toggle('previewLocked',active);$('procBadge').classList.toggle('open',active);
+ for(const id of ['name','notes','sizeW','sizeH','resizeBtn','preset','presetBtn','clearBtn','importBtn','notesBtn'])$(id).disabled=active;
+ $('procBadgeText').textContent=active?'🎲 '+procInfo.seed+' · PRÉVIA (não salva)':'';
+ if(active){procPreviousTool=procPreviousTool||tool;setTool('pan');cursor=null}
+ updateUndo();draw();
+}
+function procPreview(){
+ const seed=$('procSeed').value.trim()||'clareira-001',strength=Number($('procStrength').value);
+ const usePaths=$('procPaths').checked,useFlora=$('procFlora').checked;
+ if(!procBase){procBase=state();procPreviousTool=tool}
+ try{
+  loadState(procBase);procInfo=null;
+  procInfo=procGenerateMap(seed,strength,usePaths,useFlora);
+  procLock(true);$('procInfo').textContent=`Seed ${seed} · nascimento (${procInfo.spawn.x+1},${procInfo.spawn.y+1}) · ${procInfo.exits.length} saída(s). Prévia criada; use Aplicar para salvar ou Original para descartar.`;
+  $('procBackdrop').classList.remove('open');draw();
+ }catch(e){const base=procBase;procInfo=null;procBase=null;loadState(base);procLock(false);setTool(procPreviousTool);$('procInfo').textContent='Não foi possível gerar: '+e.message;draw()}
+}
+function procDiscard(){if(!procBase)return;const old=procBase;procBase=null;procInfo=null;loadState(old);procLock(false);setTool(procPreviousTool);$('status').textContent='Mapa-base restaurado';draw()}
+function procApply(){if(!procBase||!procInfo)return;const base=procBase;layoutMeta={seed:procInfo.seed,spawn:procInfo.spawn,exits:procInfo.exits};procBase=null;procInfo=null;procLock(false);setTool(procPreviousTool);remember(base);$('status').textContent='Variante aplicada e salva';draw()}
+function procNewSeed(){
+ const seed=$('procSeed').value.trim(),m=seed.match(/^(.*?)-(\d+)$/);
+ $('procSeed').value=m?m[1]+'-'+String(Number(m[2])+1).padStart(m[2].length,'0'):(seed||'floresta')+'-2';procPreview();
+}
+$('procBtn').addEventListener('click',()=>{$('procBackdrop').classList.add('open')});
+$('procMore').addEventListener('click',()=>{$('procBackdrop').classList.add('open')});
+$('procClose').addEventListener('click',()=>{$('procBackdrop').classList.remove('open')});
+$('procGenerate').addEventListener('click',procPreview);
+$('procNext').addEventListener('click',procNewSeed);
+$('procApply').addEventListener('click',procApply);
+$('procRevert').addEventListener('click',procDiscard);
+$('procReset').addEventListener('click',()=>{procDiscard();$('procBackdrop').classList.remove('open')});
+$('procBackdrop').addEventListener('click',e=>{if(e.target===$('procBackdrop'))$('procBackdrop').classList.remove('open')});
 try{const data=localStorage.getItem('rpg-map-lab-v1');if(data)loadState(data);else{template('ruins');persist()}}catch(e){template('ruins')}
 updateUndo();setLayer('ground');setTool('paint');updateMeta();new ResizeObserver(resizeCanvas).observe($('viewer'));
 })();
