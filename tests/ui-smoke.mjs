@@ -133,7 +133,8 @@ try{
    assert.ok(file.src.includes('assets/sprites/animated/'));
   }
   for(const [name,motion] of animation.states){
-   const expected=name.startsWith('enemy-')?name.slice(6):name;
+   const expected=name==='enemy-evade'?'dodge':
+    name.startsWith('enemy-')?name.slice(6):name;
    assert.equal(motion.name,expected,name+' escolhido pelo combate');
    assert.ok(motion.frame>=0&&motion.frame<4,'quadro válido');
   }
