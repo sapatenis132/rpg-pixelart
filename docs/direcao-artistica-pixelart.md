@@ -80,6 +80,36 @@ inimigos ainda requerem revisão artística manual em Android real;
 os sprites ilustram estados básicos e não constituem ainda um atlas
 completo de todas as finalizações individuais.
 
+## Terceiro lote — sete estados de animação e cenário detalhado
+- Dez atlas ampliados em `assets/sprites/animated/`, cada um com
+  **128×2688 pixels**, 8 direções × 7 estados × 4 quadros.
+- Estados visuais: caminhada, ataque, defesa/parry, esquiva, reação a dano,
+  queda/morte e finalizador. Gerados por pixel art raster a partir das
+  silhuetas estabelecidas; quadros com inclinação, agachamento,
+  deslocamento do tronco, queda horizontal, guarda e detalhes adicionais.
+  Cada estado é um **PNG real**, não um filtro ou desenho geométrico por frame.
+- Seleção automática por estado da simulação (sem tocar na física):
+  `characterMotion` considera ataque normal/finalização, guarda, parry,
+  esquiva, dano e fases de inimigos abatidos.
+- Ecos de esquiva usam os quadros de movimento evasivo; armas deixam de
+  aparecer sobre o corpo dos inimigos mortos. Recursos v2 persistem
+  como alternativa em caso de falha de carregamento.
+- Finalizações (incluindo perfurações, giro da adaga, turbilhão,
+  escudo e riposta) passam a usar linhas, arcos e pulsos discretos
+  de pixels em vez de grandes efeitos borrados.
+- Árvores na floresta recebem massas de folhas de contorno irregular,
+  reflexos pixelados, estratos de folhagem e textura de casca,
+  preservando o espaço físico de colisão dos troncos, ordenação de
+  camadas e posicionamento por seed.
+- `art-preview/index.html` permite inspecionar separadamente todos os
+  sete estados e oito direções de jogadores e inimigos.
+
+**Pendências artísticas:** os sete estados atuais são protótipos
+derivados das silhuetas anteriores; é necessário continuar polindo
+pose de cada arma, variedade das espécies, animações do chefe,
+tilemaps completos por bioma e sprites de pequenos objetos. Esta
+fase não representa a conclusão de toda a arte.
+
 ## Próximos lotes artísticos
 **Lote 2 — combate visual (em progresso):** continuar adicionando estados
 de dano, esquiva, parry, morte e finalizadores específicos por arma; refinar
