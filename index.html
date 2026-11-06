@@ -2277,6 +2277,39 @@ function tryWorldTransition(move){
 }
 
 
+// Tiles isométricos de raster autoral (64x32), nunca polígonos suavizados.
+// Variações pequenas e determinísticas preservam os caminhos de cada seed.
+const forestGroundTileCache=new Map();
+function forestGroundTile(type,variant,colors){
+ const key=type+':'+variant;
+ if(forestGroundTileCache.has(key))return forestGroundTileCache.get(key);
+ const atlas=document.createElement('canvas');atlas.width=64;atlas.height=32;
+ const c=atlas.getContext('2d');c.imageSmoothingEnabled=false;
+ const shade=colors[0],highlight=colors[1];
+ for(let y=0;y<32;y++){
+  const width=Math.max(1,Math.floor((1-Math.abs(y-15.5)/16)*32));
+  c.fillStyle=y>22?'#233c32':shade;
+  c.fillRect(32-width,y,width*2,1);
+ }
+ const moss=/forest|clearing/.test(type),stones=/stone|Stone|root|Root|Bridge/.test(type);
+ for(let k=0;k<24;k++){
+  const x=4+Math.floor(seeded(variant+type.length*31,k*19+7)*56);
+  const y=2+Math.floor(seeded(variant+type.length*11,k*61+13)*28);
+  const width=Math.max(1,Math.floor((1-Math.abs(y-15.5)/16)*32));
+  if(Math.abs(x-32)>width-3)continue;
+  c.fillStyle=k%4===0?'#18372f':k%3===0?shade:highlight;
+  c.fillRect(x,y,k%5===0?4:2,k%4===0?2:1);
+ }
+ if(moss){
+  c.fillStyle=highlight;c.fillRect(20+variant,14,5,2);
+  c.fillRect(39-variant,21,3,2);
+ }
+ if(stones){
+  c.fillStyle=highlight;c.fillRect(29,15,6,2);
+  c.fillRect(14+variant,18,4,1);
+ }
+ forestGroundTileCache.set(key,atlas);return atlas;
+}
 function drawSpawnGround(g){
  const palette={
   forestThicket:['#29513c','#658c55'],forestWater:['#1c5064','#81bcb5'],
@@ -2289,19 +2322,12 @@ function drawSpawnGround(g){
   forestShallow:['#315e61','#87c4b4'],forestMist:['#52766d','#a4c4b6'],
   forestGlade:['#416e53','#b5c887'],forestShade:['#294a3c','#4e8065']
  };
+ ctx.imageSmoothingEnabled=false;
  for(const [key,type] of g.paths){
-  const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
-  const colors=palette[type]||['#8d815f','#aa9970'];
-  polygon(corners,colors[0],type==='rootFloor'?'#a57948':null,.7);
-  const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
-  ctx.fillStyle=colors[1];
-  ctx.fillRect(Math.round(at.x+sx*(n-.5)*.3),Math.round(at.y+sy*(n-.5)*.3),sz,sz);
-  if(type==='forestShallow'||type==='forestMist'||type==='forestGlade'){
-   ctx.globalAlpha=type==='forestGlade'?.34:.22;
-   ctx.fillStyle=type==='forestGlade'?'#e8e0a0':'#cdeae1';
-   ctx.fillRect(Math.round(at.x-sz*1.7),Math.round(at.y+sz*.4),sz*3,sz);
-   ctx.globalAlpha=1;
-  }
+  const [x,z]=key.split(',').map(Number),colors=palette[type]||['#8d815f','#aa9970'];
+  const at=point(x+.5,z+.5),variant=Math.floor(seeded(g.room.variant,x*331+z*177)*4);
+  const tile=forestGroundTile(type,variant,colors);
+  ctx.drawImage(tile,Math.round(at.x-sx),Math.round(at.y-sy),Math.round(sx*2),Math.round(sy*2));
  }
 }
 // Os sprites de árvores são desenhados uma única vez em baixa resolução
