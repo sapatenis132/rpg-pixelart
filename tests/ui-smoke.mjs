@@ -10,6 +10,10 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const script=html.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
 assert.ok(script,'O script principal deve existir');
 new Function(script); // A sintaxe completa do jogo precisa compilar.
+const galleryHtml=readFileSync(resolve(root,'art-preview/index.html'),'utf8');
+const galleryScript=galleryHtml.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
+assert.ok(galleryScript,'a galeria deve fornecer script de animação');
+new Function(galleryScript);
 
 const server=http.createServer((req,res)=>{
  // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
@@ -21,6 +25,10 @@ const server=http.createServer((req,res)=>{
    res.end(pixels);
   }catch(err){res.writeHead(404);res.end('Asset não encontrado');}
   return;
+ }
+ if(pathname==='/art-preview/index.html'||pathname==='/art-preview/'){
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+  res.end(galleryHtml);return;
  }
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
  res.end(html);
@@ -1048,6 +1056,18 @@ try{
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }
+ const gallery=await browser.newPage({viewport:{width:854,height:480},
+  deviceScaleFactor:1,isMobile:true,hasTouch:true});
+ gallery.on('pageerror',error=>failures.push('galeria: '+error.message));
+ await gallery.goto(url+'/art-preview/index.html');
+ await gallery.waitForFunction(()=>document.querySelector('#status')?.textContent==='10/10 atlases carregados',null,{timeout:15000});
+ assert.equal(await gallery.locator('#races .card').count(),5);
+ assert.equal(await gallery.locator('#enemies .card').count(),5);
+ assert.equal(await gallery.locator('#items .item').count(),17);
+ await gallery.locator('#anim').selectOption('1');
+ await gallery.locator('#direction').selectOption('5');
+ await gallery.screenshot({path:resolve(root,'screenshots','galeria-arte-pixel.png')});
+ await gallery.close();
  assert.deepEqual(failures,[],'erros de execução no navegador');
 }finally{
  if(browser)await browser.close();
