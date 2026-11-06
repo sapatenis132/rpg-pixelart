@@ -2933,7 +2933,7 @@ function playerHit(contact=false,target=null,externalAct=null){
  if(showSlash&&!move.ranged&&move.fin&&move.weaponStyle!=='dagger'&&['LLL','HLL','LHH'].includes(a.key))swipe(player.x,player.z,'finPrep',player.face,-move.angle*.6,.81,{life:pal.life*.67,color:pal.echo,edge:'#ffffff',width:Math.max(6,pal.width-9),radius:pal.radius*.7,glow:pal.glow});
  if(!enemy||enemy.hp<=0){ring(player.x+player.face.x,player.z+player.face.z,pal.main,10,.2);if(move.fin){player.seq='';player.seqTimer=0;player.chainReady=false;}return;}
  const dx=enemy.x-player.x,dz=enemy.z-player.z,d=length(dx,dz),dir=unit(dx,dz),dot=dir.x*player.face.x+dir.z*player.face.z;
- if(!contact||(!move.ranged&&(d>move.reach+.41||dot<-.13))){
+ if(!contact||(!move.ranged&&(d>move.reach+.41||(move.motion!=='spin'&&dot<-.13)))){
   burst(player.x+player.face.x,player.z+player.face.z,pal.echo,5,.55);
   directionalBurst(player.x+player.face.x*.6,player.z+player.face.z*.6,player.face,pal.main,.55,6);
   precisionMisses++;if(move.fin){player.seq='';player.seqTimer=0;player.chainReady=false;}return;
@@ -4127,6 +4127,33 @@ window.__rpgDebug.debugStartSeed=seed=>newCampaign(DEFAULT_HERO,seed);
 window.__rpgDebug.spawnTemplates=()=>JSON.parse(JSON.stringify(SPAWN_TEMPLATES));
 window.__rpgDebug.spawnForSeed=seed=>spawnForSeed(seed);
 window.__rpgDebug.forestTraversalTypes=()=>({...FOREST_TRAVERSALS});
+// Ferramentas de regressão: mesmas definições físicas do jogo em tempo real.
+// Nenhum dano é simulado por estes métodos: apenas consulta de geometria.
+window.__rpgDebug.attackForm=(archetype,key)=>{
+ const move=(WEAPON_MOVES[archetype]||ATTACKS)[key];if(!move)return null;
+ return{name:move.name,motion:move.motion||'slash',width:move.hitWidth??(move.fin?.51:.44),
+  reach:move.reach,fin:!!move.fin,fxStyle:move.fxStyle||null,
+  range:activeInterval(move)};
+};
+window.__rpgDebug.attackHitProbe=(archetype,key,x,z)=>{
+ const move=(WEAPON_MOVES[archetype]||ATTACKS)[key];
+ if(!move||move.ranged)return false;
+ const b=activeInterval(move),face={x:1,z:0};
+ for(let i=0;i<=100;i++){
+  const t=b.start+(b.end-b.start)*i/100;
+  for(const seg of meleeHitSegments(move,0,0,face,t))
+   if(distanceToSegment(x,z,seg.ax,seg.az,seg.bx,seg.bz)<=seg.width)
+    return true;
+ }
+ return false;
+};
+window.__rpgDebug.attackWeaponPose=(archetype,key,t)=>{
+ const move=(WEAPON_MOVES[archetype]||ATTACKS)[key];
+ if(!move)return null;
+ return visualWeaponPose({face:{x:1,z:0}},archetype,true,
+  swingPose(move,t).angle,false,1.6,t,move);
+};
+
 window.__rpgDebug.forestVisualScale=()=>({actor:actorSpriteScale(),
  treePixel:forestTreePixelSize(),treeWidth:48*forestTreePixelSize(),
  treeHeight:64*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
