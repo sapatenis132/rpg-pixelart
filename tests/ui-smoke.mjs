@@ -12,6 +12,16 @@ assert.ok(script,'O script principal deve existir');
 new Function(script); // A sintaxe completa do jogo precisa compilar.
 
 const server=http.createServer((req,res)=>{
+ // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
+ const pathname=new URL(req.url,'http://localhost').pathname;
+ if(/^\/assets\/sprites\/(?:actors|legacy)\/[a-z0-9_-]+\.png$/.test(pathname)){
+  try{
+   const pixels=readFileSync(resolve(root,'.'+pathname));
+   res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
+   res.end(pixels);
+  }catch(err){res.writeHead(404);res.end('Asset não encontrado');}
+  return;
+ }
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
  res.end(html);
 });
@@ -31,6 +41,20 @@ try{
   page.on('pageerror',error=>failures.push(width+'x'+height+': '+error.message));
   await page.goto(url);
   await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.spriteFiles())
+   .every(asset=>asset.loaded),null,{timeout:15000});
+  const art=await page.evaluate(()=>{
+   const files=window.__rpgDebug.spriteFiles();
+   return Object.entries(files).map(([race,data])=>({
+    race,...data,sourceIsImage:window.__rpgDebug.spriteAsset(race) instanceof HTMLImageElement
+   }));
+  });
+  assert.equal(art.length,5,'cinco raças com spritesheets PNG externos');
+  for(const a of art){
+   assert.ok(a.sourceIsImage,'sprite real carregada para '+a.race);
+   assert.equal(a.width,128);assert.equal(a.height,768);
+   assert.ok(a.src.startsWith('assets/sprites/actors/'));
+  }
   assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
   // Os cinco personagens devem ter miniaturas pixel art únicas e desenhadas.
