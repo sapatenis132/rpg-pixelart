@@ -19,6 +19,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Validate combat, balance and pixel art frames
         run: node tests/combat-polish.mjs --render
+      - name: Validate racial identity and unchanged game balance
+        run: node tests/racial-integration.mjs --render
       - name: Validate game on 5 landscape mobile viewports
         run: node tests/ui-smoke.mjs
       - name: Save screenshots even if checks fail

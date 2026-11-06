@@ -10,8 +10,34 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const script=html.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
 assert.ok(script,'O script principal deve existir');
 new Function(script); // A sintaxe completa do jogo precisa compilar.
+const galleryHtml=readFileSync(resolve(root,'art-preview/index.html'),'utf8');
+const mapLabHtml=readFileSync(resolve(root,'map-lab/index.html'),'utf8');
+const mapLabScript=mapLabHtml.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
+assert.ok(mapLabScript,'laboratório de mapas deve manter seu script');
+new Function(mapLabScript);
+const galleryScript=galleryHtml.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
+assert.ok(galleryScript,'a galeria deve fornecer script de animação');
+new Function(galleryScript);
 
 const server=http.createServer((req,res)=>{
+ // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
+ const pathname=new URL(req.url,'http://localhost').pathname;
+ if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated|forest|playable|playable\/(?:races|race-traits))\/[a-z0-9_-]+\.png$/.test(pathname)){
+  try{
+   const pixels=readFileSync(resolve(root,'.'+pathname));
+   res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
+   res.end(pixels);
+  }catch(err){res.writeHead(404);res.end('Asset não encontrado');}
+  return;
+ }
+ if(pathname==='/art-preview/index.html'||pathname==='/art-preview/'){
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+  res.end(galleryHtml);return;
+ }
+ if(pathname==='/map-lab/index.html'||pathname==='/map-lab/'){
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+  res.end(mapLabHtml);return;
+ }
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
  res.end(html);
 });
@@ -31,6 +57,247 @@ try{
   page.on('pageerror',error=>failures.push(width+'x'+height+': '+error.message));
   await page.goto(url);
   await page.waitForFunction(()=>Boolean(window.__rpgDebug));
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.spriteFiles())
+   .every(asset=>asset.loaded),null,{timeout:15000});
+  const art=await page.evaluate(()=>{
+   const files=window.__rpgDebug.spriteFiles();
+   return Object.entries(files).map(([race,data])=>({
+    race,...data,sourceIsImage:window.__rpgDebug.spriteAsset(race) instanceof HTMLImageElement
+   }));
+  });
+  assert.equal(art.length,5,'cinco raças com spritesheets PNG externos');
+  for(const a of art){
+   assert.ok(a.sourceIsImage,'sprite real carregada para '+a.race);
+   assert.equal(a.width,128);assert.equal(a.height,768);
+   assert.ok(a.src.startsWith('assets/sprites/actors/'));
+  }
+  // Animações reais de todos os inimigos e folha com nove armas.
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.enemySpriteFiles())
+   .every(asset=>asset.loaded)&&window.__rpgDebug.equipmentFile().loaded,
+   null,{timeout:15000});
+  const enemies=await page.evaluate(()=>window.__rpgDebug.enemySpriteFiles());
+  assert.equal(Object.keys(enemies).length,5,'cinco tipos distintos de inimigos');
+  for(const [name,img] of Object.entries(enemies)){
+   assert.equal(img.width,128,name+' atlas largura');
+   assert.equal(img.height,768,name+' atlas com ataques');
+   assert.ok(img.src.includes('/enemies/'),name+' usa PNG independente');
+  }
+  const equipment=await page.evaluate(()=>window.__rpgDebug.equipmentFile());
+  assert.equal(equipment.width,216);
+  assert.equal(equipment.height,48);
+  await page.waitForFunction(()=>window.__rpgDebug.fxFile().loaded,null,{timeout:15000});
+  const effects=await page.evaluate(()=>window.__rpgDebug.fxFile());
+  assert.equal(effects.width,128,'oito efeitos pixelados no atlas');
+  assert.equal(effects.height,16,'efeitos com células 16x16');
+  assert.equal(Object.keys(equipment.sprites).length,9,'nove silhuetas de equipamento');
+    // Sete estados reais por direção: os dez novos atlases PNG carregam
+  // separadamente e não reutilizam a caminhada para defesa, dano ou morte.
+  await page.waitForFunction(()=>{
+   const files=window.__rpgDebug.advancedAnimationFiles();
+   return Object.values(files.actors).every(x=>x.loaded)
+    &&Object.values(files.enemies).every(x=>x.loaded);
+  },null,{timeout:15000});
+  const animation=await page.evaluate(()=>{
+   const d=window.__rpgDebug,files=d.advancedAnimationFiles(),
+    names=d.advancedAnimationNames();
+   const states=[
+    ['walk',d.animationState({hp:100,moveMagnitude:0},true)],
+    ['attack',d.animationState({hp:100,act:{move:{dur:.4},time:.2}},true)],
+    ['guard',d.animationState({hp:100,parryWindow:.15},true)],
+    ['dodge',d.animationState({hp:100,dodge:.12},true)],
+    ['hurt',d.animationState({hp:100,reaction:.15},true)],
+    ['down',d.animationState({hp:0,visualDeathAt:0},true)],
+    ['finisher',d.animationState({hp:100,act:{move:{dur:.5,fin:true},time:.3}},true)],
+    ['enemy-guard',d.animationState({hp:100,phase:'guard',style:'guardian'},false)],
+    ['enemy-evade',d.animationState({hp:100,phase:'evade',style:'duelist',evade:.12},false)],
+    ['enemy-down',d.animationState({hp:100,phase:'down',style:'berserker',downTimer:.5,downTotal:1},false)],
+    ['enemy-finisher',d.animationState({hp:100,phase:'strike',type:'crush',style:'elite',strike:.1,strikeMax:.3},false)]
+   ];
+   const checks=[];
+   for(const [id,hero] of [['human',true],['elf',true],['orc',true],['dwarf',true],['halfling',true],
+      ['enemy',false],['guardian',false],['duelist',false],['berserker',false],['elite',false]]){
+    const img=d.advancedSpriteImage(id,hero);
+    const canvas=document.createElement('canvas');
+    canvas.width=32;canvas.height=48;const ctx=canvas.getContext('2d');
+    const hashes=[];let allPainted=true;
+    for(let state=0;state<7;state++){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(img,32,((state*8)+1)*48,32,48,0,0,32,48);
+     const pixels=ctx.getImageData(0,0,32,48).data;
+     let hash=2166136261,painted=0;
+     for(let i=0;i<pixels.length;i++){hash=Math.imul(hash^pixels[i],16777619)>>>0;if(i%4===3&&pixels[i])painted++;}
+     hashes.push(hash);allPainted=allPainted&&painted>45;
+    }
+    checks.push({id,unique:new Set(hashes).size,allPainted});
+   }
+   return{names,states,files,checks};
+  });
+  assert.deepEqual(animation.names,['walk','attack','guard','dodge','hurt','down','finisher']);
+  assert.equal(Object.keys(animation.files.actors).length,5);
+  assert.equal(Object.keys(animation.files.enemies).length,5);
+  for(const file of [...Object.values(animation.files.actors),...Object.values(animation.files.enemies)]){
+   assert.equal(file.width,128);
+   assert.equal(file.height,2688);
+   assert.ok(file.src.includes('assets/sprites/animated/'));
+  }
+  for(const [name,motion] of animation.states){
+   const expected=name==='enemy-evade'?'dodge':
+    name.startsWith('enemy-')?name.slice(6):name;
+   assert.equal(motion.name,expected,name+' escolhido pelo combate');
+   assert.ok(motion.frame>=0&&motion.frame<4,'quadro válido');
+  }
+  for(const item of animation.checks){
+   assert.ok(item.unique>=6,item.id+' precisa de ao menos 6 silhuetas de ação distintas');
+   assert.ok(item.allPainted,item.id+' não deve ter quadros vazios');
+  }
+  // A flora e os tiles do mundo vêm de PNGs reais, não de geometria
+  // que simula sprites. Também devem carregar em celulares pequenos.
+  await page.waitForFunction(()=>{
+   const f=window.__rpgDebug.forestArtFiles();
+   return f.trees.loaded&&f.props.loaded&&f.ground.loaded;
+  },null,{timeout:15000});
+  const forestArt=await page.evaluate(()=>window.__rpgDebug.forestArtFiles());
+  assert.deepEqual([forestArt.trees.width,forestArt.trees.height],[384,96],
+   'seis árvores em atlas raster');
+  assert.deepEqual([forestArt.props.width,forestArt.props.height],[192,64],
+   'dezesseis props de pixel art');
+  assert.deepEqual([forestArt.ground.width,forestArt.ground.height],[256,544],
+   'tiles 64x32 com 17 famílias e quatro variações');
+  assert.equal(forestArt.groundTypes.length,17);
+  for(const k of ['trees','props','ground']){
+   assert.ok(forestArt[k].src.startsWith('assets/sprites/forest/'),
+    'PNG do cenário carregado externamente: '+k);
+  }
+  // Os cinco protagonistas recebem silhuetas distintas a partir de
+  // PNGs externos. Todas as raças reutilizam o corpo original.
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.playableOutfits())
+   .every(file=>file.loaded),null,{timeout:15000});
+  const costumes=await page.evaluate(()=>{
+   const d=window.__rpgDebug,files=d.playableOutfits(),names=Object.keys(files);
+   const checks=[];
+   for(const id of names){
+    const img=d.playableCostume(id);
+    const c=document.createElement('canvas');c.width=32;c.height=48;
+    const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+    const hashes=[];
+    for(const state of [0,1,2,3,4,5,6]){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(img,32,(state*8+1)*48,32,48,0,0,32,48);
+     const pixels=ctx.getImageData(0,0,32,48).data;
+     let ink=0,hash=2166136261;
+     for(let i=0;i<pixels.length;i+=4){
+      if(pixels[i+3])ink++;
+      for(let j=0;j<4;j++)hash=Math.imul(hash^pixels[i+j],16777619)>>>0;
+     }
+     hashes.push({hash,ink});
+    }
+    checks.push({id,states:hashes,signature:hashes[0].hash});
+   }
+   const attack=d.playableAttackTiming;
+   const light={impact:.39,dur:.3},heavy={impact:.55,dur:.7,fin:true};
+   return {files,names,checks,
+    sequence:[attack(light,0),attack(light,.16),attack(light,.39),attack(light,.96)],
+    heavyImpact:attack(heavy,.55),heavyLead:attack(heavy,0),
+    meleeWindow:[attack(light,.21),attack(light,.39),attack(light,.57),
+      attack(light,.605)],
+    rangedVolley:[attack({ranged:true,impact:.43,dur:.48,shots:3,delayStep:.07},.43),
+      attack({ranged:true,impact:.43,dur:.48,shots:3,delayStep:.07},.65)],
+    attackWithPassiveGuard:d.animationState({hp:100,meleeGuard:.4,guardWindow:.2,
+     reaction:.15,act:{move:{dur:.4,impact:.43},time:.2}},true),
+    finisherWithPassiveGuard:d.animationState({hp:100,meleeGuard:.4,
+     act:{move:{dur:.4,impact:.43,fin:true},time:.2}},true),
+    identities:[
+     d.playerMoveIdentity({ranged:true,heavyShot:true,magic:true},'arcanist'),
+     d.playerMoveIdentity({ranged:true,shots:4},'arcanist'),
+     d.playerMoveIdentity({ranged:true,largeArrow:true},'hunter'),
+     d.playerMoveIdentity({ranged:true,shots:3},'hunter'),
+     d.playerMoveIdentity({motion:'bash'},'guardian'),
+     d.playerMoveIdentity({motion:'thrust'},'rebel')
+    ]
+   };
+  });
+  assert.deepEqual(costumes.names.sort(),['arcanist','guardian','hunter','rebel','warrior']);
+  for(const file of Object.values(costumes.files)){
+   assert.equal(file.width,128);assert.equal(file.height,2688);
+   assert.ok(file.src.includes('assets/sprites/playable/'));
+  }
+  assert.equal(new Set(costumes.checks.map(c=>c.signature)).size,5,
+   'cada profissão deve ter identidade visual própria');
+  for(const c of costumes.checks){
+   assert.ok(c.states.every(s=>s.ink>15),c.id+' nenhum estado pode perder o traje');
+   assert.ok(new Set(c.states.map(s=>s.hash)).size>=5,
+    c.id+' o traje deve acompanhar defesa, ataque e queda');
+  }
+  assert.deepEqual(costumes.sequence.map(x=>x.frame),[0,1,2,3],
+   'quadros seguem antecipação, contato e recuperação');
+  assert.ok(costumes.heavyImpact.released&&!costumes.heavyLead.released,
+   'a leitura da ação não antecipa o impacto físico');
+  assert.deepEqual(costumes.meleeWindow.map(x=>x.frame),[2,2,2,3],
+   'a pose de contato cobre toda a janela ativa da hitbox');
+  assert.ok(costumes.rangedVolley.every(x=>x.frame===2&&x.contact),
+   'a postura de disparo permanece durante a salva escalonada');
+  assert.deepEqual(costumes.identities,
+   ['charged-orb','salvo','piercing-shot','volley','shield-bash','thrust']);
+  assert.equal(costumes.attackWithPassiveGuard.name,'attack');
+  assert.equal(costumes.finisherWithPassiveGuard.name,'finisher');
+  // Nova arte racial: silhuetas legíveis sem cor em três ângulos.
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.refinedRaces())
+   .every(r=>r.body.loaded&&r.traits.loaded),null,{timeout:15000});
+  const raceArt=await page.evaluate(()=>{
+   const d=window.__rpgDebug,files=d.refinedRaces(),gait=d.raceVisualLanguage(),
+    races=Object.keys(files),ids={},facingSignatures={};
+   const c=document.createElement('canvas');c.width=32;c.height=48;
+   const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+   const inkHash=rgba=>{
+    let h=2166136261,painted=0;
+    for(let i=3;i<rgba.length;i+=4){
+     const value=rgba[i]?1:0;if(value)painted++;
+     h=Math.imul(h^value,16777619)>>>0;
+    }
+    return{hash:h,painted};
+   };
+   for(const id of races){
+    const body=d.refinedRaceImage(id),traits=d.raceTraitsImage(id);
+    const states=[],facings=[],traitInk=[];
+    for(const dir of [1,3,5])for(let state=0;state<7;state++){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(body,0,(state*8+dir)*48,32,48,0,0,32,48);
+     const h=inkHash(ctx.getImageData(0,0,32,48).data);
+     if(state===0)facings.push(h.hash);
+     states.push(h.painted);
+    }
+    for(const dir of [1,3,5]){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(traits,0,dir*48,32,48,0,0,32,48);
+     traitInk.push(inkHash(ctx.getImageData(0,0,32,48).data).painted);
+    }
+    ids[id]={facings,states,traitInk};
+   }
+   for(const [j,dir] of [1,3,5].entries())
+    facingSignatures[dir]=races.map(id=>ids[id].facings[j]);
+   const raceBounds=Object.fromEntries(races.map(id=>[id,d.spriteShape(id)]));
+   return{files,gait,ids,facingSignatures,raceBounds};
+  });
+  assert.deepEqual(Object.keys(raceArt.files).sort(),['dwarf','elf','halfling','human','orc']);
+  for(const [id,assets] of Object.entries(raceArt.files)){
+   for(const [name,img] of Object.entries(assets)){
+    assert.ok(img.loaded,id+' '+name+' carregou');
+    assert.deepEqual([img.width,img.height],[128,2688]);
+    assert.ok(img.src.startsWith(name==='body'?
+     'assets/sprites/playable/races/':'assets/sprites/playable/race-traits/'));
+   }
+   const info=raceArt.ids[id];
+   assert.equal(info.states.length,21);
+   assert.ok(info.states.every(ink=>ink>35),id+' sem estados vazios');
+   assert.ok(info.traitInk.every(ink=>ink>7),id+' identidade visível em três ângulos');
+   assert.ok(raceArt.gait[id].stride>.65&&raceArt.gait[id].stride<1.35);
+   assert.ok(raceArt.gait[id].bob>0&&raceArt.gait[id].bob<3);
+  }
+  for(const [dir,signatures] of Object.entries(raceArt.facingSignatures))
+   assert.equal(new Set(signatures).size,5,'cinco silhuetas distintas na direção '+dir);
+  assert.ok(raceArt.raceBounds.elf.headY<raceArt.raceBounds.dwarf.headY);
+  assert.ok(raceArt.raceBounds.orc.torsoW>raceArt.raceBounds.halfling.torsoW);
+  assert.ok(raceArt.raceBounds.halfling.footY>=raceArt.raceBounds.human.footY);
   assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
   // Os cinco personagens devem ter miniaturas pixel art únicas e desenhadas.
@@ -1048,6 +1315,79 @@ try{
   await page.close();
   console.log('OK',width+'x'+height,'raças, controles, HUD, FPS e chefe');
  }
+ const gallery=await browser.newPage({viewport:{width:854,height:480},
+  deviceScaleFactor:1,isMobile:true,hasTouch:true});
+ gallery.on('pageerror',error=>failures.push('galeria: '+error.message));
+ await gallery.goto(url+'/art-preview/index.html');
+ await gallery.waitForFunction(()=>{
+ const t=document.querySelector('#status')?.textContent||'';
+ return t.includes('10/10 atores')&&t.includes('5/5 classes');
+},null,{timeout:15000});
+ assert.equal(await gallery.locator('#races .card').count(),5);
+ assert.equal(await gallery.locator('#roles .card').count(),5,
+  'galeria deve mostrar cinco profissões com trajes próprios');
+ // O modo sem cor verifica desenho e proporções, não apenas paleta.
+ await gallery.locator('#silhouetteMode').check();
+ await gallery.waitForFunction(()=>{
+  const canvases=[...document.querySelectorAll('#races canvas,#roles canvas')];
+  if(canvases.length!==10)return false;
+  return canvases.every(c=>{
+   const data=c.getContext('2d').getImageData(0,0,32,48).data;
+   let opaque=0;
+   for(let i=0;i<data.length;i+=4){
+    if(data[i+3]<8)continue;
+    opaque++;if(data[i]!==8||data[i+1]!==13||data[i+2]!==21)return false;
+   }
+   return opaque>35;
+  });
+ },null,{timeout:15000});
+ await gallery.locator('#silhouetteMode').uncheck();
+ await gallery.locator('#previewRace').selectOption('dwarf');
+ await gallery.locator('#anim').selectOption('6');
+ await gallery.locator('#direction').selectOption('3');
+ await gallery.waitForFunction(()=>Array.from(document.querySelectorAll('#roles canvas'))
+  .every(c=>{const d=c.getContext('2d').getImageData(0,0,32,48).data;
+   return d.some((v,i)=>i%4===3&&v>0)}),null,{timeout:15000});
+ assert.equal(await gallery.locator('#enemies .card').count(),5);
+ assert.equal(await gallery.locator('#items .item').count(),17);
+ assert.equal(await gallery.locator('#forest .card').count(),28,
+  'galeria deve mostrar 6 árvores, 13 props e 9 terrenos reais');
+ await gallery.waitForFunction(()=>{
+  const cards=Array.from(document.querySelectorAll('#forest canvas'));
+  if(cards.length!==28)return false;
+  return cards.every(c=>{
+   const img=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+   let painted=0;
+   for(let i=3;i<img.length;i+=4)if(img[i])painted++;
+   return painted>15;
+  });
+ },null,{timeout:15000});
+
+ await gallery.locator('#anim').selectOption('1');
+ await gallery.locator('#direction').selectOption('5');
+ await gallery.screenshot({path:resolve(root,'screenshots','galeria-arte-pixel.png')});
+ await gallery.close();
+ const mapLab=await browser.newPage({viewport:{width:854,height:480},
+  deviceScaleFactor:1,isMobile:true,hasTouch:true});
+ mapLab.on('pageerror',error=>failures.push('laboratório: '+error.message));
+ await mapLab.goto(url+'/map-lab/index.html');
+ await mapLab.waitForFunction(()=>{
+  const d=window.__mapLabPixelArt?.();
+  return d&&Object.values(d.assets).every(a=>a.loaded);
+ },null,{timeout:15000});
+ const artLab=await mapLab.evaluate(()=>window.__mapLabPixelArt());
+ assert.deepEqual(Object.keys(artLab.assets).sort(),['ground','props','trees']);
+ assert.ok(artLab.ground.length>=7&&artLab.props.length>=10&&artLab.trees.length===3,
+  'laboratório deve reconhecer os sprites de chão, plantas e árvores');
+ await mapLab.locator('#preset').selectOption('forest');
+ await mapLab.locator('#presetBtn').click();
+ await mapLab.locator('#viewBtn').click();
+ assert.equal(await mapLab.evaluate(()=>window.__mapLabPixelArt().view),'iso');
+ await mapLab.locator('[data-layer="nature"]').click();
+ assert.ok(await mapLab.locator('#tiles .thumb canvas').count()>5,
+  'miniaturas reais da flora no laboratório');
+ await mapLab.screenshot({path:resolve(root,'screenshots','laboratorio-floresta-pixelart.png')});
+ await mapLab.close();
  assert.deepEqual(failures,[],'erros de execução no navegador');
 }finally{
  if(browser)await browser.close();
