@@ -1441,7 +1441,10 @@ function renderCharacterCreator(){
    const b=document.createElement('button');b.type='button';b.className='raceOption'+(creatorDraft[step.key]===id?' selected':'');
    b.setAttribute('aria-pressed',String(creatorDraft[step.key]===id));
    const name=document.createElement('strong');name.textContent=race.name;
-   const detail=document.createElement('span');detail.textContent=step.key==='race'?race.effects.join(' · '):race.weapon+' · '+race.desc;
+   const detail=document.createElement('span');
+    detail.textContent=step.key==='race'?
+     RACE_VISUAL_LANGUAGE[id].silhouette+' · '+race.effects.join(' · '):
+     race.weapon+' · '+race.desc;
    b.append(name,detail);
    if(step.key==='race'){
     b.classList.add('hasPortrait');
@@ -1449,17 +1452,20 @@ function renderCharacterCreator(){
     preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
     const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
     // Miniatura proporcional ao atlas 32×48, presa no cartão pela grade CSS.
-     pc.drawImage(raceAsset(id),0,1*48,32,48,0,0,48,72);
+     pc.drawImage(playableRaceRefined(id)||raceAsset(id),0,1*48,32,48,0,0,48,72);
     b.prepend(preview);
    }else if(step.key==='archetype'){
     // Arte da classe visível antes do jogador escolher.
     const preview=document.createElement('canvas');preview.width=48;preview.height=72;
     preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
     const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
-    const base=raceAsset(creatorDraft.race||'human');
+    const race=creatorDraft.race||'human',
+     base=playableRaceRefined(race)||raceAsset(race);
     if(base?.width)pc.drawImage(base,0,1*48,32,48,0,0,48,72);
     const gear=playableOutfit(id);
-    if(gear)drawPlayableOutfitFrame(pc,gear,0,1,0,0,48,72,creatorDraft.race||'human');
+    if(gear)drawPlayableOutfitFrame(pc,gear,0,1,0,0,48,72,race);
+    const traits=playableRaceTraits(race);
+    if(traits)pc.drawImage(traits,0,1*48,32,48,0,0,48,72);
     b.classList.add('hasPortrait');b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
