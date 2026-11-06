@@ -4051,6 +4051,9 @@ function drawDodgeEchoes(){
    ctx.drawImage(img,a.frame*32,row*48,32,48,Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
    if(outfit)drawPlayableOutfitFrame(ctx,outfit,a.frame,row,
     Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale),activeRace());
+   const identity=playableRaceTraits(activeRace());
+   if(identity)ctx.drawImage(identity,a.frame*32,row*48,32,48,
+    Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
    ctx.strokeStyle='#99f5e0';ctx.lineWidth=Math.max(1,Math.round(scale));
    ctx.strokeRect(Math.round(p.x-11*scale),Math.round(p.y-24*scale),Math.round(22*scale),Math.round(32*scale));
  }
@@ -4209,6 +4212,10 @@ function figure(u,team){
      drawPlayableOutfitFrame(ctx,outfit,animFrame,costumeRow,
       Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s),activeRace());
     }
+    const raceTraits=playableRaceTraits(activeRace());
+    if(raceTraits&&img.naturalHeight===2688)
+     ctx.drawImage(raceTraits,animFrame*32,spriteRow*48,32,48,
+      Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
    }
    ctx.globalAlpha=1;
  }else{
