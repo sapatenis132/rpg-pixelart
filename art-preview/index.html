@@ -185,7 +185,11 @@ function render(ts){
   roleLoaded++;
   const row=(direction+anim*8)*48;
   c.drawImage(base,frame*32,row,32,48,0,0,32,48);
+  // Exatamente a mesma máscara anatômica do jogo e do criador.
+  const top={human:20,elf:17,orc:21,dwarf:24,halfling:28}[roleRace]??20;
+  c.save();c.beginPath();c.rect(0,top,32,48-top);c.clip();
   c.drawImage(item.img,frame*32,row,32,48,0,0,32,48);
+  c.restore();
  }
  $('status').textContent=loaded+'/10 atores • '+roleLoaded+'/5 classes';
  paintForest();paintItems();requestAnimationFrame(render);
