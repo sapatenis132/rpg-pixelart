@@ -851,6 +851,15 @@ $('procRevert').addEventListener('click',procDiscard);
 $('procReset').addEventListener('click',()=>{procDiscard();$('procBackdrop').classList.remove('open')});
 $('procBackdrop').addEventListener('click',e=>{if(e.target===$('procBackdrop'))$('procBackdrop').classList.remove('open')});
 try{const data=localStorage.getItem('rpg-map-lab-v1');if(data)loadState(data);else{template('ruins');persist()}}catch(e){template('ruins')}
+window.__mapLabPixelArt=()=>({
+ view,
+ assets:Object.fromEntries(Object.entries(LAB_FOREST_ART).map(([key,img])=>[key,{
+  loaded:labArtReady(key,key==='trees'?384:key==='props'?192:256,key==='trees'?96:key==='props'?64:544),
+  width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }])),
+ trees:Object.keys(LAB_TREE_COLS),props:Object.keys(LAB_PROP_COLS),
+ ground:Object.keys(LAB_GROUND_ROWS)
+});
 updateUndo();setLayer('ground');setTool('paint');updateMeta();new ResizeObserver(resizeCanvas).observe($('viewer'));
 })();
 </script>
