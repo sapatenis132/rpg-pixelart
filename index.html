@@ -3745,10 +3745,13 @@ function playableAttackTiming(move,progress){
   Math.max(.20,move?.dur||.4);
  const recover=ranged?Math.min(.97,impact+.12+delayed):
   Math.min(.97,active.end+.03);
- const frame=p<prepare?0:p<strike?1:p<recover?2:3;
+ // Margem numérica evita separar o mesmo instante (.39-.18) em
+ // dois quadros distintos por representação de ponto flutuante.
+ const contactStarts=p+1e-8>=strike;
+ const frame=p<prepare?0:!contactStarts?1:p<recover?2:3;
  const phase=frame===0?'response':frame===1?'anticipation':
   frame===2?'contact':'recovery';
- return{frame,phase,impact,contact:p>=strike&&p<recover,
+ return{frame,phase,impact,contact:contactStarts&&p<recover,
   released:p>=impact};
 }
 function playerMoveIdentity(move,archetype){
