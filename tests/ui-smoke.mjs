@@ -748,6 +748,74 @@ try{
    assert.equal(sequences.antiSpam.buffer,null,'duplo toque não enfileira ataque extra');
   }
 
+  // REGRESSÃO VISUAL + GEOMÉTRICA DOS FINALIZADORES:
+  // Perfuração precisa ter ponta axial, não um arco genérico.
+  // Seu colisor deve ser fino; giro e corte realmente alcançam lados.
+  if(width===854&&height===480){
+   const combatMotion=await page.evaluate(()=>{
+    const d=window.__rpgDebug;
+    const form=(a,key)=>d.attackForm(a,key);
+    const pose=(key,t)=>d.attackWeaponPose('rebel',key,t);
+    const pre=pose('LLH',.12),impact=pose('LLH',.47);
+    const extension=p=>Math.hypot(p.x2-p.x1,p.y2-p.y1);
+    return{
+     daggerKeys:['L','LL','LLL','H','HH','LLH','LHL','HLL','LHH','HLH',
+      'LLLH','LLHL','LHLH','LHHL','HLLH','HLHL','HHL']
+      .map(key=>({key,...form('rebel',key)})),
+     slashSide:d.attackHitProbe('rebel','L',1,.70),
+     pierceSide:d.attackHitProbe('rebel','LLH',1,.70),
+     pierceFront:d.attackHitProbe('rebel','LLH',1.22,0),
+     spinBehind:d.attackHitProbe('rebel','LLL',-.80,0),
+     thrustBehind:d.attackHitProbe('rebel','LLH',-.80,0),
+     startingExtent:extension(pre),impactExtent:extension(impact),
+     forms:{
+      swordSpin:form('warrior','LLL').motion,
+      swordUppercut:form('warrior','LLH').motion,
+      guardianBash:form('guardian','H').motion,
+      guardianFinisherFX:form('guardian','LLH').fxStyle,
+      daggerPierce:form('rebel','LLH').motion,
+      daggerPierceFX:form('rebel','LLH').fxStyle,
+      daggerDouble:form('rebel','HH').motion,
+      daggerCross:form('rebel','LHH').motion
+     }
+    };
+   });
+   assert.equal(combatMotion.daggerKeys.length,17);
+   assert.ok(new Set(combatMotion.daggerKeys.map(x=>x.motion)).size>=7,
+    'adaga deve ter golpes com ao menos sete geometrias distintas');
+   assert.equal(combatMotion.forms.daggerPierce,'thrust');
+   assert.equal(combatMotion.forms.daggerPierceFX,'daggerPierce');
+   assert.equal(combatMotion.forms.daggerDouble,'doubleThrust');
+   assert.equal(combatMotion.forms.daggerCross,'cross');
+   assert.equal(combatMotion.forms.swordSpin,'spin');
+   assert.equal(combatMotion.forms.swordUppercut,'uppercut');
+   assert.equal(combatMotion.forms.guardianBash,'bash');
+   assert.equal(combatMotion.forms.guardianFinisherFX,'shieldShock');
+   assert.equal(combatMotion.slashSide,true,'corte da adaga atinge em arco lateral');
+   assert.equal(combatMotion.pierceSide,false,'Perfuração não pode usar hitbox lateral');
+   assert.equal(combatMotion.pierceFront,true,'Perfuração precisa atingir sua linha frontal');
+   assert.equal(combatMotion.spinBehind,true,'giro alcança área traseira');
+   assert.equal(combatMotion.thrustBehind,false,'estocada não pode acertar atrás');
+   assert.ok(combatMotion.impactExtent>combatMotion.startingExtent*1.6,
+    'a lâmina deve avançar em linha reta, não apenas girar');
+   const scene=await page.evaluate(()=>{
+    const d=window.__rpgDebug;
+    d.newCampaign({name:'Teste',race:'human',archetype:'rebel'},47);
+    d.action('L');d.testTick(.13);d.action('L');d.testTick(.10);
+    d.testTick(.13);d.action('H');d.testTick(.17);
+    d.testTick(.16); // enquadra a extensão frontal da Perfuração para captura visual
+    const s=d.snapshot();
+    return {sequence:s.seq,attack:s.attack,accepted:s.acceptedInputs,
+     specialTypes:s.specialTypes,weapon:s.weapon,fin:s.maxChain};
+   });
+   assert.equal(scene.weapon,'rebel');
+   assert.equal(scene.sequence,'LLH','L, L, H deve manter o combo de Perfuração');
+   assert.equal(scene.attack,'Perfuração','o golpe executado deve ser o finalizador, e não corte comum');
+   assert.equal(scene.accepted,3,'os três ataques devem ser realmente executados');
+   await page.waitForTimeout(90);
+   await page.screenshot({path:resolve(root,'screenshots','adaga-perfuracao-animacao.png')});
+  }
+
   // FLORESTA PROCEDURAL: somente um dos três spawns autorais por seed.
   // As travessias são salas intermediárias de exploração, não novos spawns.
   if(width===854&&height===480){

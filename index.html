@@ -642,6 +642,59 @@ const WEAPON_MOVES={
   DASH_H:dagger('Estocada de Esquiva',24,.40,1.80,{dash:true,down:true})
  }
 };
+// Formas individuais: a hitbox não é simplesmente o mesmo corte horizontal.
+// O espaço ocupado pela lâmina, os quadros de ataque e o sprite compartilham
+// a mesma família de movimento. Os valores de dano originais são preservados.
+const DAGGER_FORMS={
+ L:{motion:'slash',arc:.82,hitWidth:.34},
+ LL:{motion:'reverse',arc:.90,hitWidth:.32},
+ LLL:{motion:'spin',hitWidth:.32,fxStyle:'daggerOrbit'},
+ H:{motion:'thrust',hitWidth:.27},
+ LH:{motion:'chop',hitWidth:.32},
+ HL:{motion:'thrust',hitWidth:.25},
+ HH:{motion:'doubleThrust',hitWidth:.23,fxStyle:'daggerStabs'},
+ LLH:{motion:'thrust',hitWidth:.20,fxStyle:'daggerPierce'},
+ LHL:{motion:'hook',hitWidth:.27,fxStyle:'daggerCross'},
+ HLL:{motion:'double',hitWidth:.30,fxStyle:'daggerFlurry'},
+ LHH:{motion:'cross',hitWidth:.29,fxStyle:'daggerCross'},
+ HLH:{motion:'thrust',hitWidth:.23,fxStyle:'daggerPierce'},
+ LLLH:{motion:'thrust',hitWidth:.17,fxStyle:'daggerExecute'},
+ LLHL:{motion:'cross',hitWidth:.27,fxStyle:'daggerCross'},
+ LHLH:{motion:'dashThrust',hitWidth:.20,fxStyle:'daggerDash'},
+ LHHL:{motion:'reverse',arc:1.12,hitWidth:.29,fxStyle:'daggerFlurry'},
+ HLLH:{motion:'dashThrust',hitWidth:.19,fxStyle:'daggerDash'},
+ HLHL:{motion:'cross',hitWidth:.30,fxStyle:'daggerFlurry'},
+ HHL:{motion:'thrust',hitWidth:.23,fxStyle:'daggerExecute'},
+ RIP_L:{motion:'thrust',hitWidth:.23},
+ RIP_H:{motion:'doubleThrust',hitWidth:.25},
+ DASH_L:{motion:'reverse',hitWidth:.31},
+ DASH_H:{motion:'dashThrust',hitWidth:.23}
+};
+for(const [key,form] of Object.entries(DAGGER_FORMS))
+ Object.assign(WEAPON_MOVES.rebel[key],{weaponStyle:'dagger',...form});
+// Espada: redemoinho, corte ascendente, cruzado, esmagamento e execução
+// devem ocupar regiões diferentes, mesmo quando usam L/H parecidos.
+const SWORD_FORMS={
+ LLL:{motion:'spin',hitWidth:.41},LLH:{motion:'uppercut',hitWidth:.32},
+ LHL:{motion:'cross',hitWidth:.34},LHH:{motion:'chop',hitWidth:.43},
+ HLL:{motion:'double',hitWidth:.37},HLH:{motion:'chop',hitWidth:.35},
+ HH:{motion:'chop',hitWidth:.47},LLLH:{motion:'spin',hitWidth:.43},
+ LLHL:{motion:'uppercut',hitWidth:.34},LHLH:{motion:'cross',hitWidth:.39},
+ LHHL:{motion:'chop',hitWidth:.40},HLLH:{motion:'uppercut',hitWidth:.36},
+ HLHL:{motion:'cross',hitWidth:.35},HHL:{motion:'spin',hitWidth:.42}
+};
+for(const [key,form] of Object.entries(SWORD_FORMS))
+ Object.assign(ATTACKS[key],form);
+const GUARDIAN_FORMS={
+ H:{motion:'bash',hitWidth:.43},LLL:{motion:'spin',hitWidth:.44},
+ LH:{motion:'bash',hitWidth:.40},HH:{motion:'bash',hitWidth:.48,fxStyle:'shieldShock'},
+ LLH:{motion:'bash',hitWidth:.43,fxStyle:'shieldShock'},LHL:{motion:'cross',hitWidth:.34},
+ LHH:{motion:'bash',hitWidth:.45,fxStyle:'shieldShock'},HLH:{motion:'chop',hitWidth:.40},
+ HLL:{motion:'cross',hitWidth:.36},LLLH:{motion:'bash',hitWidth:.45},
+ LHLH:{motion:'bash',hitWidth:.43}
+};
+for(const [key,form] of Object.entries(GUARDIAN_FORMS))
+ Object.assign(WEAPON_MOVES.guardian[key],form);
 let labArchetype='warrior',labRace='human';
 function currentArchetype(){if(runState?.active&&ARCHETYPE_OPTIONS[runState.character?.archetype])return runState.character.archetype;
  return drill.active&&ARCHETYPE_OPTIONS[labArchetype]?labArchetype:'warrior';}
@@ -872,27 +925,66 @@ const smooth01=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 const rotate=(v,a)=>({x:v.x*Math.cos(a)-v.z*Math.sin(a),z:v.x*Math.sin(a)+v.z*Math.cos(a)});
 function distanceToSegment(x,z,ax,az,bx,bz){const vx=bx-ax,vz=bz-az,t=clamp(((x-ax)*vx+(z-az)*vz)/(vx*vx+vz*vz||1),0,1);return length(x-(ax+vx*t),z-(az+vz*t));}
 function activeInterval(move){return{start:Math.max(.09,move.impact-.18),end:Math.min(.79,move.impact+.18)};}
-function swingPose(move,progress){const b=activeInterval(move),pct=(progress-b.start)/(b.end-b.start),s=smooth01(pct);
-  return{fraction:clamp(pct,0,1),angle:mix(-1.05,1.05,s)*(move.angle||1),active:progress>=b.start&&progress<=b.end};
+// Posição da arma em coordenadas do mundo. A forma também conduz a
+// animação da lâmina: estocada não pode girar como um corte lateral.
+function swingPose(move,progress){
+ const b=activeInterval(move),pct=(progress-b.start)/(b.end-b.start),t=smooth01(pct);
+ const motion=move.motion||'slash',sign=move.angle||1;
+ let angle=0;
+ if(motion==='thrust'||motion==='dashThrust'||motion==='doubleThrust')
+  angle=.045*Math.sin(t*Math.PI*1.5)*sign;
+ else if(motion==='spin')angle=mix(-3.15,3.15,t)*sign;
+ else if(motion==='reverse')angle=mix(.97,-.97,t)*sign;
+ else if(motion==='cross')angle=(t<.52?mix(-.92,.92,smooth01(t/.52)):mix(.92,-.92,smooth01((t-.52)/.48)))*sign;
+ else if(motion==='double')angle=(t<.51?mix(-.95,.70,smooth01(t/.51)):mix(.95,-.72,smooth01((t-.51)/.49)))*sign;
+ else if(motion==='uppercut')angle=mix(-.58,.70,t)*sign;
+ else if(motion==='chop')angle=mix(-.38,.32,t)*sign;
+ else if(motion==='hook')angle=mix(.93,-.41,t)*sign;
+ else if(motion==='bash')angle=mix(-.26,.25,t)*sign;
+ else angle=mix(-(move.arc||1.05),move.arc||1.05,t)*sign;
+ return{fraction:clamp(pct,0,1),angle,active:progress>=b.start&&progress<=b.end};
 }
-// The collision is a swept capsule along the visible weapon's world-space arc.
-// Sampling between fixed simulation ticks prevents fast slashes from tunneling through a target.
+// Cada forma gera cápsulas reais de colisão; o guia de alcance usa
+// exatamente os mesmos segmentos, impedindo diferença entre arte e acerto.
+function meleeHitSegments(move,x,z,face,progress){
+ const motion=move.motion||'slash',b=activeInterval(move);
+ const stage=clamp((progress-b.start)/(b.end-b.start),0,1);
+ const pose=swingPose(move,progress);
+ const axis=rotate(face,pose.angle),side={x:-face.z,z:face.x};
+ const narrow=motion==='thrust'||motion==='dashThrust'||motion==='doubleThrust';
+ const width=move.hitWidth??(move.fin?.51:.44);
+ const reach=move.reach+(narrow?.06:.07);
+ const out=[];
+ const segment=(offset,radial,extra=0)=>{
+  const inner=narrow?.36:motion==='bash'?.46:.34;
+  const len=narrow?reach*(.62+.38*smooth01(stage/.77)):reach;
+  const ox=x+side.x*offset,oz=z+side.z*offset;
+  out.push({ax:ox+radial.x*inner,az:oz+radial.z*inner,
+   bx:ox+radial.x*(len+extra),bz:oz+radial.z*(len+extra),width});
+ };
+ if(motion==='doubleThrust'){
+  segment(-.22,axis);segment(.22,axis);
+ }else segment(0,axis);
+ return out;
+}
+// Amostragem temporal: cortes largos seguem arcos; estocadas ocupam
+// um corredor fino à frente. Aumenta amostras no giro para não atravessar
+// um alvo entre dois quadros de 60 FPS.
 function bladeTouch(a,prevProgress,nowProgress,foe){
  if(!foe||foe.hp<=0||foe.iframe>0)return false;
  const m=a.move,b=activeInterval(m);
  if(nowProgress<b.start||prevProgress>b.end)return false;
  const dist=length(foe.x-player.x,foe.z-player.z);
- if(dist>m.reach+.41)return false;
+ const width=m.hitWidth??(m.fin?.51:.44);
+ if(dist>m.reach+width+.18)return false;
  const to=unit(foe.x-player.x,foe.z-player.z);
- if(to.x*player.face.x+to.z*player.face.z<-.13)return false;
+ if((m.motion||'slash')!=='spin'&&to.x*player.face.x+to.z*player.face.z<-.13)return false;
  const begin=clamp(prevProgress,b.start,b.end),end=clamp(nowProgress,b.start,b.end);
- for(let k=0;k<=5;k++){
-  const p=begin+(end-begin)*k/5,dir=rotate(player.face,swingPose(m,p).angle);
-  const inner=.34,reach=m.reach+.07;
-  const ax=player.x+dir.x*inner,az=player.z+dir.z*inner;
-  const bx=player.x+dir.x*reach,bz=player.z+dir.z*reach;
-  const allowance=.41+(m.fin?.14:.10);
-  if(distanceToSegment(foe.x,foe.z,ax,az,bx,bz)<=allowance)return true;
+ const samples=m.motion==='spin'?12:6;
+ for(let k=0;k<=samples;k++){
+  const p=begin+(end-begin)*k/samples;
+  for(const seg of meleeHitSegments(m,player.x,player.z,player.face,p))
+   if(distanceToSegment(foe.x,foe.z,seg.ax,seg.az,seg.bx,seg.bz)<=seg.width)return true;
  }
  return false;
 }
@@ -2641,6 +2733,20 @@ function floating(t,x,z,color='#fff',size=17){texts.push({t,x,z,y:50,life:.86,ma
 function ring(x,z,color,radius=12,power=1){rings.push({x,z,color,r:radius,life:.40,max:.40,power});}
 function swipe(x,z,kind,face,angle,scale=1,opts={}){const life=opts.life??.22;arcs.push({x,z,kind,face:{...face},angle,life,max:life,scale,...opts});}
 function paletteFor(move,key){
+ if(move.weaponStyle==='dagger'){
+  // A adaga não compartilha a mesma tinta de golpes de espada.
+  // Estocadas têm clarão estreito e profundo; giros são ciano;
+  // contra-cortes usam lilás. Diferencia rapidamente a ação no celular.
+  const thrust=['thrust','dashThrust','doubleThrust'].includes(move.motion);
+  const spiral=move.motion==='spin';
+  const cross=['cross','hook','double'].includes(move.motion);
+  const main=thrust?'#f5c7ff':spiral?'#7ffff0':cross?'#c39bff':'#a5d9ff';
+  const edge=thrust?'#fff5ff':spiral?'#efffff':'#f8f1ff';
+  return{main,edge,glow:thrust?'#dc9dff':'#9adcf5',
+   flash:thrust?'#f9dfff':'#d5eaff',width:thrust?9:spiral?16:12,
+   radius:thrust?43:spiral?59:46,life:move.fin?.30:.21,
+   screen:move.fin?.21:.07,echo:'#e8cfff'};
+ }
  if(move.magic)return{main:'#a49dff',edge:'#f2f8ff',glow:'#bce1ff',flash:'#cbd9ff',width:12,radius:41,life:.22,screen:.10,echo:'#e7e2ff'};
  if(move.ranged)return{main:'#e9c999',edge:'#fff8dd',glow:'#e7d4a2',flash:'#fff1ca',width:10,radius:38,life:.20,screen:.08,echo:'#fff1ce'};
  if(move.rip)return{main:'#7dffe1',edge:'#f7fff9',glow:'#9cffef',flash:'#d8fff6',width:19,radius:62,life:.30,screen:.22,echo:'#d7fff3'};
@@ -2663,13 +2769,16 @@ function pixelImpact(x,z,color,kind='hit',power=1){
  if(pixelHits.length>(settings.economy?12:30))pixelHits.shift();
 }
 function impactFX(x,z,dir,pal,power=1,fin=false){burst(x,z,pal.main,Math.round(12*power),.9*power);burst(x,z,pal.edge,Math.round(7*power),.75*power);directionalBurst(x,z,dir,pal.edge,1.15*power,Math.round(9*power));ring(x,z,pal.main,13+7*power,.6*power);flashAt(x,z,pal.flash,fin?1.4*power:.9*power,fin?.26:.18);}
-function finisherFX(x,z,dir,pal,key='LLL'){
+function finisherFX(x,z,dir,pal,key='LLL',move=null){
+ // Cada finalizador da adaga tem identidade própria. A Perfuração não
+ // produz um corte horizontal: cria agulha axial, pulso e linhas de pressão.
+ const style=move?.fxStyle||key;
  // Big hits need distinct silhouettes: swirl, cross-cut, pillar, successive cuts, execution.
  const side={x:-dir.z,z:dir.x};
  const fast=key==='LLL'||key==='LHL'||key==='HLL'||key==='RIP_L';
- if(['LLL','HLL','LHH','HH'].includes(key))swipe(x-dir.x*.10,z-dir.z*.10,'finisher',{x:dir.x+side.x*.10,z:dir.z+side.z*.10},1,fast?.90:.97,{life:.24,color:pal.main,edge:pal.edge,width:pal.width*.72,radius:pal.radius*.66,glow:pal.glow});
- if(key==='LLL'||key==='HLL')swipe(x+dir.x*.08,z+dir.z*.08,'finisherEcho',{x:dir.x-side.x*.13,z:dir.z-side.z*.13},-1,.92,{life:.27,color:pal.echo,edge:'#ffffff',width:Math.max(6,pal.width-9),radius:pal.radius*.69,glow:pal.glow});
- specials.push({x,z,dir:{...dir},kind:key,life:key==='HLH'?.56:.44,max:key==='HLH'?.56:.44,color:pal.main,edge:pal.edge,glow:pal.glow});
+ if(!move?.fxStyle&&['LLL','HLL','LHH','HH'].includes(key))swipe(x-dir.x*.10,z-dir.z*.10,'finisher',{x:dir.x+side.x*.10,z:dir.z+side.z*.10},1,fast?.90:.97,{life:.24,color:pal.main,edge:pal.edge,width:pal.width*.72,radius:pal.radius*.66,glow:pal.glow});
+ if(!move?.fxStyle&&(key==='LLL'||key==='HLL'))swipe(x+dir.x*.08,z+dir.z*.08,'finisherEcho',{x:dir.x-side.x*.13,z:dir.z-side.z*.13},-1,.92,{life:.27,color:pal.echo,edge:'#ffffff',width:Math.max(6,pal.width-9),radius:pal.radius*.69,glow:pal.glow});
+ specials.push({x,z,dir:{...dir},kind:style,life:key==='HLH'?.56:.44,max:key==='HLH'?.56:.44,color:pal.main,edge:pal.edge,glow:pal.glow});
  if(specials.length>16)specials.shift();
  ring(x,z,pal.edge,20,1.16);ring(x,z,pal.main,14,1);
  burst(x,z,pal.edge,18,1.18);directionalBurst(x,z,dir,pal.main,1.35,15);
@@ -2813,11 +2922,20 @@ function playerHit(contact=false,target=null,externalAct=null){
  a.hit=true;
  const showSlash=!a.slashed;a.slashed=true;
  const move=a.move,pal=a.pal||paletteFor(move,a.key);
- if(showSlash&&!move.ranged)swipe(player.x,player.z,move.rip?'rip':a.key.includes('H')?'heavy':'light',player.face,move.angle,move.fin?.93:1,{life:pal.life,color:pal.main,edge:pal.edge,width:move.fin?pal.width*.8:pal.width,radius:move.fin?pal.radius*.90:pal.radius,glow:pal.glow});
- if(showSlash&&!move.ranged&&move.fin&&['LLL','HLL','LHH'].includes(a.key))swipe(player.x,player.z,'finPrep',player.face,-move.angle*.6,.81,{life:pal.life*.67,color:pal.echo,edge:'#ffffff',width:Math.max(6,pal.width-9),radius:pal.radius*.7,glow:pal.glow});
+ if(showSlash&&!move.ranged){
+  const thrust=['thrust','dashThrust','doubleThrust'].includes(move.motion);
+  const fxKind=thrust?'thrust':move.motion==='spin'?'spin':
+   move.motion==='bash'?'impact':move.motion==='uppercut'?'uppercut':
+   move.motion==='chop'?'chop':move.motion==='cross'?'crossSlash':
+   move.rip?'rip':a.key.includes('H')?'heavy':'light';
+  swipe(player.x,player.z,fxKind,player.face,move.angle,move.fin?.93:1,
+   {life:pal.life,color:pal.main,edge:pal.edge,
+    width:move.fin?pal.width*.8:pal.width,radius:move.fin?pal.radius*.90:pal.radius,glow:pal.glow});
+ }
+ if(showSlash&&!move.ranged&&move.fin&&move.weaponStyle!=='dagger'&&['LLL','HLL','LHH'].includes(a.key))swipe(player.x,player.z,'finPrep',player.face,-move.angle*.6,.81,{life:pal.life*.67,color:pal.echo,edge:'#ffffff',width:Math.max(6,pal.width-9),radius:pal.radius*.7,glow:pal.glow});
  if(!enemy||enemy.hp<=0){ring(player.x+player.face.x,player.z+player.face.z,pal.main,10,.2);if(move.fin){player.seq='';player.seqTimer=0;player.chainReady=false;}return;}
  const dx=enemy.x-player.x,dz=enemy.z-player.z,d=length(dx,dz),dir=unit(dx,dz),dot=dir.x*player.face.x+dir.z*player.face.z;
- if(!contact||(!move.ranged&&(d>move.reach+.41||dot<-.13))){
+ if(!contact||(!move.ranged&&(d>move.reach+.41||(move.motion!=='spin'&&dot<-.13)))){
   burst(player.x+player.face.x,player.z+player.face.z,pal.echo,5,.55);
   directionalBurst(player.x+player.face.x*.6,player.z+player.face.z*.6,player.face,pal.main,.55,6);
   precisionMisses++;if(move.fin){player.seq='';player.seqTimer=0;player.chainReady=false;}return;
@@ -2865,7 +2983,7 @@ function playerHit(contact=false,target=null,externalAct=null){
  impactFX(enemy.x,enemy.z,dir,pal,move.fin?1.7:move.dmg>20?1.2:1,move.fin);
  if(!guarding)pixelImpact(enemy.x,enemy.z,pal.main,move.fin?'finisher':'hit',move.fin?1.5:1);
  if(pressure>=24&&!broken)floating('POSTURA −'+pressure,enemy.x,enemy.z,'#f5dfa6',11);if(!guarding)sfx(move.fin?'finisher':'impact');
- if(move.fin&&!move.ranged)finisherFX(enemy.x,enemy.z,dir,pal,a.key);
+ if(move.fin&&!move.ranged)finisherFX(enemy.x,enemy.z,dir,pal,a.key,move);
  floating('-'+dmg,enemy.x,enemy.z,move.fin?pal.edge:'#e9fbff',move.fin?26:18);
  shake=move.fin?12:move.dmg>20?7:4;hitStop=move.fin?.075:.040;screenFlash=Math.max(screenFlash,pal.screen*(move.fin?1:.65));buzz(move.fin?31:12);
  if(enemy.hp<=0){onAllyFallen(enemy);sfx('ko');kills++;awardXP(enemy);enemy.phase='dead';enemy.air=0;enemy.downTimer=0;floating('DERROTADO!',enemy.x,enemy.z,'#ffe0a4',16);if(living().length===0) {respawn=runState?.active?0:(eliteMode?0:2.15);wavesCleared++;waveFinished();if(runState?.active){onRoomCleared();}else if(eliteMode){eliteVictory=true;note('SENTINELA DERROTADA!','Vitória! Toque em ↻ para repetir ou ↩ ARENA para sair.',999);label('DUELO CONCLUÍDO · HP '+Math.ceil(player.hp),2);}else note('ONDA CONCLUÍDA! · NOTA '+lastWave.grade,'Veja seu desempenho no menu ⚙',1.6);} else label('Inimigo derrotado · '+living().length+' restantes',1.1);}
@@ -3445,47 +3563,46 @@ function drawPixelImpacts(){
 // A camada continua acima do personagem, sem afetar hitboxes ou combos.
 function visualWeaponPose(u,archetype,attacking,swingAngle,parrying,scale,progress=0,move=null){
  const face=unit(u.face.x,u.face.z);
- // Deve ser idêntico ao plano de point(): (x-z)*sx, (x+z)*sy.
  const dx=face.x-face.z,dy=(face.x+face.z)*(sy/Math.max(1,sx));
- const aimAngle=Math.atan2(dy,dx); // cobertura completa: -PI..PI
+ const aimAngle=Math.atan2(dy,dx),aimX=Math.cos(aimAngle),aimY=Math.sin(aimAngle);
  const t=clamp(progress,0,1),impact=clamp(move?.impact||.48,.25,.70);
  const wind=smooth01(t/Math.max(.15,impact*.83));
  const release=smooth01((t-impact*.78)/Math.max(.14,impact*.45));
  const settle=smooth01((t-impact-.15)/Math.max(.17,.85-impact));
- const swing=attacking?clamp(swingAngle||0,-1.2,1.2):0;
+ const moveType=move?.motion||'slash';
+ const narrow=['thrust','doubleThrust','dashThrust'].includes(moveType);
+ // A estocada é uma preparação curta seguida por deslocamento axial e
+ // recolhimento; não usa rotação lateral como a animação de um corte.
+ const jab=attacking&&narrow?
+  smooth01((t-impact*.32)/Math.max(.07,impact*.68))*
+  (1-smooth01((t-impact)/Math.max(.10,1-impact)*.66)):0;
+ const swing=attacking?clamp(swingAngle||0,-3.4,3.4):0;
  const envelope=attacking?Math.pow(Math.max(0,Math.sin(Math.PI*t)),.65):0;
  let motion=0;
- if(archetype==='arcanist'){
-  // Conjuração: arma acompanha a mira e ganha impulso/recuo no impacto.
-  motion=attacking?(-.24*wind+.43*release-.19*settle):0;
- }else if(archetype==='hunter'){
-  // Arco gira com a mira e sua corda tensiona independentemente.
-  motion=attacking?(-.08*wind+.13*release-.05*settle):0;
- }else if(archetype==='rebel'){
-  motion=(attacking?swing*.66*envelope:parrying?-.16:0);
- }else if(archetype==='guardian'){
-  motion=(attacking?swing*.58*envelope:parrying?-.24:0);
- }else{
-  motion=(attacking?swing*.72*envelope:parrying?-.20:0);
- }
- const a=aimAngle+motion; // SEM CLAMP; esquerda e costas são direções válidas.
+ if(archetype==='arcanist')motion=attacking?(-.24*wind+.43*release-.19*settle):0;
+ else if(archetype==='hunter')motion=attacking?(-.08*wind+.13*release-.05*settle):0;
+ else if(narrow)motion=attacking?Math.sin(t*11)*.023:0;
+ else if(archetype==='rebel')motion=attacking?swing*.78*envelope:parrying?-.16:0;
+ else if(archetype==='guardian')motion=attacking?swing*.65*envelope:parrying?-.24:0;
+ else motion=attacking?swing*.76*envelope:parrying?-.20:0;
+ const a=aimAngle+motion;
  const extent=archetype==='rebel'?(attacking?22:17):
   archetype==='hunter'?27:archetype==='arcanist'?(attacking?36:32):
   attacking?35:28;
- const r=extent*scale;
- // A mão migra para o lado do corpo voltado à mira. Ao apontar
- // para trás, o punho desloca-se lateralmente para a arma não sumir.
- const aimX=Math.cos(aimAngle),aimY=Math.sin(aimAngle);
+ const size=moveType==='bash'?.81:moveType==='spin'?1.09:1;
+ const r=extent*scale*size*(narrow&&attacking?.57+.84*jab:1);
  const thrust=attacking?Math.sin(Math.PI*t):0;
- const x1=Math.round((aimX*11+(aimY<0?8*(-aimY):0))*scale);
- const y1=Math.round((-18+aimY*5-thrust*(archetype==='arcanist'?3:2))*scale);
+ const drive=narrow?jab*(moveType==='dashThrust'?9:6):0;
+ const rise=moveType==='uppercut'?release*9:moveType==='chop'?wind*5-release*7:0;
+ const x1=Math.round((aimX*(11+drive)+(aimY<0?8*(-aimY):0))*scale);
+ const y1=Math.round((-18+aimY*(5+drive)-thrust*(archetype==='arcanist'?3:2)-rise)*scale);
  const x2=Math.round(x1+Math.cos(a)*r);
  const y2=Math.round(y1+Math.sin(a)*r);
  const pull=archetype==='hunter'&&attacking?
   (t<impact?smooth01(t/Math.max(.08,impact*.86)):
    1-smooth01((t-impact)/.12)):0;
  const charge=archetype==='arcanist'&&attacking?Math.max(0,wind*(1-settle*.8)):0;
- return{side:aimX<0?-1:1,a,aimAngle,r,x1,y1,x2,y2,pull,charge,progress:t,impact};
+ return{side:aimX<0?-1:1,a,aimAngle,r,x1,y1,x2,y2,pull,charge,progress:t,impact,jab,moveType};
 }
 // Durante o golpe, só a parte central da pose se aproxima da direção
 // física do ataque. O joystick continua influenciando o visual o tempo todo.
@@ -3532,7 +3649,13 @@ function figure(u,team){
  // Avanço contínuo sem salto de posição entre preparação/impacto.
  const strikeCurve=hero&&atk?Math.sin(PI*clamp(progress,0,1)):0;
  const poseShift=Math.round(strikeCurve*2*s);
- ctx.translate(x+Math.round(u.face.x*poseShift),y-Math.round(air*31));
+ // Estocadas projetam o tronco e o punho na direção da mira; os cortes
+ // circulares giram mas não avançam como uma lança.
+ const drive=hero&&atk&&['thrust','dashThrust','doubleThrust'].includes(atk.move.motion)?
+  Math.max(0,Math.sin(PI*clamp(progress,0,1)))*(atk.move.motion==='dashThrust'?.24:.16):0;
+ const advance=point(u.x+u.face.x*drive,u.z+u.face.z*drive);
+ ctx.translate(x+Math.round(advance.x-foot.x+u.face.x*poseShift),
+  y+Math.round(advance.y-foot.y)-Math.round(air*31));
  let lean=hero&&atk?strikeCurve*.055*(atk.move.angle||1):attacking?.04:0;
  lean+=dodging?.09:0;
  lean+=(u.reactionDir||1)*stagger*.08;
@@ -3629,7 +3752,9 @@ function figure(u,team){
   if(hero&&archetype==='guardian'){
   // Escudo na outra mão; reage ao bloqueio e parry.
   const g=(u.guardWindow||0)>0||parrying;
-  const bx=Math.round((side>0?-16:3)*s),by=Math.round(-26*s);
+  const shieldDrive=atk?.move?.motion==='bash'?Math.sin(PI*progress)*12*s:0;
+  const bx=Math.round((side>0?-16:3)*s+Math.cos(pose.aimAngle)*shieldDrive),
+   by=Math.round(-26*s+Math.sin(pose.aimAngle)*shieldDrive);
   ctx.fillStyle=g?'#83efc9':'#45788d';ctx.fillRect(bx,by,Math.round(13*s),Math.round(18*s));
   ctx.fillStyle='#b6eee8';ctx.fillRect(bx+Math.round(2*s),by+Math.round(3*s),Math.round(9*s),Math.round(3*s));
   ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
@@ -3686,7 +3811,61 @@ function warning(){
  ctx.restore();
 }
 }
-function traces(){for(const a of arcs){const p=point(a.x,a.z),d=point(a.x+a.face.x,a.z+a.face.z),ang=Math.atan2((d.y-p.y)*1.65,d.x-p.x),q=1-a.life/a.max,r=(a.radius??(a.kind==='rip'?57:a.kind==='heavy'?48:39)),angleStart=ang-1.45*a.angle+q*.7*a.angle,angleEnd=ang+.67*a.angle+q*.8*a.angle,main=a.color??(a.kind==='enemy'?'#ff646a':a.kind==='rip'?'#76ffe3':a.kind==='heavy'?'#ffb875':'#69dafa'),edge=a.edge??'#fff9e9',glow=a.glow??(a.kind==='enemy'?'#ff686e':a.kind==='rip'?'#9fffe2':a.kind==='heavy'?'#ffc16c':'#8ee9ff'),lw=(a.width??(a.kind==='light'?12:17));
+function traces(){for(const a of arcs){
+ // Um golpe de ponta deixa um traço RETO na direção da arma, com
+ // flecha/ponto luminoso. Não reutiliza o arco semicircular dos cortes.
+ if(a.kind==='thrust'){
+  const start=point(a.x+a.face.x*.25,a.z+a.face.z*.25);
+  const end=point(a.x+a.face.x*1.75,a.z+a.face.z*1.75);
+  const q=1-a.life/a.max,fade=Math.pow(1-q,.7),lift=actorSpriteScale()*18;
+  const dx=end.x-start.x,dy=end.y-start.y,mag=Math.hypot(dx,dy)||1;
+  const nx=-dy/mag,ny=dx/mag,tip=1.2+q*.20;
+  ctx.save();ctx.globalAlpha=fade;ctx.lineCap='square';
+  ctx.strokeStyle=a.color??'#f0c1ff';ctx.lineWidth=Math.max(4,(a.width||9)*.8);
+  ctx.shadowColor=a.glow||'#dca3ff';ctx.shadowBlur=settings.economy?4:13;
+  ctx.beginPath();ctx.moveTo(start.x,start.y-lift);ctx.lineTo(end.x,end.y-lift);ctx.stroke();
+  ctx.shadowBlur=0;ctx.strokeStyle=a.edge||'#ffffff';ctx.lineWidth=2.2;
+  ctx.beginPath();ctx.moveTo(start.x+dx*.26,start.y+dy*.26-lift);
+  ctx.lineTo(end.x+dx*.11*tip,end.y+dy*.11*tip-lift);ctx.stroke();
+  ctx.fillStyle=a.edge||'#fff8ff';ctx.beginPath();
+  ctx.moveTo(end.x+dx/mag*12,end.y+dy/mag*12-lift);
+  ctx.lineTo(end.x-dx/mag*8+nx*5,end.y-dy/mag*8+ny*5-lift);
+  ctx.lineTo(end.x-dx/mag*8-nx*5,end.y-dy/mag*8-ny*5-lift);
+  ctx.closePath();ctx.fill();ctx.restore();continue;
+ }
+ if(a.kind==='spin'){
+  const p=point(a.x,a.z),q=1-a.life/a.max;
+  ctx.save();ctx.globalAlpha=Math.pow(1-q,.75);
+  ctx.strokeStyle=a.color||'#86ffe7';ctx.shadowColor=a.glow||'#7ffff5';
+  ctx.shadowBlur=settings.economy?3:12;ctx.lineWidth=Math.max(4,(a.width||15)*.6);
+  ctx.beginPath();ctx.ellipse(p.x,p.y-actorSpriteScale()*18,
+   (a.radius||49)*a.scale,(a.radius||49)*.5*a.scale,q*2,0,TAU);ctx.stroke();
+  ctx.shadowBlur=0;ctx.strokeStyle=a.edge||'#ffffff';ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(p.x,p.y-actorSpriteScale()*18,
+   (a.radius||49)*a.scale,(a.radius||49)*.5*a.scale,q*3,0,TAU);ctx.stroke();
+  ctx.restore();continue;
+ }
+ if(['impact','uppercut','chop'].includes(a.kind)){
+  const p=point(a.x+a.face.x*.65,a.z+a.face.z*.65);
+  const q=1-a.life/a.max,fade=Math.pow(1-q,.75),h=actorSpriteScale();
+  ctx.save();ctx.globalAlpha=fade;ctx.lineCap='square';
+  ctx.strokeStyle=a.color||'#ffcf85';ctx.lineWidth=Math.max(4,a.width||10);
+  ctx.shadowColor=a.glow||'#ffe0ac';ctx.shadowBlur=settings.economy?4:12;
+  if(a.kind==='impact'){
+   const front=point(a.x+a.face.x*1.3,a.z+a.face.z*1.3);
+   ctx.beginPath();ctx.moveTo(p.x,p.y-14*h);ctx.lineTo(front.x,front.y-13*h);ctx.stroke();
+   ctx.beginPath();ctx.ellipse(front.x,front.y-3*h,18+q*32,7+q*14,0,0,TAU);ctx.stroke();
+  }else{
+   const rise=a.kind==='uppercut';
+   const top=p.y-(rise?20+q*75:90-q*60)*h/2.2;
+   const low=p.y-(rise?70-q*65:18+q*40)*h/2.2;
+   ctx.beginPath();ctx.moveTo(p.x-9,low);ctx.lineTo(p.x+9,top);ctx.stroke();
+   ctx.lineWidth=2;ctx.strokeStyle=a.edge||'#fff7d1';
+   ctx.beginPath();ctx.moveTo(p.x-2,low);ctx.lineTo(p.x+13,top);ctx.stroke();
+  }
+  ctx.restore();continue;
+ }
+ const p=point(a.x,a.z),d=point(a.x+a.face.x,a.z+a.face.z),ang=Math.atan2((d.y-p.y)*1.65,d.x-p.x),q=1-a.life/a.max,r=(a.radius??(a.kind==='rip'?57:a.kind==='heavy'?48:39)),angleStart=ang-1.45*a.angle+q*.7*a.angle,angleEnd=ang+.67*a.angle+q*.8*a.angle,main=a.color??(a.kind==='enemy'?'#ff646a':a.kind==='rip'?'#76ffe3':a.kind==='heavy'?'#ffb875':'#69dafa'),edge=a.edge??'#fff9e9',glow=a.glow??(a.kind==='enemy'?'#ff686e':a.kind==='rip'?'#9fffe2':a.kind==='heavy'?'#ffc16c':'#8ee9ff'),lw=(a.width??(a.kind==='light'?12:17));
  ctx.save();ctx.globalAlpha=Math.pow(1-q,.68);ctx.lineCap='round';ctx.shadowBlur=26;ctx.shadowColor=glow;ctx.lineWidth=lw;ctx.strokeStyle=main;ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*21,p.y-30+Math.sin(ang)*10,r*a.scale,angleStart,angleEnd,a.angle<0);ctx.stroke();
  ctx.lineWidth=Math.max(2,lw*.25);ctx.shadowBlur=0;ctx.strokeStyle=edge;ctx.stroke();
  ctx.globalAlpha*=.28;ctx.fillStyle=main;ctx.beginPath();ctx.moveTo(p.x+Math.cos(angleStart)*(r*.62)+Math.cos(ang)*21,p.y-30+Math.sin(angleStart)*(r*.62)+Math.sin(ang)*10);ctx.arc(p.x+Math.cos(ang)*21,p.y-30+Math.sin(ang)*10,r*.84*a.scale,angleStart,angleEnd,a.angle<0);ctx.closePath();ctx.fill();
@@ -3698,7 +3877,65 @@ function specialEffects(){
   // 2-color motion strokes with a hard inner blade and soft emissive edge.
   const stroke=(x1,y1,x2,y2,width=5,color=fx.color)=>{ctx.shadowColor=color;ctx.shadowBlur=12;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.shadowBlur=0;ctx.lineWidth=Math.max(1.5,width*.23);ctx.strokeStyle=fx.edge;ctx.stroke();};
   const pulse=(radius,vertical=.48,width=4,color=fx.color)=>{ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=12;ctx.lineWidth=width;ctx.beginPath();ctx.ellipse(0,28,radius,radius*vertical,0,0,TAU);ctx.stroke();ctx.shadowBlur=0;};
-  if(['LLLH','LLHL','LHLH','LHHL','HLLH','HLHL','HHL'].includes(fx.kind)){
+  if(fx.kind==='shieldShock'){
+   // A pancada do escudo espalha força pelo chão, sem corte de espada.
+   const t=clamp(q/.55,0,1);
+   pulse(17+t*75,.40,8*(1-t)+2,fx.color);
+   stroke(-33,-16,-11+q*19,19,6-q*3,fx.edge);
+   stroke(33,-16,11-q*19,19,6-q*3,fx.edge);
+   for(let i=-2;i<=2;i++)
+    stroke(i*12,17,i*22,23+q*35,Math.max(1.5,4-q*2),i%2?fx.edge:fx.color);
+  }else if(fx.kind.startsWith('dagger')){
+   // Todos os finalizadores da adaga têm silhuetas diferentes.
+   // São efeitos de hitstop e indicação de técnica, não projéteis extras.
+   if(fx.kind==='daggerPierce'||fx.kind==='daggerExecute'){
+    const power=fx.kind==='daggerExecute'?1.25:1;
+    const forward=15+e*91*power;
+    // Agulha reta, sem corte horizontal: a ponta deixa uma perfuração.
+    stroke(-23,0,forward,0,(11-q*4)*power,fx.edge);
+    stroke(-11,-5,forward-12,-3,3,fx.color);
+    for(const side of [-1,1]){
+     stroke(forward-22,-side*14,forward-4,0,4,fx.color);
+     stroke(forward-40,-side*24,forward-16,-side*12,2.5,fx.edge);
+    }
+    pulse(8+q*36,.24,4-q*2,fx.edge);
+    if(fx.kind==='daggerExecute'){
+     stroke(forward,-20+q*10,forward,20-q*10,5,fx.color);
+     pulse(12+q*54,.32,4.5);
+    }
+   }else if(fx.kind==='daggerStabs'){
+    for(const side of [-1,1]){
+     const start=side*11;
+     stroke(-13,start,43+q*37,start,7-q*3,side>0?fx.edge:fx.color);
+     stroke(31+q*36,start-9,49+q*37,start,3,fx.edge);
+    }
+   }else if(fx.kind==='daggerOrbit'){
+    for(let i=0;i<3;i++){
+     const a=q*5.8+i*TAU/3;
+     ctx.strokeStyle=i%2?fx.edge:fx.color;ctx.lineWidth=6-i;
+     ctx.beginPath();ctx.ellipse(0,0,22+q*44,13+q*24,a,a,a+1.65);ctx.stroke();
+    }
+    pulse(23+q*33,.55,3.5);
+   }else if(fx.kind==='daggerCross'){
+    const size=24+q*45;
+    stroke(-size,-size*.74,size,size*.74,8-q*4);
+    stroke(-size,size*.74,size,-size*.74,6-q*3,fx.edge);
+    pulse(10+q*27,.4,2.6);
+   }else if(fx.kind==='daggerFlurry'){
+    for(let i=0;i<6;i++){
+     const phase=clamp((q-i*.06)/.55,0,1);
+     if(q<i*.06)continue;
+     const off=(i-2.5)*12,side=i%2?1:-1;
+     stroke(off-12,-19*side,off+10+phase*14,25*side,5-i*.3,
+      side>0?fx.edge:fx.color);
+    }
+   }else if(fx.kind==='daggerDash'){
+    stroke(-59-q*16,0,38+q*75,0,10-q*5,fx.edge);
+    stroke(-82-q*10,-10,18+q*35,-6,4,fx.color);
+    stroke(-82-q*10,10,18+q*35,6,4,fx.color);
+    pulse(13+q*44,.27,3);
+   }
+  }else if(['LLLH','LLHL','LHLH','LHHL','HLLH','HLHL','HHL'].includes(fx.kind)){
    const r=22+q*75;
    for(let i=0;i<3;i++){let a=(i*TAU/3)+q*(fx.kind==='LLLH'?5.5:2.3);stroke(Math.cos(a)*12,Math.sin(a)*10,Math.cos(a)*r,Math.sin(a)*r*.58,9-q*5,i===1?fx.edge:fx.color);}
    if(['LLHL','LHHL','HLHL'].includes(fx.kind))stroke(0,-80+q*70,0,35,11-q*6,fx.edge);
@@ -3761,16 +3998,42 @@ function drawReachGuide(){
   ctx.fillStyle='#eafafa';ctx.textAlign='center';ctx.font='bold 10px system-ui';
   ctx.fillText(progress<m.impact?'PREPARAÇÃO':'DISPARO',p.x,p.y-102);ctx.restore();return;
  }
- const forwardAngle=Math.atan2(d.y-p.y,d.x-p.x);
- ctx.save();ctx.globalAlpha=.8;ctx.strokeStyle='#9af9da';ctx.setLineDash([5,5]);ctx.lineWidth=1.5;
- let old=null;
- for(let i=0;i<=24;i++){const dir=rotate(player.face,m.angle*mix(-1.05,1.05,i/24)),pos=point(player.x+dir.x*m.reach,player.z+dir.z*m.reach);
-   if(i===0)ctx.beginPath(),ctx.moveTo(pos.x,pos.y);else ctx.lineTo(pos.x,pos.y);
+ const motion=m.motion||'slash',narrow=['thrust','doubleThrust','dashThrust'].includes(motion);
+ ctx.save();ctx.globalAlpha=.84;ctx.strokeStyle=narrow?'#e5b7ff':'#9af9da';
+ ctx.setLineDash([5,5]);ctx.lineWidth=1.5;
+ if(narrow){
+  // Duas linhas paralelas mostram a cápsula estreita real.
+  const segs=meleeHitSegments(m,player.x,player.z,player.face,b.start+(b.end-b.start)*.89);
+  const side={x:-player.face.z,z:player.face.x};
+  for(const seg of segs){
+   for(const sign of [-1,1]){
+    const offset=seg.width*sign,aa=point(seg.ax+side.x*offset,seg.az+side.z*offset),
+     bb=point(seg.bx+side.x*offset,seg.bz+side.z*offset);
+    ctx.beginPath();ctx.moveTo(aa.x,aa.y);ctx.lineTo(bb.x,bb.y);ctx.stroke();
+   }
+  }
+ }else{
+  let start=false;
+  ctx.beginPath();
+  for(let i=0;i<=44;i++){
+   const t=b.start+(b.end-b.start)*i/44;
+   const dir=rotate(player.face,swingPose(m,t).angle);
+   const pos=point(player.x+dir.x*m.reach,player.z+dir.z*m.reach);
+   if(!start){ctx.moveTo(pos.x,pos.y);start=true;}else ctx.lineTo(pos.x,pos.y);
+  }
+  ctx.stroke();
  }
- ctx.stroke();ctx.setLineDash([]);
- const tip=rotate(player.face,swingPose(m,progress).angle),pos=point(player.x+tip.x*m.reach,player.z+tip.z*m.reach);
- ctx.fillStyle=progress>=b.start&&progress<=b.end?'#92ffd6':'#c3d4dd';ctx.beginPath();ctx.arc(pos.x,pos.y,5,0,TAU);ctx.fill();
- ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillStyle='#d2ffeb';ctx.fillText(progress<b.start?'PREPARAÇÃO':progress>b.end?'RECUPERAÇÃO':'CORTE ATIVO',p.x,p.y-102);
+ ctx.setLineDash([]);
+ const segs=meleeHitSegments(m,player.x,player.z,player.face,progress);
+ for(const seg of segs){
+  const pos=point(seg.bx,seg.bz);
+  ctx.fillStyle=progress>=b.start&&progress<=b.end?'#92ffd6':'#c3d4dd';
+  ctx.beginPath();ctx.arc(pos.x,pos.y,narrow?3.5:5,0,TAU);ctx.fill();
+ }
+ const label=narrow?'ESTOCADA':motion==='spin'?'GIRO':motion==='cross'?'CORTES CRUZADOS':motion==='bash'?'IMPACTO':'CORTE';
+ ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillStyle='#d2ffeb';
+ ctx.fillText(progress<b.start?'PREPARAÇÃO':progress>b.end?'RECUPERAÇÃO':label+' ATIVO',
+  p.x,p.y-102);
  ctx.restore();
 }
 
@@ -3896,6 +4159,33 @@ window.__rpgDebug.debugStartSeed=seed=>newCampaign(DEFAULT_HERO,seed);
 window.__rpgDebug.spawnTemplates=()=>JSON.parse(JSON.stringify(SPAWN_TEMPLATES));
 window.__rpgDebug.spawnForSeed=seed=>spawnForSeed(seed);
 window.__rpgDebug.forestTraversalTypes=()=>({...FOREST_TRAVERSALS});
+// Ferramentas de regressão: mesmas definições físicas do jogo em tempo real.
+// Nenhum dano é simulado por estes métodos: apenas consulta de geometria.
+window.__rpgDebug.attackForm=(archetype,key)=>{
+ const move=(WEAPON_MOVES[archetype]||ATTACKS)[key];if(!move)return null;
+ return{name:move.name,motion:move.motion||'slash',width:move.hitWidth??(move.fin?.51:.44),
+  reach:move.reach,fin:!!move.fin,fxStyle:move.fxStyle||null,
+  range:activeInterval(move)};
+};
+window.__rpgDebug.attackHitProbe=(archetype,key,x,z)=>{
+ const move=(WEAPON_MOVES[archetype]||ATTACKS)[key];
+ if(!move||move.ranged)return false;
+ const b=activeInterval(move),face={x:1,z:0};
+ for(let i=0;i<=100;i++){
+  const t=b.start+(b.end-b.start)*i/100;
+  for(const seg of meleeHitSegments(move,0,0,face,t))
+   if(distanceToSegment(x,z,seg.ax,seg.az,seg.bx,seg.bz)<=seg.width)
+    return true;
+ }
+ return false;
+};
+window.__rpgDebug.attackWeaponPose=(archetype,key,t)=>{
+ const move=(WEAPON_MOVES[archetype]||ATTACKS)[key];
+ if(!move)return null;
+ return visualWeaponPose({face:{x:1,z:0}},archetype,true,
+  swingPose(move,t).angle,false,1.6,t,move);
+};
+
 window.__rpgDebug.forestVisualScale=()=>({actor:actorSpriteScale(),
  treePixel:forestTreePixelSize(),treeWidth:48*forestTreePixelSize(),
  treeHeight:64*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
