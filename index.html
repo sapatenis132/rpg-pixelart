@@ -2185,18 +2185,97 @@ function drawSpawnGround(g){
   }
  }
 }
-function drawSpawnTree(p,v=0){
- const sz=Math.max(3,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y),shift=Math.floor(v*4)%4;
- ctx.fillStyle='#18281f';ctx.fillRect(x-2*sz,y-2*sz,4*sz,2*sz);
- ctx.fillStyle='#513a2b';ctx.fillRect(x-sz,y-9*sz,2*sz,7*sz);
- ctx.fillStyle='#a47148';ctx.fillRect(x-sz/2,y-8*sz,sz*.6,5*sz);
- const leaves=['#2b6445','#387c51','#497c42','#2e7450'];
- for(const [dx,dy,ww,hh,c] of [[-5,-11,10,5,0],[-6,-14,12,5,1],[-4,-17,8,5,2],[-3,-19,6,4,3],[-7,-12,4,4,2],[3,-12,4,4,1],[-5,-15,3,3,3],[2,-17,3,3,0]]){
-  ctx.fillStyle=leaves[(c+shift)%4];ctx.fillRect(x+dx*sz,y+dy*sz,ww*sz,hh*sz);
+// Os sprites de árvores são desenhados uma única vez em baixa resolução
+// e ampliados com nearest-neighbor. Assim ficam detalhados sem custar
+// dezenas de chamadas de pintura a cada frame no Android.
+const forestTreeCache=new Map();
+function forestTreePixelSize(){return Math.max(2,Math.round(sx*.067));}
+function forestTreeSprite(v=0){
+ const variant=Math.min(5,Math.max(0,Math.floor((Number(v)||0)*6)));
+ if(forestTreeCache.has(variant))return forestTreeCache.get(variant);
+ const sprite=document.createElement('canvas');sprite.width=48;sprite.height=64;
+ const brush=sprite.getContext('2d');
+ const put=(x,y,ww,hh,color)=>{brush.fillStyle=color;brush.fillRect(x,y,ww,hh);};
+ const pine=variant===3||variant===4;
+ const pal=[
+  ['#183b32','#24533c','#34734d','#508c55','#80a866'],
+  ['#1c4636','#286446','#3a7c50','#5d985e','#96b979'],
+  ['#173e38','#225d52','#31806a','#55a183','#98bea0'],
+  ['#183f37','#285743','#326b45','#448354','#8eae74'],
+  ['#183a3d','#205450','#30716a','#479585','#91b6a4'],
+  ['#30462b','#405e36','#5c7742','#789353','#b3b876']
+ ][variant];
+ // Contorno recortado e raízes que dão peso físico ao tronco.
+ put(18,28,13,33,'#231f1b');
+ put(19,30,11,32,'#4d3529');
+ put(21,33,7,29,'#79513a');
+ put(23,35,3,25,'#a4754b');
+ put(20,42,2,16,'#382820');
+ put(27,37,2,19,'#422c24');
+ put(16,58,8,4,'#3e3027');
+ put(26,57,8,5,'#392c24');
+ put(13,61,10,2,'#6b4b32');
+ put(28,61,9,2,'#725039');
+ // Galhos visíveis entre as camadas de folhas.
+ put(12,33,14,4,'#3b2b24');put(10,32,12,2,'#82583a');
+ put(24,31,13,4,'#493026');put(28,31,9,2,'#946341');
+ put(23,43,3,2,'#c0945a');put(20,49,2,2,'#241f1b');
+ put(26,53,2,2,'#29211c');put(21,56,3,1,'#c0945a');
+ // Vários planos recortados para não parecer uma copa plana ou uma bola.
+ if(pine){
+  for(const [x,y,ww,hh] of [
+   [20,3,8,7],[16,10,16,8],[12,17,24,8],[8,24,32,8],
+   [10,31,28,8],[13,38,22,8]
+  ])put(x-1,y+2,ww+2,hh,pal[0]);
+  for(const [x,y,ww,hh] of [
+   [20,3,8,7],[16,10,16,8],[12,17,24,8],[8,24,32,8],
+   [10,31,28,8],[13,38,22,7]
+  ])put(x,y,ww,hh,pal[2]);
+  for(const [x,y,ww] of [[21,5,5],[18,13,9],[14,20,16],
+   [10,27,22],[12,34,19],[15,41,13]]){
+   put(x,y,ww,2,pal[3]);put(x+3,y+2,ww-6,1,pal[4]);
+  }
+ }else{
+  for(const [x,y,ww,hh] of [
+   [16,3,17,10],[10,8,29,13],[5,15,38,19],[2,22,44,13],
+   [6,29,37,12],[13,35,25,9]
+  ])put(x,y+2,ww,hh,pal[0]);
+  for(const [x,y,ww,hh] of [
+   [16,3,17,10],[10,9,29,13],[6,16,36,16],[3,23,42,11],
+   [7,30,35,10],[14,36,23,6]
+  ])put(x,y,ww,hh,pal[2]);
+  for(const [x,y,ww,hh] of [
+   [18,6,10,3],[12,12,21,4],[8,19,29,4],[5,26,29,3],
+   [10,32,25,3],[18,37,16,2]
+  ])put(x,y,ww,hh,pal[3]);
  }
- ctx.fillStyle='#80a963';ctx.fillRect(x-3*sz,y-15*sz,2*sz,sz);
- ctx.fillRect(x+sz,y-18*sz,2*sz,sz);
+ // Folhas com reflexos pixelizados, falhas e diferentes densidades.
+ for(let i=0;i<96;i++){
+  const xx=2+Math.floor(seeded(variant+710,i*91+11)*44);
+  const yy=3+Math.floor(seeded(variant+313,i*73+51)*41);
+  const inCrown=pine?
+   Math.abs(xx-24)<Math.max(2,3+yy*.38)&&yy>3:
+   Math.pow((xx-24)/22,2)+Math.pow((yy-24)/22,2)<1.15;
+  if(!inCrown)continue;
+  const level=Math.floor(seeded(variant+912,i*31+7)*3);
+  put(xx,yy,2+(i%3===0?1:0),1+(i%4===0?1:0),
+   level===0?pal[1]:level===1?pal[3]:pal[4]);
+ }
+ // Pequenos pontos de musgo e imperfeições na casca.
+ put(19,47,2,2,'#4f6d43');put(27,50,2,1,'#68814d');
+ put(25,57,1,3,'#c2955d');
+ forestTreeCache.set(variant,sprite);
+ return sprite;
 }
+function drawSpawnTree(p,v=0){
+ const pixel=forestTreePixelSize(),im=forestTreeSprite(v);
+ const x=Math.round(p.x),y=Math.round(p.y);
+ ctx.fillStyle='rgba(10,23,19,.34)';
+ ctx.fillRect(x-Math.round(10*pixel),y-pixel,Math.round(20*pixel),Math.max(2,pixel));
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(im,x-24*pixel,y-63*pixel,48*pixel,64*pixel);
+}
+
 function drawSpawnDebris(p){
  const sz=Math.max(2,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y);
  ctx.fillStyle='#172127';ctx.fillRect(x-3*sz,y-sz,7*sz,2*sz);
@@ -2248,13 +2327,13 @@ function drawRuinedArch(){
   ctx.fillStyle='#bac0b0';ctx.fillRect(Math.round(x)-2*sz,Math.round(y)-3*sz,2*sz,sz);
  }
 }
-function drawSpawnFeatures(g){
- if(!g.room.spawnTemplate&&!g.room.forestTraversal)return;
- const props=[...g.decor,...g.props].sort((a,b)=>(a.x+a.z)-(b.x+b.z));
- for(const o of props){
+// Cada objeto usa a projeção do próprio pé. A ordem de pintura é feita
+// por worldPainterOrder, e não mais toda debaixo do jogador.
+function drawSpawnFeature(o){
   const offset=['flower','leaf','moss'].includes(o.type)?0:.5,
    p=point(o.x+offset,o.z+offset);
-  if(p.x< -120||p.x>w+120||p.y<-180||p.y>h+100)continue;
+  const reach=o.type==='tree'?250:120;
+  if(p.x< -reach||p.x>w+reach||p.y<-180||p.y>h+(o.type==='tree'?250:100))return;
   if(o.type==='tree')drawSpawnTree(p,o.v);
   else if(o.type==='log'){
    const s=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
@@ -2302,9 +2381,43 @@ function drawSpawnFeatures(g){
     ctx.fillRect(px,py-sz,2*sz,sz);
    }
   }
+}
+function drawSpawnLandmark(landmark){
+ if(landmark.type==='arch')drawRuinedArch();
+ else if(landmark.type==='colossalTrunk')drawColossalTrunk();
+}
+function drawWorldProp(prop){
+ const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
+ if(p.x< -90||p.x>w+90||p.y< -90||p.y>h+130)return;
+ ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
+ ctx.fillStyle=prop.type==='stone'?'#526b7c':'#27594b';
+ ctx.fillRect(p.x-size*.75,p.y-size*2,1.5*size,1.6*size);
+ ctx.fillStyle=prop.type==='stone'?'#9eb6bf':'#5caa74';
+ ctx.fillRect(p.x-size*.55,p.y-size*2.1,size,size*.7);
+}
+// Pintura isométrica por profundidade: os objetos atrás do ator aparecem
+// primeiro; copas, rochas e estruturas à frente cobrem seu corpo.
+// O sprite visual pode ser muitas vezes maior que o único tile de colisão.
+function worldPainterOrder(g,actors){
+ const result=actors.map(a=>({kind:'actor',actor:a,x:a.u.x,z:a.u.z,
+  depth:a.u.x+a.u.z}));
+ const forest=!!(g.room.spawnTemplate||g.room.forestTraversal);
+ for(const o of g.props){
+  if(forest&&['archPillar','trunk'].includes(o.type))continue;
+  const x=o.x+.5,z=o.z+.5;
+  result.push({kind:forest?'feature':'prop',o,x,z,depth:x+z});
  }
- if(g.room.spawnTemplate==='ruined_gate')drawRuinedArch();
- if(g.room.spawnTemplate==='colossal_tree')drawColossalTrunk();
+ if(forest){
+  for(const o of g.decor){
+   const x=o.x+(['flower','leaf','moss'].includes(o.type)?0:.5);
+   const z=o.z+(['flower','leaf','moss'].includes(o.type)?0:.5);
+   result.push({kind:'feature',o,x,z,depth:x+z});
+  }
+  for(const o of g.landmarks){
+   result.push({kind:'landmark',o,x:o.x,z:o.z,depth:o.x+o.z});
+  }
+ }
+ return result.sort((a,b)=>a.depth-b.depth||a.x-b.x||a.z-b.z);
 }
 
 function drawWorldFloor(){
@@ -2325,16 +2438,9 @@ function drawWorldFloor(){
   }
  }
  ctx.fillStyle=b.tint;ctx.fillRect(0,0,w,h);
- if(room.spawnTemplate||room.forestTraversal){drawSpawnGround(g);drawSpawnFeatures(g);}
- for(const prop of (room.spawnTemplate||room.forestTraversal?[]:g.props)){
-  const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
-  if(p.x< -30||p.x>w+30||p.y< -40||p.y>h+40)continue;
-  ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
-  ctx.fillStyle=prop.type==='stone'?'#526b7c':'#27594b';
-  ctx.fillRect(p.x-size*.75,p.y-size*2,1.5*size,1.6*size);
-  ctx.fillStyle=prop.type==='stone'?'#9eb6bf':'#5caa74';
-  ctx.fillRect(p.x-size*.55,p.y-size*2.1,size,size*.7);
- }
+ // O piso fica embaixo de tudo, mas cenários altos entram no painter
+ // junto dos atores. O personagem não fica mais sempre acima das árvores.
+ if(room.spawnTemplate||room.forestTraversal)drawSpawnGround(g);
  for(const exit of room.exits){
   const pos=worldExitAt(exit),p=point(pos.x,pos.z);
   if(p.x< -70||p.x>w+70||p.y< -70||p.y>h+70)continue;
@@ -3206,7 +3312,9 @@ function drawInteractables(){
  if(!runState?.active&&!drill.active&&respawn>0){respawn-=dt;if(respawn<=0){selectedEnemy=(selectedEnemy+1)%3;spawnWave();note('NOVA ONDA','Posicione-se e controle o grupo',1.3);}}
  separateActors();if(beforeWorld&&runState?.world){const motion=movement();if(tryWorldTransition(motion))return;resolveWorldActor(player,beforeWorld.player.x,beforeWorld.player.z);for(const e of enemies){const prev=beforeWorld.enemies.get(e.id);if(prev)resolveWorldActor(e,prev.x,prev.z);}}chooseTarget();tacticalReadout();updateEliteUI();
  const active=living(),maxD=active.length?Math.max(...active.map(e=>length(e.x-player.x,e.z-player.z))):0;
- const targetZoom=settings.dynamicCamera?1-clamp((maxD-2.2)*.054,0,.30):1;
+ const forestRoom=runState?.world?.rooms?.[runState.room];
+ const worldScale=forestRoom&&(forestRoom.spawnTemplate||forestRoom.forestTraversal)? .92:1;
+ const targetZoom=worldScale*(settings.dynamicCamera?1-clamp((maxD-2.2)*.054,0,.30):1);
  cam.zoom=mix(cam.zoom||1,targetZoom,1-Math.exp(-dt*3));sx=baseSx*cam.zoom;sy=sx*.52;
  // Balanced focus framing: keep close threats in view without pulling camera away from player.
  let avgX=0,avgZ=0,weights=0;
@@ -3384,6 +3492,12 @@ function weaponDisplayFacing(u,archetype,attacking,parrying,progress){
  const angle=start+delta*aimWeight;
  return{x:Math.cos(angle),z:Math.sin(angle)};
 }
+function actorSpriteScale(){
+ const standard=clamp(sx/36*1.9,1.35,2.7);
+ // Aventura: atores deliberadamente menores que o ambiente; arena mantém
+ // a escala original para não quebrar leitura e testes de combate.
+ return runState?.world?standard*.68:standard;
+}
 function figure(u,team){
  if(!u)return;
  const hero=team==='player',alive=u.hp>0;
@@ -3399,7 +3513,7 @@ function figure(u,team){
  const sw=hero&&atk?swingPose(atk.move,progress):{angle:.0,active:attacking};
  const parrying=hero&&u.parryWindow>0,dodging=hero&&u.dodge>0;
  const stagger=clamp((u.reaction||0)/.30,0,1);
- const s=clamp(sx/36*1.9,1.35,2.7);
+ const s=actorSpriteScale();
  ctx.save();ctx.imageSmoothingEnabled=false;
  // Blocky contact shadow, remains on ground while airborne.
  ctx.globalAlpha=alive?.72:.25;ctx.fillStyle='#01070f';
@@ -3420,7 +3534,9 @@ function figure(u,team){
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
    const idle=hero&&!moving&&!atk&&!settings.reducedMotion?Math.max(0,Math.round(Math.sin(clock*2.2)*s*.55)):0;
     const bounce=moving&&!atk?Math.abs(Math.sin(u.walk||0))*2:idle;
-   ctx.drawImage(img,animFrame*32,direction*48,32,48,Math.round(-16*s),Math.round(-34*s-bounce),Math.round(32*s),Math.round(48*s));
+   // Apoio dos pés sobre a célula do mundo para a sobreposição ficar natural.
+   const footY=runState?.world?44:34;
+   ctx.drawImage(img,animFrame*32,direction*48,32,48,Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
    ctx.globalAlpha=1;
  }else{
   ctx.fillStyle=hero?'#37a7c4':'#b0716c';ctx.fillRect(-13*s,-30*s,26*s,23*s);
@@ -3676,7 +3792,27 @@ function tacticalVisual(){
  }
  ctx.restore();
 }
-function render(){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.save();if(shake>.15&&!settings.reducedMotion)ctx.translate(rnd(-shake*.62,shake*.62),rnd(-shake*.32,shake*.32));ground();drawInteractables();aimVisual();tacticalVisual();warning();drawReachGuide();drawDodgeEchoes();const actors=[{u:player,team:'player'},...enemies.map(u=>({u,team:'enemy'}))].sort((a,b)=>(a.u.x+a.u.z)-(b.u.x+b.u.z));for(const a of actors)figure(a.u,a.team);drawRangedShots();traces();visualEffects();drawPixelImpacts();specialEffects();if(screenFlash>0&&!settings.reducedMotion){ctx.fillStyle=`rgba(255,255,255,${screenFlash*.22})`;ctx.fillRect(0,0,w,h);}ctx.restore();}
+function render(){
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.save();
+ if(shake>.15&&!settings.reducedMotion)
+  ctx.translate(rnd(-shake*.62,shake*.62),rnd(-shake*.32,shake*.32));
+ ground();drawInteractables();aimVisual();tacticalVisual();warning();drawReachGuide();drawDodgeEchoes();
+ const actors=[{u:player,team:'player'},...enemies.map(u=>({u,team:'enemy'}))]
+  .sort((a,b)=>(a.u.x+a.u.z)-(b.u.x+b.u.z));
+ if(runState?.world&&roomGeometry){
+  for(const entry of worldPainterOrder(roomGeometry,actors)){
+   if(entry.kind==='actor')figure(entry.actor.u,entry.actor.team);
+   else if(entry.kind==='landmark')drawSpawnLandmark(entry.o);
+   else if(entry.kind==='feature')drawSpawnFeature(entry.o);
+   else if(entry.kind==='prop')drawWorldProp(entry.o);
+  }
+ }else for(const a of actors)figure(a.u,a.team);
+ drawRangedShots();traces();visualEffects();drawPixelImpacts();specialEffects();
+ if(screenFlash>0&&!settings.reducedMotion){
+  ctx.fillStyle=`rgba(255,255,255,${screenFlash*.22})`;ctx.fillRect(0,0,w,h);
+ }
+ ctx.restore();
+}
 function loop(ts){
  if(!last)last=ts;const elapsed=clamp((ts-last)/1000,0,.07);last=ts;
  fpsTime+=elapsed;
@@ -3751,6 +3887,14 @@ window.__rpgDebug.debugStartSeed=seed=>newCampaign(DEFAULT_HERO,seed);
 window.__rpgDebug.spawnTemplates=()=>JSON.parse(JSON.stringify(SPAWN_TEMPLATES));
 window.__rpgDebug.spawnForSeed=seed=>spawnForSeed(seed);
 window.__rpgDebug.forestTraversalTypes=()=>({...FOREST_TRAVERSALS});
+window.__rpgDebug.forestVisualScale=()=>({actor:actorSpriteScale(),
+ treePixel:forestTreePixelSize(),treeWidth:48*forestTreePixelSize(),
+ treeHeight:64*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
+window.__rpgDebug.forestSceneOrder=(seed,id,actorX=0,actorZ=0)=>{
+ const world=generateWorld(seed),room=world.rooms[id],g=makeRoomGeometry(room);
+ return worldPainterOrder(g,[{u:{x:actorX,z:actorZ,hp:1},team:'player'}])
+  .map(e=>({kind:e.kind,type:e.o?.type||null,x:e.x,z:e.z,depth:e.depth}));
+};
 window.__rpgDebug.forestGeometry=(seed,id)=>{
  const world=generateWorld(seed),room=world.rooms[id];if(!room?.forestTraversal)return null;
  const g=makeRoomGeometry(room);
