@@ -18,7 +18,7 @@ new Function(galleryScript);
 const server=http.createServer((req,res)=>{
  // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated)\/[a-z0-9_-]+\.png$/.test(pathname)){
+ if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated|forest)\/[a-z0-9_-]+\.png$/.test(pathname)){
   try{
    const pixels=readFileSync(resolve(root,'.'+pathname));
    res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
@@ -141,6 +141,24 @@ try{
   for(const item of animation.checks){
    assert.ok(item.unique>=6,item.id+' precisa de ao menos 6 silhuetas de ação distintas');
    assert.ok(item.allPainted,item.id+' não deve ter quadros vazios');
+  }
+  // A flora e os tiles do mundo vêm de PNGs reais, não de geometria
+  // que simula sprites. Também devem carregar em celulares pequenos.
+  await page.waitForFunction(()=>{
+   const f=window.__rpgDebug.forestArtFiles();
+   return f.trees.loaded&&f.props.loaded&&f.ground.loaded;
+  },null,{timeout:15000});
+  const forestArt=await page.evaluate(()=>window.__rpgDebug.forestArtFiles());
+  assert.deepEqual([forestArt.trees.width,forestArt.trees.height],[384,96],
+   'seis árvores em atlas raster');
+  assert.deepEqual([forestArt.props.width,forestArt.props.height],[192,64],
+   'dezesseis props de pixel art');
+  assert.deepEqual([forestArt.ground.width,forestArt.ground.height],[256,544],
+   'tiles 64x32 com 17 famílias e quatro variações');
+  assert.equal(forestArt.groundTypes.length,17);
+  for(const k of ['trees','props','ground']){
+   assert.ok(forestArt[k].src.startsWith('assets/sprites/forest/'),
+    'PNG do cenário carregado externamente: '+k);
   }
   assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
