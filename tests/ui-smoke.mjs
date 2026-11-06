@@ -704,6 +704,50 @@ try{
    assert.ok(migrated.room.walkable,'personagem continua livre depois da migração');
   }
 
+  // REGRESSÃO DE COMBOS: cada arma deve encadear três ataques mesmo
+  // quando não há inimigos no alcance (sala de nascimento segura).
+  // O golpe seguinte respeita debounce e a janela de um único buffer.
+  if(width===854&&height===480){
+   const sequences=await page.evaluate(()=>{
+    const d=window.__rpgDebug,output=[];
+    for(const archetype of ['warrior','guardian','rebel','arcanist','hunter']){
+     d.newCampaign({name:'Teste',race:'human',archetype},47);
+     d.action('L');
+     d.testTick(.13);
+     d.action('L'); // agenda LL durante L, mesmo sem acerto
+     const buffered=d.snapshot().buffer;
+     let steps=0;
+     while(d.snapshot().seq==='L'&&steps++<90)d.testTick(1/60);
+     const second=d.snapshot();
+     d.testTick(.14);
+     d.action('L'); // agenda LLL durante LL
+     const thirdBuffered=d.snapshot().buffer;
+     steps=0;
+     while(d.snapshot().seq==='LL'&&steps++<90)d.testTick(1/60);
+     const third=d.snapshot();
+     output.push({archetype,buffered,second:second.seq,
+      thirdBuffered,third:third.seq,maxChain:third.maxChain,
+      accepted:third.acceptedInputs,foes:third.foes.filter(e=>e.hp>0).length});
+    }
+    // Dois toques simultâneos não representam dois golpes.
+    d.newCampaign({name:'Anti spam',race:'human',archetype:'rebel'},48);
+    d.action('L');d.action('L');
+    const antiSpam=d.snapshot();
+    return{output,antiSpam:{accepted:antiSpam.acceptedInputs,buffer:antiSpam.buffer}};
+   });
+   for(const seq of sequences.output){
+    assert.equal(seq.foes,0,seq.archetype+' testado sem alvo');
+    assert.equal(seq.buffered,'L',seq.archetype+' deve agendar segundo golpe');
+    assert.equal(seq.second,'LL',seq.archetype+' deve executar segundo golpe');
+    assert.equal(seq.thirdBuffered,'L',seq.archetype+' deve agendar terceiro golpe');
+    assert.equal(seq.third,'LLL',seq.archetype+' deve executar terceiro golpe');
+    assert.ok(seq.maxChain>=3,seq.archetype+' deve completar combo de três golpes');
+    assert.equal(seq.accepted,3,seq.archetype+' deve executar um golpe por entrada');
+   }
+   assert.equal(sequences.antiSpam.accepted,1,'dois toques simultâneos não duplicam ataques');
+   assert.equal(sequences.antiSpam.buffer,null,'duplo toque não enfileira ataque extra');
+  }
+
   // FLORESTA PROCEDURAL: somente um dos três spawns autorais por seed.
   // As travessias são salas intermediárias de exploração, não novos spawns.
   if(width===854&&height===480){

@@ -2680,8 +2680,13 @@ const INPUT_DEBOUNCE=.105,BUFFER_START=.43,BUFFER_END=.93;
 let lastAttackInput=-10,rejectedInputs=0,simultaneousInputs=0,acceptedInputs=0;
 function attackWindow(a){
  if(!a)return false;
- const t=a.time/a.move.dur,opening=a.move.ranged?.37:currentArchetype()==='rebel'?.38:BUFFER_START;
- const close=a.move.ranged?.96:BUFFER_END;
+ const t=a.time/a.move.dur;
+ // Adagas têm ataques com apenas ~0,22 s. A antiga janela abria
+ // perto de 0,08 s e deixava pouco tempo antes de terminar o golpe,
+ // sobretudo no celular. O debounce global continua evitando duplo toque,
+ // e só é permitido um único comando agendado por golpe.
+ const opening=a.move.ranged?.32:currentArchetype()==='rebel'?.04:.30;
+ const close=a.move.ranged?.97:.98;
  return t>=opening&&t<=close;
 }
 function readyForNext(){return player.hp>0&&player.dodge<=0&&player.parryRecovery<=0&&player.attackLock<=0&&!player.act;}
@@ -3295,8 +3300,12 @@ function drawInteractables(){
      player.act=null;
      const buffered=player.bufferTime>0?player.buffer:null;
      player.buffer=null;player.bufferTime=0;
-     if(buffered && (a.landed||a.launched)&&!a.mashed){startAttack(buffered);}
-     else {
+     if(buffered&&!a.mashed){
+      // Combos normais dependem do ritmo, não de haver inimigo à frente.
+      // Extensões especiais continuam exigindo um finisher que acertou,
+      // porque startAttack valida chainReady/EXTENSIONS para esses golpes.
+      startAttack(buffered);
+     }else {
       if((!a.landed&&!a.launched)||a.mashed){player.seq='';player.seqTimer=0;player.chainReady=false;}
       player.attackLock=a.key.includes('H')?.18:.095;
      }
