@@ -708,6 +708,49 @@ try{
   // quando não há inimigos no alcance (sala de nascimento segura).
   // O golpe seguinte respeita debounce e a janela de um único buffer.
   if(width===854&&height===480){
+   // A fila de um único comando tolera toques duplicados no navegador real.
+   const bufferedInput=await page.evaluate(()=>{
+    const d=window.__rpgDebug,out=[];
+    for(const archetype of ['warrior','guardian','rebel','arcanist','hunter']){
+     d.newCampaign({name:'Fila',race:'human',archetype},47);
+     d.action('L');d.testTick(.13);d.action('L');
+     for(let i=0;i<8;i++)d.action(i%2?'L':'H');
+     const buffer=d.snapshot().buffer;
+     let steps=0;
+     while(d.snapshot().seq==='L'&&steps++<90)d.testTick(1/60);
+     out.push({archetype,buffer,seq:d.snapshot().seq,accepted:d.snapshot().acceptedInputs});
+    }
+    return out;
+   });
+   for(const row of bufferedInput){
+    assert.equal(row.buffer,'L',row.archetype+': toques extras preservam o comando');
+    assert.equal(row.seq,'LL',row.archetype+': comando preservado deve executar');
+    assert.equal(row.accepted,2,row.archetype+': nenhuma ação adicional pode escapar');
+   }
+   // Figurinos e poses são sprites rasterizados e distintos, para as 25 combinações.
+   const art=await page.evaluate(()=>{
+    const d=window.__rpgDebug,issues=[];let frames=0;
+    const hash=pixels=>{let h=2166136261;for(const v of pixels)h=Math.imul(h^v,16777619)>>>0;return h;};
+    for(const race of ['human','elf','orc','dwarf','halfling']){
+     const looks=[];
+     for(const archetype of ['warrior','guardian','rebel','arcanist','hunter']){
+      const walk=d.heroSpriteAtlas(race,archetype),attack=d.heroSpriteAtlas(race,archetype,true);
+      looks.push(hash(walk.getContext('2d').getImageData(0,0,128,384).data));
+      for(let dir=0;dir<8;dir++){
+       const poses=[];
+       for(let frame=0;frame<4;frame++){
+        poses.push(hash(attack.getContext('2d').getImageData(frame*32,dir*48,32,48).data));
+        frames++;
+       }
+       if(new Set(poses).size!==4)issues.push({race,archetype,dir});
+      }
+     }
+     if(new Set(looks).size!==5)issues.push({race,reason:'figurinos iguais'});
+    }
+    return{frames,issues};
+   });
+   assert.equal(art.frames,800);
+   assert.deepEqual(art.issues,[],'figurinos e poses devem ser distintos no canvas do navegador');
    const sequences=await page.evaluate(()=>{
     const d=window.__rpgDebug,output=[];
     for(const archetype of ['warrior','guardian','rebel','arcanist','hunter']){
@@ -1010,3 +1053,4 @@ try{
  if(browser)await browser.close();
  await new Promise(resolve=>server.close(resolve));
 }
+
