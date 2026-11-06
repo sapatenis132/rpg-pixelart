@@ -3885,14 +3885,37 @@ function drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progres
  }[u.style]||'enemySword');
  const width=24*s*(key==='dagger'?.75:key==='bow'?.88:1);
  const height=Math.max(12,Math.max(7,pose.r)*48/38);
- ctx.save();
- ctx.translate(Math.round(pose.x1),Math.round(pose.y1));
- ctx.rotate(pose.a+Math.PI/2);
- // O punho está no pixel 42; a ponta acompanha pose.r/alcance do visual.
- drawWeaponImage(key,-width/2,-height*42/48,width,height);
- if(key==='bow'&&attacking&&pose.pull>.05){
-  ctx.fillStyle='#f7e2ac';
-  ctx.fillRect(0,-height*.52,Math.max(2,Math.round(s)),Math.round(pose.pull*8*s));
+ const move=hero?u.act?.move:null,style=hero?playerMoveIdentity(move,archetype):'enemy';
+ const stage=move?playableAttackTiming(move,progress):null;
+ ctx.save();ctx.translate(Math.round(pose.x1),Math.round(pose.y1));
+ if(hero&&key==='bow'){
+  // O arco tem o eixo perpendicular ao disparo. Antes ele girava como
+  // uma espada; a corda e a flecha agora mostram o ato de puxar/soltar.
+  ctx.rotate(pose.aimAngle);
+  drawWeaponImage(key,-width/2,-height/2,width,height);
+  if(attacking&&stage&&!stage.released){
+   const draw=Math.max(0,pose.pull);
+   if(fxReady()){
+    const arrowLength=stage.phase==='anticipation'?25:20;
+    ctx.drawImage(FX_ATLAS,2*16,0,16,16,
+     Math.round(3*s-draw*8*s),Math.round(-arrowLength*.35),
+     Math.round(arrowLength*s*.65),Math.round(arrowLength*.55));
+   }
+   ctx.fillStyle='#e8e6c4';
+   const x=Math.round(-draw*8*s);
+   ctx.fillRect(x,Math.round(-height*.38),Math.max(2,Math.round(s)),Math.round(height*.76));
+  }
+ }else{
+  // Espadas, adagas e cajados partem do punho; o tempo do giro não
+  // muda a hitbox. O cajado mostra a carga antes do projétil nascer.
+  ctx.rotate(pose.a+Math.PI/2);
+  drawWeaponImage(key,-width/2,-height*42/48,width,height);
+  if(hero&&key==='staff'&&attacking&&stage&&!stage.released&&fxReady()){
+   const glow=style==='charged-orb'?19:11;
+   const grow=stage.phase==='anticipation'?1.12:.78;
+   drawFxSprite(style==='charged-orb'?1:0,0,-height*.78,
+    Math.round(glow*s*.7*grow));
+  }
  }
  ctx.restore();
  if((hero&&archetype==='guardian')||(!hero&&u.style==='guardian')){
