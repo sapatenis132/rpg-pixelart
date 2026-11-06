@@ -3716,6 +3716,30 @@ function characterImage(u,hero){
  const img=ADVANCED_ENEMY_SPRITES[u.style]||ADVANCED_ENEMY_SPRITES.enemy;
  return animatedSpriteReady(img)?img:enemySprite(u.style);
 }
+// A animação não dita quando a hitbox acerta: ela segue a janela definida
+// pelo movimento. Quadros-pose: resposta inicial, antecipação, contato, recuperação.
+// Isso evita o falso atraso de input e mantém o tempo do combate inalterado.
+function playableAttackTiming(move,progress){
+ const p=clamp(progress,0,1),impact=clamp(move?.impact??.48,.25,.70);
+ const prepare=Math.max(.065,impact-(move?.ranged?.21:.18));
+ const strike=Math.max(prepare+.025,impact-.075);
+ const recover=Math.min(.95,impact+(move?.fin?.14:.095));
+ const frame=p<prepare?0:p<strike?1:p<recover?2:3;
+ const phase=frame===0?'response':frame===1?'anticipation':
+  frame===2?'contact':'recovery';
+ return{frame,phase,impact,contact:p>=strike&&p<recover,
+  released:p>=impact};
+}
+function playerMoveIdentity(move,archetype){
+ if(!move)return'idle';
+ if(archetype==='hunter')
+  return move.largeArrow?'piercing-shot':(move.shots||1)>=3?'volley':'arrow';
+ if(archetype==='arcanist')
+  return move.heavyShot?'charged-orb':(move.shots||1)>=3?'salvo':'spark';
+ if(move.motion==='bash')return'shield-bash';
+ if(['thrust','dashThrust','doubleThrust'].includes(move.motion))return'thrust';
+ return move.motion||'slash';
+}
 function characterMotion(u,hero){
  const alive=u.hp>0,attack=hero?u.act:null,
   moving=(u.moveMagnitude||0)>.13;
@@ -3746,10 +3770,10 @@ function characterMotion(u,hero){
  }
  if(attack?.move?.fin||attack?.move?.rip||
   (!hero&&u.style==='elite'&&u.phase==='strike'&&['crush','dash'].includes(u.type))){
-  return{state:6,frame:step(progress),name:'finisher'};
+  return{state:6,frame:hero?playableAttackTiming(attack.move,progress).frame:step(progress),name:'finisher'};
  }
  if(attack||(!hero&&u.phase==='strike'))
-  return{state:1,frame:step(progress),name:'attack'};
+  return{state:1,frame:hero?playableAttackTiming(attack.move,progress).frame:step(progress),name:'attack'};
  return{state:0,frame:moving?walkFrame:0,name:'walk'};
 }
 // Cada arma é um recorte de 24x48 de uma folha PNG independente.
@@ -4640,6 +4664,8 @@ window.__rpgDebug.playableOutfits=()=>Object.fromEntries(
   src:img.getAttribute('src')
  }]));
 window.__rpgDebug.playableCostume=role=>playableOutfit(role);
+window.__rpgDebug.playableAttackTiming=playableAttackTiming;
+window.__rpgDebug.playerMoveIdentity=playerMoveIdentity;
 window.__rpgDebug.forestArtFiles=()=>({
  trees:{loaded:forestTreeReady(),width:FOREST_TREE_ATLAS.naturalWidth,height:FOREST_TREE_ATLAS.naturalHeight,
   src:FOREST_TREE_ATLAS.getAttribute('src')},
