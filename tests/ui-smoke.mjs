@@ -22,7 +22,7 @@ new Function(galleryScript);
 const server=http.createServer((req,res)=>{
  // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated|forest)\/[a-z0-9_-]+\.png$/.test(pathname)){
+ if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated|forest|playable)\/[a-z0-9_-]+\.png$/.test(pathname)){
   try{
    const pixels=readFileSync(resolve(root,'.'+pathname));
    res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
@@ -168,6 +168,64 @@ try{
    assert.ok(forestArt[k].src.startsWith('assets/sprites/forest/'),
     'PNG do cenário carregado externamente: '+k);
   }
+  // Os cinco protagonistas recebem silhuetas distintas a partir de
+  // PNGs externos. Todas as raças reutilizam o corpo original.
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.playableOutfits())
+   .every(file=>file.loaded),null,{timeout:15000});
+  const costumes=await page.evaluate(()=>{
+   const d=window.__rpgDebug,files=d.playableOutfits(),names=Object.keys(files);
+   const checks=[];
+   for(const id of names){
+    const img=d.playableCostume(id);
+    const c=document.createElement('canvas');c.width=32;c.height=48;
+    const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+    const hashes=[];
+    for(const state of [0,1,2,3,4,5,6]){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(img,32,(state*8+1)*48,32,48,0,0,32,48);
+     const pixels=ctx.getImageData(0,0,32,48).data;
+     let ink=0,hash=2166136261;
+     for(let i=0;i<pixels.length;i+=4){
+      if(pixels[i+3])ink++;
+      for(let j=0;j<4;j++)hash=Math.imul(hash^pixels[i+j],16777619)>>>0;
+     }
+     hashes.push({hash,ink});
+    }
+    checks.push({id,states:hashes,signature:hashes[0].hash});
+   }
+   const attack=d.playableAttackTiming;
+   const light={impact:.39,dur:.3},heavy={impact:.55,dur:.7,fin:true};
+   return {files,names,checks,
+    sequence:[attack(light,0),attack(light,.25),attack(light,.39),attack(light,.96)],
+    heavyImpact:attack(heavy,.55),heavyLead:attack(heavy,0),
+    identities:[
+     d.playerMoveIdentity({ranged:true,heavyShot:true,magic:true},'arcanist'),
+     d.playerMoveIdentity({ranged:true,shots:4},'arcanist'),
+     d.playerMoveIdentity({ranged:true,largeArrow:true},'hunter'),
+     d.playerMoveIdentity({ranged:true,shots:3},'hunter'),
+     d.playerMoveIdentity({motion:'bash'},'guardian'),
+     d.playerMoveIdentity({motion:'thrust'},'rebel')
+    ]
+   };
+  });
+  assert.deepEqual(costumes.names.sort(),['arcanist','guardian','hunter','rebel','warrior']);
+  for(const file of Object.values(costumes.files)){
+   assert.equal(file.width,128);assert.equal(file.height,2688);
+   assert.ok(file.src.includes('assets/sprites/playable/'));
+  }
+  assert.equal(new Set(costumes.checks.map(c=>c.signature)).size,5,
+   'cada profissão deve ter identidade visual própria');
+  for(const c of costumes.checks){
+   assert.ok(c.states.every(s=>s.ink>15),c.id+' nenhum estado pode perder o traje');
+   assert.ok(new Set(c.states.map(s=>s.hash)).size>=5,
+    c.id+' o traje deve acompanhar defesa, ataque e queda');
+  }
+  assert.deepEqual(costumes.sequence.map(x=>x.frame),[0,1,2,3],
+   'quadros seguem antecipação, contato e recuperação');
+  assert.ok(costumes.heavyImpact.released&&!costumes.heavyLead.released,
+   'a leitura da ação não antecipa o impacto físico');
+  assert.deepEqual(costumes.identities,
+   ['charged-orb','salvo','piercing-shot','volley','shield-bash','thrust']);
   assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
   // Os cinco personagens devem ter miniaturas pixel art únicas e desenhadas.
@@ -1146,8 +1204,19 @@ try{
   deviceScaleFactor:1,isMobile:true,hasTouch:true});
  gallery.on('pageerror',error=>failures.push('galeria: '+error.message));
  await gallery.goto(url+'/art-preview/index.html');
- await gallery.waitForFunction(()=>document.querySelector('#status')?.textContent==='10/10 atlases carregados',null,{timeout:15000});
+ await gallery.waitForFunction(()=>{
+ const t=document.querySelector('#status')?.textContent||'';
+ return t.includes('10/10 atores')&&t.includes('5/5 classes');
+},null,{timeout:15000});
  assert.equal(await gallery.locator('#races .card').count(),5);
+ assert.equal(await gallery.locator('#roles .card').count(),5,
+  'galeria deve mostrar cinco profissões com trajes próprios');
+ await gallery.locator('#previewRace').selectOption('dwarf');
+ await gallery.locator('#anim').selectOption('6');
+ await gallery.locator('#direction').selectOption('3');
+ await gallery.waitForFunction(()=>Array.from(document.querySelectorAll('#roles canvas'))
+  .every(c=>{const d=c.getContext('2d').getImageData(0,0,32,48).data;
+   return d.some((v,i)=>i%4===3&&v>0)}),null,{timeout:15000});
  assert.equal(await gallery.locator('#enemies .card').count(),5);
  assert.equal(await gallery.locator('#items .item').count(),17);
  assert.equal(await gallery.locator('#forest .card').count(),28,
