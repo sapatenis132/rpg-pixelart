@@ -48,6 +48,9 @@ footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10
 </div>
 <h2>Raças jogáveis</h2><section id="races" class="cards"></section>
 <h2>Inimigos e chefe</h2><section id="enemies" class="cards"></section>
+<h2>Floresta — nova pixel art</h2>
+<p>Árvores, vegetação, flores e terrenos desenhados como arquivos PNG. As árvores continuam maiores que os personagens, com colisão apenas nos troncos.</p>
+<section id="forest" class="cards"></section>
 <h2>Armas, escudos e efeitos</h2>
 <p>Armas separadas do corpo: suas posições e rotações são controladas pelo sistema de combate.</p>
 <section id="items" class="cards"></section>
@@ -83,6 +86,47 @@ for(let i=0;i<names.length+fxNames.length;i++){
  article.append(canvas,name);$('items').append(article);
  items.push({canvas,asset:isFx?effects:weapons,index:isFx?i-names.length:i,isFx});
 }
+// Galeria ambiental: não altera o jogo nem suas seeds.
+const FOREST_PREVIEWS=[];
+const forestImages={};
+for(const key of ['trees','props','ground']){
+ const img=new Image();img.decoding='async';
+ img.src='../assets/sprites/forest/'+key+'.png';
+ forestImages[key]=img;
+}
+function forestCard(name,atlas,cell,offset,cssW,cssH){
+ const article=document.createElement('article');article.className='card';
+ const label=document.createElement('strong');label.textContent=name;
+ const canvas=document.createElement('canvas');
+ canvas.className='sprite';canvas.width=cell[0];canvas.height=cell[1];
+ canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';
+ const note=document.createElement('small');note.textContent='PNG raster • pixel art';
+ article.append(label,canvas,note);$('forest').append(article);
+ FOREST_PREVIEWS.push({canvas,img:forestImages[atlas],cell,offset,painted:false});
+}
+const treeNames=['Carvalho sombreado','Carvalho claro','Árvore azulada','Pinheiro escuro','Pinheiro azulado','Árvore dourada'];
+for(let i=0;i<6;i++)forestCard(treeNames[i],'trees',[64,96],[i*64,0],96,144);
+const pNames=[
+ [0,'Tronco caído'],[1,'Pedra'],[2,'Samambaia'],[3,'Cogumelo'],
+ [4,'Flor rosada'],[5,'Flor amarela'],[6,'Flor lilás'],[7,'Flor branca'],
+ [8,'Flor vermelha'],[9,'Musgo'],[11,'Juncos'],[12,'Raízes'],[13,'Arbusto']
+];
+for(const [i,name] of pNames)forestCard(name,'props',[24,32],[(i%8)*24,Math.floor(i/8)*32],72,96);
+const groundNames=[
+ [0,'Mata fechada'],[1,'Água da floresta'],[3,'Trilha'],
+ [4,'Clareira'],[6,'Chão de raízes'],[7,'Piso de pedra'],
+ [9,'Musgo'],[12,'Terra enraizada'],[13,'Água rasa']
+];
+for(const [i,name] of groundNames)forestCard(name,'ground',[64,32],[64,i*32],112,56);
+function paintForest(){
+ for(const item of FOREST_PREVIEWS){
+  if(item.painted||!item.img.complete||!item.img.naturalWidth)continue;
+  const c=item.canvas.getContext('2d');c.imageSmoothingEnabled=false;
+  c.clearRect(0,0,item.canvas.width,item.canvas.height);
+  c.drawImage(item.img,...item.offset,...item.cell,0,0,...item.cell);
+  item.painted=true;
+ }
+}
 function paintItems(){
  for(const o of items){
   if(!o.asset.complete||!o.asset.naturalWidth)continue;
@@ -106,7 +150,7 @@ function render(ts){
   c.drawImage(obj.img,frame*32,(direction+anim*8)*48,32,48,0,0,32,48);
  }
  $('status').textContent=loaded+'/10 atlases carregados';
- paintItems();requestAnimationFrame(render);
+ paintForest();paintItems();requestAnimationFrame(render);
 }
 requestAnimationFrame(render);
 })();
