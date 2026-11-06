@@ -46,6 +46,13 @@ footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10
 </select>
 <button id="pause">Pausar animação</button><span id="status" class="status">Carregando atlas PNG...</span>
 </div>
+<h2>Arquétipos jogáveis — roupas e silhuetas</h2>
+<p>Compare as cinco classes sobre a mesma raça. Troque raça, direção e animação para verificar se equipamentos e proporções permanecem legíveis.</p>
+<div class="sheet-tools"><label for="previewRace">Raça da comparação</label>
+<select id="previewRace"><option value="human">Humano</option><option value="elf">Elfo</option>
+<option value="orc">Orc</option><option value="dwarf">Anão</option>
+<option value="halfling">Pequenino</option></select></div>
+<section id="roles" class="cards"></section>
 <h2>Raças jogáveis</h2><section id="races" class="cards"></section>
 <h2>Inimigos e chefe</h2><section id="enemies" class="cards"></section>
 <h2>Floresta — nova pixel art</h2>
@@ -72,6 +79,25 @@ for(const [group,id,title] of actorSets){
  const img=new Image();img.decoding='async';img.src='../assets/sprites/animated/'+id+(group==='enemies'?'-enemy':'')+'.png';
  images.push({img,canvas,id});
 }
+// Cada papel visual é um PNG independente e não altera atributos/hitboxes.
+const roleSpecs=[
+ ['warrior','Guerreiro','Ombreiras e túnica vermelha • espada'],
+ ['arcanist','Arcanista','Manto azul e símbolos arcanos • cajado'],
+ ['guardian','Guardião','Peitoral e ombreiras pesadas • espada e escudo'],
+ ['rebel','Rebelde','Couro leve e tecido assimétrico • adaga'],
+ ['hunter','Caçador','Armadura de caça e aljava • arco']
+];
+const rolePreview=roleSpecs.map(([id,name,desc])=>{
+ const card=document.createElement('article');card.className='card';
+ const label=document.createElement('strong');label.textContent=name;
+ const canvas=document.createElement('canvas');canvas.className='sprite';
+ canvas.width=32;canvas.height=48;
+ const small=document.createElement('small');small.textContent=desc;
+ card.append(label,canvas,small);$('roles').append(card);
+ const img=new Image();img.decoding='async';
+ img.src='../assets/sprites/playable/'+id+'-outfit.png';
+ return{id,img,canvas};
+});
 const names=['Espada','Adaga','Cajado','Arco','Escudo','Espada inimiga','Florete','Machado','Espadão'];
 const fxNames=['Magia','Orbe maior','Flecha','Flecha grande','Parry','Dano','Impacto','Descarga'];
 const weapons=new Image();weapons.src='../assets/sprites/equipment/weapons.png';
@@ -149,7 +175,19 @@ function render(ts){
   const c=obj.canvas.getContext('2d');c.imageSmoothingEnabled=false;c.clearRect(0,0,32,48);
   c.drawImage(obj.img,frame*32,(direction+anim*8)*48,32,48,0,0,32,48);
  }
- $('status').textContent=loaded+'/10 atlases carregados';
+ const roleRace=$('previewRace').value;
+ const base=images.find(x=>x.id===roleRace)?.img;
+ let roleLoaded=0;
+ for(const item of rolePreview){
+  const c=item.canvas.getContext('2d');c.imageSmoothingEnabled=false;
+  c.clearRect(0,0,32,48);
+  if(!base?.complete||base.naturalHeight!==2688||!item.img.complete||item.img.naturalHeight!==2688)continue;
+  roleLoaded++;
+  const row=(direction+anim*8)*48;
+  c.drawImage(base,frame*32,row,32,48,0,0,32,48);
+  c.drawImage(item.img,frame*32,row,32,48,0,0,32,48);
+ }
+ $('status').textContent=loaded+'/10 atores • '+roleLoaded+'/5 classes';
  paintForest();paintItems();requestAnimationFrame(render);
 }
 requestAnimationFrame(render);
