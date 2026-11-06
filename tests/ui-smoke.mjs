@@ -1142,6 +1142,19 @@ try{
  assert.equal(await gallery.locator('#races .card').count(),5);
  assert.equal(await gallery.locator('#enemies .card').count(),5);
  assert.equal(await gallery.locator('#items .item').count(),17);
+ assert.equal(await gallery.locator('#forest .card').count(),28,
+  'galeria deve mostrar 6 árvores, 13 props e 9 terrenos reais');
+ await gallery.waitForFunction(()=>{
+  const cards=Array.from(document.querySelectorAll('#forest canvas'));
+  if(cards.length!==28)return false;
+  return cards.every(c=>{
+   const img=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+   let painted=0;
+   for(let i=3;i<img.length;i+=4)if(img[i])painted++;
+   return painted>15;
+  });
+ },null,{timeout:15000});
+
  await gallery.locator('#anim').selectOption('1');
  await gallery.locator('#direction').selectOption('5');
  await gallery.screenshot({path:resolve(root,'screenshots','galeria-arte-pixel.png')});
