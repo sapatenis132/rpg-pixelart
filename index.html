@@ -3532,6 +3532,65 @@ for(const [key,filename] of Object.entries(LEGACY_SHEETS)){
  PIXEL_ART[key]=img;
 }
 
+// Atlases raster externos dos inimigos (8 direções x andar/atacar).
+const ENEMY_SPRITES={};
+for(const key of ['enemy','guardian','duelist','berserker','elite']){
+ const image=new Image();image.decoding='async';
+ image.src='assets/sprites/enemies/'+key+'.png';
+ ENEMY_SPRITES[key]=image;
+}
+function enemySprite(style){
+ const image=ENEMY_SPRITES[style]||ENEMY_SPRITES.enemy;
+ return image?.complete&&image.naturalWidth===128&&image.naturalHeight===768
+  ?image:(PIXEL_ART[style]||PIXEL_ART.enemy);
+}
+// Cada arma é um recorte de 24x48 de uma folha PNG independente.
+const WEAPON_ATLAS=new Image();WEAPON_ATLAS.decoding='async';
+WEAPON_ATLAS.src='assets/sprites/equipment/weapons.png';
+const WEAPON_SPRITES={sword:0,dagger:1,staff:2,bow:3,shield:4,
+ enemySword:5,rapier:6,axe:7,greatsword:8};
+function drawWeaponImage(key,x,y,width,height){
+ if(!WEAPON_ATLAS.complete||WEAPON_ATLAS.naturalWidth!==216)return false;
+ const col=WEAPON_SPRITES[key];if(col===undefined)return false;
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(WEAPON_ATLAS,col*24,0,24,48,
+  Math.round(x),Math.round(y),Math.round(width),Math.round(height));
+ return true;
+}
+function drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress){
+ if(!WEAPON_ATLAS.complete||WEAPON_ATLAS.naturalWidth!==216)return false;
+ const key=hero?({
+  warrior:'sword',guardian:'sword',rebel:'dagger',
+  arcanist:'staff',hunter:'bow'
+ }[archetype]||'sword'):({
+  enemy:'enemySword',guardian:'enemySword',duelist:'rapier',
+  berserker:'axe',elite:'greatsword'
+ }[u.style]||'enemySword');
+ const width=24*s*(key==='dagger'?.75:key==='bow'?.88:1);
+ const height=Math.max(12,Math.max(7,pose.r)*48/38);
+ ctx.save();
+ ctx.translate(Math.round(pose.x1),Math.round(pose.y1));
+ ctx.rotate(pose.a+Math.PI/2);
+ // O punho está no pixel 42; a ponta acompanha pose.r/alcance do visual.
+ drawWeaponImage(key,-width/2,-height*42/48,width,height);
+ if(key==='bow'&&attacking&&pose.pull>.05){
+  ctx.fillStyle='#f7e2ac';
+  ctx.fillRect(0,-height*.52,Math.max(2,Math.round(s)),Math.round(pose.pull*8*s));
+ }
+ ctx.restore();
+ if((hero&&archetype==='guardian')||(!hero&&u.style==='guardian')){
+  const guarding=parrying||u.guardWindow>0||u.phase==='guard';
+  const bash=attacking&&u.act?.move.motion==='bash'?Math.sin(Math.PI*progress)*9*s:0;
+  const bx=(pose.side>0?-19:5)*s+Math.cos(pose.aimAngle)*bash;
+  const by=-32*s+Math.sin(pose.aimAngle)*bash-(guarding?3*s:0);
+  drawWeaponImage('shield',bx,by,15*s,27*s);
+  if(guarding){
+   ctx.fillStyle='#a1f6d1';
+   ctx.fillRect(Math.round(bx+6*s),Math.round(by+4*s),Math.max(2,Math.round(2*s)),Math.max(3,Math.round(8*s)));
+  }
+ }
+ return true;
+}
 function ground(){
   if(runState?.world&&roomGeometry){drawWorldFloor();return;}
   ctx.fillStyle='#07151f';ctx.fillRect(0,0,w,h);
