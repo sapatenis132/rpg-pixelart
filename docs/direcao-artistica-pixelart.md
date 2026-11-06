@@ -110,6 +110,46 @@ pose de cada arma, variedade das espécies, animações do chefe,
 tilemaps completos por bioma e sprites de pequenos objetos. Esta
 fase não representa a conclusão de toda a arte.
 
+## Quarto lote — cenário florestal em sprites PNG reais
+
+**Escopo artístico:** personagens jogáveis, florestas e Laboratório de Mapas.
+Os inimigos e a Sentinela não receberam novas alterações nesta etapa,
+porque o trabalho neles ficou reservado para a futura etapa de inimigos.
+
+### Recursos externos adicionados
+- `assets/sprites/forest/trees.png`: **seis árvores** em uma folha de
+  384×96 pixels, com copas em massas de folhagem, sombras, luz, casca,
+  raízes e espécies de silhuetas diferentes. As sprites são maiores que
+  os personagens, mas a colisão continua associada aos troncos.
+- `assets/sprites/forest/props.png`: **16 elementos** em 192×64 pixels:
+  tronco caído, pedras, samambaias, cogumelos, flores de diferentes
+  cores, musgo, folhas, juncos, raízes e arbustos.
+- `assets/sprites/forest/ground.png`: **17 famílias de piso** com
+  quatro variantes cada (256×544, tiles de 64×32). Caminhos, pedra,
+  raízes, gramados, água e sombras possuem texturas raster reais.
+- Os três atlases usam transparência, pixels discretos e nearest-neighbor;
+  o desenho procedural antigo fica como fallback se o arquivo não carregar.
+- Manteve-se o mesmo `worldPainterOrder` (ordenação por profundidade),
+  os mesmos caminhos/saídas, colisão dos troncos e geração por seed.
+
+### Consistência do editor
+O Laboratório de Mapas agora usa esses mesmos PNGs no modo isométrico
+para a vegetação, árvores e alguns tipos de piso. O modo em planta
+mantém a representação legível para edição; a mudança é somente visual.
+As dimensões multicélula, máscaras de colisão, seed e dados exportados
+continuam os mesmos.
+
+### Validação
+O teste automatizado de telas horizontais carrega os três atlas externos,
+confere suas dimensões e categorias, visita mapas de floresta e abre o
+Laboratório no modo isométrico. A galeria de arte mostra uma seleção de
+**28 exemplos ambientais** para avaliação visual.
+
+**Limites atuais:** elementos especiais como arco de ruínas, árvore
+colossal e algumas superfícies fora da floresta ainda usam o desenho
+provisório. É necessário continuar o refinamento de arte sem alterar
+mecânicas já funcionais.
+
 ## Próximos lotes artísticos
 **Lote 2 — combate visual (em progresso):** continuar adicionando estados
 de dano, esquiva, parry, morte e finalizadores específicos por arma; refinar
