@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1923">
+<title>Galeria Pixel Art — RPG</title>
+<style>
+:root{color-scheme:dark;font-family:monospace;color:#edf5ed;background:#0a1720}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:#0a1720;line-height:1.4}
+main{max-width:1080px;margin:auto;padding:18px 14px 42px}
+header{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-bottom:3px solid #74958e;padding-bottom:14px}
+h1{font-size:clamp(19px,4vw,31px);margin:0;color:#ebdb9e;text-shadow:3px 3px #213845}
+h2{font-size:18px;color:#a3d8c6;margin:20px 0 9px}
+p{color:#a7c7c1;margin:7px 0;font-size:13px}
+a{color:#e9d58c;display:inline-block;margin-right:12px}
+label{color:#e9d58c;font-weight:bold}
+.controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:20px 0;padding:12px;background:#142c37;border:2px solid #517f81;box-shadow:4px 4px #050c14}
+button,select{color:#eff7ed;background:#204b57;border:2px solid #7ca9ab;border-radius:0;font:700 14px monospace;padding:7px 10px;min-height:40px;cursor:pointer}
+button:active{transform:translate(2px,2px)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:12px}
+.card{background:#162833;border:2px solid #4b6671;padding:11px;text-align:center;box-shadow:4px 4px #050e16}
+.card[data-elite="true"]{border-color:#bda26d;background:#292b3c}
+.card strong{display:block;font-size:13px;margin-bottom:7px}
+.card small{display:block;color:#a3bdba;margin-top:8px;min-height:34px}
+.sprite{background:repeating-conic-gradient(#1b2e33 0 25%,#233b40 0 50%) 0/16px 16px;width:112px;height:168px;image-rendering:pixelated;max-width:100%;border:1px solid #547b7e}
+.sheet-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.item{display:flex;flex-direction:column;align-items:center;gap:5px;background:#1c323a;padding:10px;border:2px solid #455f68}
+.item canvas{image-rendering:pixelated;background:#0e232b}
+.status{font-size:12px;color:#e9d58c;min-height:16px}
+footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10px;font-size:12px}
+</style></head><body><main>
+<header>
+<div><h1>GALERIA DE SPRITES</h1><p>Direção artística 2D pixel art • versão experimental</p></div>
+<nav><a href="../index.html">Jogar</a><a href="../map-lab/index.html">Laboratório de mapas</a></nav>
+</header>
+<div class="controls">
+<label for="anim">Animação</label><select id="anim"><option value="0">Caminhada</option><option value="1">Ataque</option></select>
+<label for="direction">Direção</label><select id="direction">
+<option value="1">Frente</option><option value="0">Diagonal direita</option><option value="2">Diagonal esquerda</option>
+<option value="3">Perfil esquerdo</option><option value="4">Diagonal costas esquerda</option><option value="5">Costas</option><option value="6">Diagonal costas direita</option><option value="7">Perfil direito</option>
+</select>
+<button id="pause">Pausar animação</button><span id="status" class="status">Carregando atlas PNG...</span>
+</div>
+<h2>Raças jogáveis</h2><section id="races" class="cards"></section>
+<h2>Inimigos e chefe</h2><section id="enemies" class="cards"></section>
+<h2>Armas, escudos e efeitos</h2>
+<p>Armas separadas do corpo: suas posições e rotações são controladas pelo sistema de combate.</p>
+<section id="items" class="cards"></section>
+<footer>Quadros originais: 32×48 pixels, 8 direções, 4 quadros por animação. PNGs reais, sem suavização. A galeria demonstra os recursos, não substitui os testes de combate. Mudanças em desenvolvimento.</footer>
+</main><script>
+(() => {
+const actorSets=[
+ ['races','human','Humano'],['races','elf','Elfo'],['races','orc','Orc'],['races','dwarf','Anão'],['races','halfling','Pequenino'],
+ ['enemies','enemy','Bandido'],['enemies','guardian','Guardião'],['enemies','duelist','Duelista'],['enemies','berserker','Berserker'],['enemies','elite','Sentinela do Eclipse']
+];
+const $=x=>document.getElementById(x);
+const images=[];
+for(const [group,id,title] of actorSets){
+ const article=document.createElement('article');article.className='card';article.dataset.elite=String(id==='elite');
+ const name=document.createElement('strong');name.textContent=title;
+ const canvas=document.createElement('canvas');canvas.className='sprite';canvas.width=32;canvas.height=48;
+ const note=document.createElement('small');note.textContent='Atlas PNG • 128 × 768';
+ article.append(name,canvas,note);$(group).append(article);
+ const img=new Image();img.decoding='async';img.src='../assets/sprites/'+(group==='races'?'actors':'enemies')+'/'+id+'.png';
+ images.push({img,canvas,id});
+}
+const names=['Espada','Adaga','Cajado','Arco','Escudo','Espada inimiga','Florete','Machado','Espadão'];
+const fxNames=['Magia','Orbe maior','Flecha','Flecha grande','Parry','Dano','Impacto','Descarga'];
+const weapons=new Image();weapons.src='../assets/sprites/equipment/weapons.png';
+const effects=new Image();effects.src='../assets/sprites/equipment/fx.png';
+const items=[];
+for(let i=0;i<names.length+fxNames.length;i++){
+ const isFx=i>=names.length;
+ const article=document.createElement('article');article.className='item';
+ const canvas=document.createElement('canvas');canvas.width=isFx?32:48;canvas.height=isFx?32:96;
+ canvas.style.width=isFx?'64px':'72px';canvas.style.height=isFx?'64px':'144px';
+ const name=document.createElement('strong');name.textContent=isFx?fxNames[i-names.length]:names[i];
+ article.append(canvas,name);$('items').append(article);
+ items.push({canvas,asset:isFx?effects:weapons,index:isFx?i-names.length:i,isFx});
+}
+function paintItems(){
+ for(const o of items){
+  if(!o.asset.complete||!o.asset.naturalWidth)continue;
+  const ctx=o.canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,o.canvas.width,o.canvas.height);
+  const w=o.isFx?16:24,h=o.isFx?16:48;
+  ctx.drawImage(o.asset,o.index*w,0,w,h,0,0,o.canvas.width,o.canvas.height);
+ }
+}
+let paused=false,lastFrame=-1;
+$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Continuar animação':'Pausar animação'};
+function render(ts){
+ const frame=paused?Math.max(0,lastFrame):Math.floor(ts/165)%4;
+ lastFrame=frame;
+ const direction=Number($('direction').value),anim=Number($('anim').value);
+ let loaded=0;
+ for(const obj of images){
+  if(!obj.img.complete||obj.img.naturalWidth!==128)continue;
+  loaded++;
+  const c=obj.canvas.getContext('2d');c.imageSmoothingEnabled=false;c.clearRect(0,0,32,48);
+  c.drawImage(obj.img,frame*32,(direction+anim*8)*48,32,48,0,0,32,48);
+ }
+ $('status').textContent=loaded+'/10 atlases carregados';
+ paintItems();requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+})();
+</script></body></html>
