@@ -1116,11 +1116,11 @@ const RACE_SHAPES={
 // Identidades visuais: não alteram nenhuma mecânica racial existente.
 // Cadência e oscilação afetam SOMENTE o desenho dos sprites.
 const RACE_VISUAL_LANGUAGE={
- human:{silhouette:'Equilibrada, cabelo assimétrico',stride:1,bob:1.65},
- elf:{silhouette:'Alto e esguio, orelhas alongadas',stride:.91,bob:.60},
- orc:{silhouette:'Torso amplo, mandíbula e presas',stride:.79,bob:2.05},
- dwarf:{silhouette:'Compacto, ombros e barba volumosos',stride:.86,bob:.75},
- halfling:{silhouette:'Baixo, passos rápidos e pés largos',stride:1.21,bob:1.35}
+ human:{silhouette:'Equilibrada, cabelo assimétrico',stride:1,bob:1.65,attackDrive:2},
+ elf:{silhouette:'Alto e esguio, orelhas alongadas',stride:.91,bob:.60,attackDrive:1.35},
+ orc:{silhouette:'Torso amplo, mandíbula e presas',stride:.79,bob:2.05,attackDrive:2.55},
+ dwarf:{silhouette:'Compacto, ombros e barba volumosos',stride:.86,bob:.75,attackDrive:1.25},
+ halfling:{silhouette:'Baixo, passos rápidos e pés largos',stride:1.21,bob:1.35,attackDrive:2.65}
 };
 // SPRITES RACIAIS v1: atlas pixel art gerado uma vez e reutilizado em combate e no criador.
 // Proporções, orelhas, rosto e cores são características VISUAIS provisórias, sem novo lore.
@@ -4186,7 +4186,8 @@ function figure(u,team){
  if(air>0){ctx.strokeStyle='#e8a965';ctx.lineWidth=2;ctx.strokeRect(x-18*s,y-7,36*s,14);}
  // Avanço contínuo sem salto de posição entre preparação/impacto.
  const strikeCurve=hero&&atk?Math.sin(PI*clamp(progress,0,1)):0;
- const poseShift=Math.round(strikeCurve*2*s);
+ const poseShift=Math.round(strikeCurve*(hero?
+   (RACE_VISUAL_LANGUAGE[activeRace()]?.attackDrive||2):2)*s);
  // Estocadas projetam o tronco e o punho na direção da mira; os cortes
  // circulares giram mas não avançam como uma lança.
  const drive=hero&&atk&&['thrust','dashThrust','doubleThrust'].includes(atk.move.motion)?
