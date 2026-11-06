@@ -3577,6 +3577,65 @@ function enemySprite(style){
  return image?.complete&&image.naturalWidth===128&&image.naturalHeight===768
   ?image:(PIXEL_ART[style]||PIXEL_ART.enemy);
 }
+// Pipeline de animação pixel art v3: sete estados por direção, com os
+// PNGs anteriores mantidos como fallback de carregamento.
+const CHARACTER_MOTIONS=['walk','attack','guard','dodge','hurt','down','finisher'];
+const ADVANCED_ACTOR_SPRITES={},ADVANCED_ENEMY_SPRITES={};
+for(const id of Object.keys(RACE_OPTIONS)){
+ const img=new Image();img.decoding='async';ADVANCED_ACTOR_SPRITES[id]=img;
+ img.src='assets/sprites/animated/'+id+'.png';
+}
+for(const id of ['enemy','guardian','duelist','berserker','elite']){
+ const img=new Image();img.decoding='async';ADVANCED_ENEMY_SPRITES[id]=img;
+ img.src='assets/sprites/animated/'+id+'-enemy.png';
+}
+function animatedSpriteReady(img){
+ return !!img?.complete&&img.naturalWidth===128&&img.naturalHeight===2688;
+}
+function characterImage(u,hero){
+ if(hero){
+  const id=activeRace(),img=ADVANCED_ACTOR_SPRITES[id];
+  return animatedSpriteReady(img)?img:raceAsset(id);
+ }
+ const img=ADVANCED_ENEMY_SPRITES[u.style]||ADVANCED_ENEMY_SPRITES.enemy;
+ return animatedSpriteReady(img)?img:enemySprite(u.style);
+}
+function characterMotion(u,hero){
+ const alive=u.hp>0,attack=hero?u.act:null,
+  moving=(u.moveMagnitude||0)>.13;
+ const walkFrame=Math.floor(Math.abs(u.walk||0)*.52)%4;
+ const progress=attack?clamp(attack.time/(attack.move.dur||1),0,.999):
+  clamp(1-(u.strike||0)/(u.strikeMax||.3),0,.999);
+ const step=t=>Math.max(0,Math.min(3,Math.floor(t*4)));
+ if(!alive)return{state:5,frame:step(clamp((clock-(u.visualDeathAt??clock))/.58,0,.999)),name:'down'};
+ if(!hero&&(u.phase==='down'||(u.downTimer||0)>0)){
+  const total=u.downTotal||1.1;
+  return{state:5,frame:step(clamp(1-(u.downTimer||0)/total,0,.999)),name:'down'};
+ }
+ if(hero&&(u.dodge||0)>0){
+  return{state:3,frame:step(clamp(1-u.dodge/.26,0,.999)),name:'dodge'};
+ }
+ if(!hero&&u.phase==='evade'){
+  return{state:3,frame:step(clamp(1-(u.evade||0)/.27,0,.999)),name:'dodge'};
+ }
+ if(hero&&((u.parryWindow||0)>0||(u.parryRecovery||0)>0||(u.guardWindow||0)>0||(u.meleeGuard||0)>0)){
+  const t=(u.parryWindow||0)>0?clamp(1-u.parryWindow/.30,0,.999):.52;
+  return{state:2,frame:step(t),name:'guard'};
+ }
+ if(!hero&&u.phase==='guard')
+  return{state:2,frame:step((clock%0.8)/0.8),name:'guard'};
+ if((u.reaction||0)>.035||(!hero&&u.phase==='stun')){
+  const t=clamp(1-(u.reaction||.13)/.30,0,.999);
+  return{state:4,frame:step(t),name:'hurt'};
+ }
+ if(attack?.move?.fin||attack?.move?.rip||
+  (!hero&&u.style==='elite'&&u.phase==='strike'&&['crush','dash'].includes(u.type))){
+  return{state:6,frame:step(progress),name:'finisher'};
+ }
+ if(attack||(!hero&&u.phase==='strike'))
+  return{state:1,frame:step(progress),name:'attack'};
+ return{state:0,frame:moving?walkFrame:0,name:'walk'};
+}
 // Cada arma é um recorte de 24x48 de uma folha PNG independente.
 const WEAPON_ATLAS=new Image();WEAPON_ATLAS.decoding='async';
 WEAPON_ATLAS.src='assets/sprites/equipment/weapons.png';
