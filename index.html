@@ -3736,9 +3736,15 @@ function characterImage(u,hero){
 // Isso evita o falso atraso de input e mantém o tempo do combate inalterado.
 function playableAttackTiming(move,progress){
  const p=clamp(progress,0,1),impact=clamp(move?.impact??.48,.25,.70);
- const prepare=Math.max(.065,impact-(move?.ranged?.21:.18));
- const strike=Math.max(prepare+.025,impact-.075);
- const recover=Math.min(.95,impact+(move?.fin?.14:.095));
+ const ranged=!!move?.ranged,active=ranged?null:activeInterval(move||{impact});
+ // Ataques corpo a corpo mostram pose de contato durante toda a janela
+ // de hitbox ativa; ataques à distância usam a liberação do projétil.
+ const strike=ranged?Math.max(.10,impact-.055):active.start;
+ const prepare=Math.max(.055,strike-(ranged?.11:.095));
+ const delayed=(Math.max(1,move?.shots||1)-1)*(move?.delayStep||0)/
+  Math.max(.20,move?.dur||.4);
+ const recover=ranged?Math.min(.97,impact+.12+delayed):
+  Math.min(.97,active.end+.03);
  const frame=p<prepare?0:p<strike?1:p<recover?2:3;
  const phase=frame===0?'response':frame===1?'anticipation':
   frame===2?'contact':'recovery';
