@@ -3814,13 +3814,14 @@ function aimVisual(){
 }
 function drawDodgeEchoes(){
  if(settings.reducedMotion||!dodgeEchoes.length)return;
- const img=raceAsset(activeRace());if(!img?.width)return;
+ const img=characterImage(player,true);if(!img?.width)return;
  const scale=clamp(sx/36*1.9,1.35,2.7);
  ctx.save();ctx.imageSmoothingEnabled=false;
  for(const a of dodgeEchoes){
    const p=point(a.x,a.z),k=clamp(a.life/a.max,0,1);
    ctx.globalAlpha=(settings.economy?.22:.38)*k;
-   ctx.drawImage(img,a.frame*32,a.dir*48,32,48,Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
+   const row=img.naturalHeight===2688?a.dir+3*8:a.dir;
+   ctx.drawImage(img,a.frame*32,row*48,32,48,Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
    ctx.strokeStyle='#99f5e0';ctx.lineWidth=Math.max(1,Math.round(scale));
    ctx.strokeRect(Math.round(p.x-11*scale),Math.round(p.y-24*scale),Math.round(22*scale),Math.round(32*scale));
  }
@@ -3925,15 +3926,16 @@ function actorSpriteScale(){
 function figure(u,team){
  if(!u)return;
  const hero=team==='player',alive=u.hp>0;
+ if(!alive&&u.visualDeathAt===undefined)u.visualDeathAt=clock;
  const foot=point(u.x,u.z),x=Math.round(foot.x),y=Math.round(foot.y),air=hero?0:(u.air||0);
  const moving=(u.moveMagnitude||0)>.13;
  // Durante o ataque, não alternar de repente os frames de caminhada.
  const heading=Math.atan2(u.face.z,u.face.x);
  const direction=((Math.round(heading/ (TAU/8))%8)+8)%8;
- const img=hero?raceAsset(activeRace()):enemySprite(u.style);
+ const img=characterImage(u,hero);
  const atk=hero?u.act:null,attacking=hero?!!atk:u.phase==='strike';
  const progress=hero&&atk?atk.time/atk.move.dur:attacking?1-clamp(u.strike/(u.strikeMax||.3),0,1):0;
- const animFrame=attacking?Math.min(3,Math.floor(clamp(progress,0,.999)*4)):moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0;
+ const motion=characterMotion(u,hero),animFrame=motion.frame;
  const sw=hero&&atk?swingPose(atk.move,progress):{angle:.0,active:attacking};
  const parrying=hero&&u.parryWindow>0,dodging=hero&&u.dodge>0;
  const stagger=clamp((u.reaction||0)/.30,0,1);
@@ -3960,13 +3962,14 @@ function figure(u,team){
   if(hero&&!settings.reducedMotion&&!atk&&!moving&&!parrying&&!dodging)lean+=Math.sin(clock*2.2)*.009;
  ctx.rotate(hero?0:lean); // evita flicker por interpolação da sprite no giro
  if(img&&(img.naturalWidth||img.width)){
-   if(!alive)ctx.globalAlpha=.35;
+   if(!alive&&img.naturalHeight!==2688)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
    const idle=hero&&!moving&&!atk&&!settings.reducedMotion?Math.max(0,Math.round(Math.sin(clock*2.2)*s*.55)):0;
     const bounce=moving&&!atk?Math.abs(Math.sin(u.walk||0))*2:idle;
    // Apoio dos pés sobre a célula do mundo para a sobreposição ficar natural.
    const footY=runState?.world?44:34;
-   const spriteRow=attacking&&img.naturalHeight===768?direction+8:direction;
+   const spriteRow=img.naturalHeight===2688?direction+motion.state*8:
+     attacking&&img.naturalHeight===768?direction+8:direction;
     ctx.drawImage(img,animFrame*32,spriteRow*48,32,48,Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
    ctx.globalAlpha=1;
  }else{
@@ -3982,7 +3985,7 @@ function figure(u,team){
  const pose=visualWeaponPose({...u,face:drawFacing},archetype,attacking,sw.angle,parrying,s,progress,atk?.move);
   const {a,r,x1,y1,x2,y2,side}=pose;
  ctx.lineCap='square';
- const equipmentDrawn=drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress);
+ const equipmentDrawn=!alive||drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress);
  if(equipmentDrawn){
   // Sprite PNG no lugar das linhas; a pose segue o joystick/ataque.
  }else if(hero&&archetype==='hunter'){
@@ -4068,7 +4071,7 @@ function figure(u,team){
   ctx.fillRect(shieldX,shieldY,Math.round(11*s),Math.round(17*s));
   ctx.fillStyle='#c2fff0';ctx.fillRect(shieldX+Math.round(2*s),shieldY+Math.round(3*s),Math.round(3*s),Math.round(9*s));
  }
- if(!hero&&u.style==='elite'&&img.naturalHeight!==768){
+ if(!hero&&alive&&u.style==='elite'&&img.naturalHeight!==768&&img.naturalHeight!==2688){
   const col=u.bossStage===3?'#ff7268':u.bossStage===2?'#f4c36d':'#e4d4a0';
   ctx.fillStyle=col;ctx.fillRect(Math.round(-9*s),Math.round(-47*s),Math.round(18*s),Math.round(5*s));
   ctx.fillRect(Math.round(-8*s),Math.round(-51*s),Math.round(4*s),Math.round(7*s));
@@ -4485,6 +4488,16 @@ window.__rpgDebug.spriteFiles=()=>Object.fromEntries(
   width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
  }]));
 window.__rpgDebug.spriteAsset=race=>raceAsset(race);
+window.__rpgDebug.advancedAnimationNames=()=>[...CHARACTER_MOTIONS];
+window.__rpgDebug.advancedAnimationFiles=()=>({
+ actors:Object.fromEntries(Object.entries(ADVANCED_ACTOR_SPRITES).map(([id,img])=>[id,{
+  loaded:animatedSpriteReady(img),width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }])),
+ enemies:Object.fromEntries(Object.entries(ADVANCED_ENEMY_SPRITES).map(([id,img])=>[id,{
+  loaded:animatedSpriteReady(img),width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }]))
+});
+window.__rpgDebug.animationState=(u,hero)=>characterMotion(u,!!hero);
 window.__rpgDebug.enemySpriteFiles=()=>Object.fromEntries(
  Object.entries(ENEMY_SPRITES).map(([key,img])=>[key,{
   loaded:!!img.complete&&img.naturalWidth===128&&img.naturalHeight===768,
