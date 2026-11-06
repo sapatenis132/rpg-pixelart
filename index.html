@@ -1113,6 +1113,15 @@ const RACE_SHAPES={
  dwarf:{headY:13,headW:14,headH:10,torsoY:25,torsoW:21,torsoH:12,legY:37,footY:44,bootW:8,armW:5},
  halfling:{headY:17,headW:11,headH:11,torsoY:29,torsoW:13,torsoH:9,legY:38,footY:45,bootW:9,armW:3}
 };
+// Identidades visuais: não alteram nenhuma mecânica racial existente.
+// Cadência e oscilação afetam SOMENTE o desenho dos sprites.
+const RACE_VISUAL_LANGUAGE={
+ human:{silhouette:'Equilibrada, cabelo assimétrico',stride:1,bob:1.65},
+ elf:{silhouette:'Alto e esguio, orelhas alongadas',stride:.91,bob:.60},
+ orc:{silhouette:'Torso amplo, mandíbula e presas',stride:.79,bob:2.05},
+ dwarf:{silhouette:'Compacto, ombros e barba volumosos',stride:.86,bob:.75},
+ halfling:{silhouette:'Baixo, passos rápidos e pés largos',stride:1.21,bob:1.35}
+};
 // SPRITES RACIAIS v1: atlas pixel art gerado uma vez e reutilizado em combate e no criador.
 // Proporções, orelhas, rosto e cores são características VISUAIS provisórias, sem novo lore.
 let RACE_SPRITES=null;
@@ -3711,6 +3720,25 @@ function drawPlayableOutfitFrame(context,img,frame,row,x,y,w,h,race){
  context.drawImage(img,frame*32,row*48,32,48,x,y,w,h);
  context.restore();
 }
+// Revisão racial v2: anatomia externa e detalhes de identidade separados
+// para ficarem por cima de roupa e armadura, mesmo durante a esquiva.
+const RACE_REFINED_SPRITES={},RACE_TRAIT_SPRITES={};
+for(const id of Object.keys(RACE_OPTIONS)){
+ const body=new Image(),identity=new Image();body.decoding='async';identity.decoding='async';
+ RACE_REFINED_SPRITES[id]=body;RACE_TRAIT_SPRITES[id]=identity;
+ const repaint=()=>{if($('creatorOverlay')?.classList.contains('open'))renderCharacterCreator();};
+ body.onload=repaint;identity.onload=repaint;
+ body.src='assets/sprites/playable/races/'+id+'.png';
+ identity.src='assets/sprites/playable/race-traits/'+id+'.png';
+}
+function playableRaceRefined(id){
+ const img=RACE_REFINED_SPRITES[id];
+ return animatedSpriteReady(img)?img:null;
+}
+function playableRaceTraits(id){
+ const img=RACE_TRAIT_SPRITES[id];
+ return animatedSpriteReady(img)?img:null;
+}
 const ADVANCED_ACTOR_SPRITES={},ADVANCED_ENEMY_SPRITES={};
 for(const id of Object.keys(RACE_OPTIONS)){
  const img=new Image();img.decoding='async';ADVANCED_ACTOR_SPRITES[id]=img;
@@ -3725,8 +3753,8 @@ function animatedSpriteReady(img){
 }
 function characterImage(u,hero){
  if(hero){
-  const id=activeRace(),img=ADVANCED_ACTOR_SPRITES[id];
-  return animatedSpriteReady(img)?img:raceAsset(id);
+  const id=activeRace(),refined=playableRaceRefined(id),old=ADVANCED_ACTOR_SPRITES[id];
+  return refined||(animatedSpriteReady(old)?old:raceAsset(id));
  }
  const img=ADVANCED_ENEMY_SPRITES[u.style]||ADVANCED_ENEMY_SPRITES.enemy;
  return animatedSpriteReady(img)?img:enemySprite(u.style);
@@ -3767,7 +3795,8 @@ function playerMoveIdentity(move,archetype){
 function characterMotion(u,hero){
  const alive=u.hp>0,attack=hero?u.act:null,
   moving=(u.moveMagnitude||0)>.13;
- const walkFrame=Math.floor(Math.abs(u.walk||0)*.52)%4;
+ const visual=hero?RACE_VISUAL_LANGUAGE[activeRace()]:null;
+ const walkFrame=Math.floor(Math.abs(u.walk||0)*.52*(visual?.stride||1))%4;
  const progress=attack?clamp(attack.time/(attack.move.dur||1),0,.999):
   clamp(1-(u.strike||0)/(u.strikeMax||.3),0,.999);
  const step=t=>Math.max(0,Math.min(3,Math.floor(t*4)));
@@ -4165,7 +4194,9 @@ function figure(u,team){
    if(!alive&&img.naturalHeight!==2688)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
    const idle=hero&&!moving&&!atk&&!settings.reducedMotion?Math.max(0,Math.round(Math.sin(clock*2.2)*s*.55)):0;
-    const bounce=moving&&!atk?Math.abs(Math.sin(u.walk||0))*2:idle;
+    const bounce=moving&&!atk?
+      Math.abs(Math.sin((u.walk||0)*(hero?(RACE_VISUAL_LANGUAGE[activeRace()]?.stride||1):1)))*
+      (hero?(RACE_VISUAL_LANGUAGE[activeRace()]?.bob||1.65):2):idle;
    // Apoio dos pés sobre a célula do mundo para a sobreposição ficar natural.
    const footY=runState?.world?44:34;
    const spriteRow=img.naturalHeight===2688?direction+motion.state*8:
@@ -4712,6 +4743,16 @@ window.__rpgDebug.playableOutfits=()=>Object.fromEntries(
  }]));
 window.__rpgDebug.playableCostume=role=>playableOutfit(role);
 window.__rpgDebug.playableOutfitTop=playableOutfitTop;
+window.__rpgDebug.raceVisualLanguage=()=>JSON.parse(JSON.stringify(RACE_VISUAL_LANGUAGE));
+window.__rpgDebug.refinedRaces=()=>Object.fromEntries(
+ Object.keys(RACE_OPTIONS).map(id=>[id,{
+  body:{loaded:!!playableRaceRefined(id),width:RACE_REFINED_SPRITES[id].naturalWidth,
+    height:RACE_REFINED_SPRITES[id].naturalHeight,src:RACE_REFINED_SPRITES[id].getAttribute('src')},
+  traits:{loaded:!!playableRaceTraits(id),width:RACE_TRAIT_SPRITES[id].naturalWidth,
+    height:RACE_TRAIT_SPRITES[id].naturalHeight,src:RACE_TRAIT_SPRITES[id].getAttribute('src')}
+ }]));
+window.__rpgDebug.refinedRaceImage=id=>playableRaceRefined(id);
+window.__rpgDebug.raceTraitsImage=id=>playableRaceTraits(id);
 window.__rpgDebug.playableAttackTiming=playableAttackTiming;
 window.__rpgDebug.playerMoveIdentity=playerMoveIdentity;
 window.__rpgDebug.forestArtFiles=()=>({
