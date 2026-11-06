@@ -810,6 +810,44 @@ try{
    assert.deepEqual(Object.keys(uniqueFeatures.found).sort(),Object.keys(uniqueFeatures.want).sort(),
     'cada um dos 11 novos mapas deve ter uma característica física ou visual própria');
 
+   // ETAPA VISUAL: personagens, troncos e copas compartilham a mesma
+   // profundidade isométrica. A arte é maior que a colisão de um tile.
+   const depthCheck=await page.evaluate(()=>{
+    const d=window.__rpgDebug;
+    let sample=null;
+    for(let seed=1;seed<=45&&!sample;seed++){
+     const world=d.worldForSeed(seed);
+     for(const room of Object.values(world.rooms)){
+      if(!room.spawnTemplate&&!room.forestTraversal)continue;
+      const data=room.spawnTemplate?d.spawnGeometry(seed):d.forestGeometry(seed,room.id);
+      const tree=data.props.find(o=>o.type==='tree');
+      if(tree){sample={seed,id:room.id,tree};break;}
+     }
+    }
+    if(!sample)return{error:'nenhuma árvore procedimental para verificar'};
+    const {seed,id,tree}=sample;
+    const order=(x,z)=>d.forestSceneOrder(seed,id,x,z);
+    const index=(entries,kind)=>entries.findIndex(e=>kind==='actor'?
+     e.kind==='actor':e.kind==='feature'&&e.type==='tree'&&
+     e.x===tree.x+.5&&e.z===tree.z+.5);
+    const behind=order(tree.x-2,tree.z-2);
+    const front=order(tree.x+3,tree.z+3);
+    d.debugStartSeed(seed);
+    const scale=d.forestVisualScale();
+    return{sample,behind: index(behind,'actor')<index(behind,'tree'),
+     front:index(front,'actor')>index(front,'tree'),scale};
+   });
+   assert.equal(depthCheck.error,undefined,depthCheck.error||'');
+   assert.ok(depthCheck.behind,'árvore deve cobrir personagem que está atrás');
+   assert.ok(depthCheck.front,'personagem deve ficar à frente da árvore ao ultrapassar o tronco');
+   assert.ok(depthCheck.scale.actor<depthCheck.scale.training*.75,
+    'ator na campanha deve ser proporcionalmente menor que na arena');
+   assert.ok(depthCheck.scale.treeWidth>32*depthCheck.scale.actor*2,
+    'árvores devem ser pelo menos duas vezes mais largas que o boneco');
+   assert.ok(depthCheck.scale.treeHeight>48*depthCheck.scale.actor*2,
+    'árvores devem ser pelo menos duas vezes mais altas que o boneco');
+   await page.screenshot({path:resolve(root,'screenshots','floresta-escala-e-camadas.png')});
+
    for(const [variant,seed] of Object.entries(forestCheck.samples)){
     const result=await page.evaluate(seed=>{
      const d=window.__rpgDebug;
