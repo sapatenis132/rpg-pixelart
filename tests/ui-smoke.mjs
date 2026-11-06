@@ -196,8 +196,12 @@ try{
    const attack=d.playableAttackTiming;
    const light={impact:.39,dur:.3},heavy={impact:.55,dur:.7,fin:true};
    return {files,names,checks,
-    sequence:[attack(light,0),attack(light,.25),attack(light,.39),attack(light,.96)],
+    sequence:[attack(light,0),attack(light,.16),attack(light,.39),attack(light,.96)],
     heavyImpact:attack(heavy,.55),heavyLead:attack(heavy,0),
+    meleeWindow:[attack(light,.21),attack(light,.39),attack(light,.57),
+      attack(light,.605)],
+    rangedVolley:[attack({ranged:true,impact:.43,dur:.48,shots:3,delayStep:.07},.43),
+      attack({ranged:true,impact:.43,dur:.48,shots:3,delayStep:.07},.65)],
     identities:[
      d.playerMoveIdentity({ranged:true,heavyShot:true,magic:true},'arcanist'),
      d.playerMoveIdentity({ranged:true,shots:4},'arcanist'),
@@ -224,6 +228,10 @@ try{
    'quadros seguem antecipação, contato e recuperação');
   assert.ok(costumes.heavyImpact.released&&!costumes.heavyLead.released,
    'a leitura da ação não antecipa o impacto físico');
+  assert.deepEqual(costumes.meleeWindow.map(x=>x.frame),[2,2,2,3],
+   'a pose de contato cobre toda a janela ativa da hitbox');
+  assert.ok(costumes.rangedVolley.every(x=>x.frame===2&&x.contact),
+   'a postura de disparo permanece durante a salva escalonada');
   assert.deepEqual(costumes.identities,
    ['charged-orb','salvo','piercing-shot','volley','shield-bash','thrust']);
   assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
