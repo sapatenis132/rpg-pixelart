@@ -2475,6 +2475,19 @@ function forestGroundTile(type,variant,colors){
   c.fillStyle=highlight;c.fillRect(29,15,6,2);
   c.fillRect(14+variant,18,4,1);
  }
+ // Material clusters are spaced along the isometric plane, never scattered
+ // outside its silhouette. Water has horizontal reflections, stone has seams.
+ if(/Water|water|Shallow|Mist/.test(type)){
+  c.fillStyle='#315d65';c.fillRect(21,12,13,1);c.fillRect(34,20,10,1);
+  c.fillStyle=highlight;c.fillRect(23+variant,11,7,1);c.fillRect(38-variant,19,4,1);
+ }else if(stones){
+  c.fillStyle='#2d3e42';c.fillRect(24,10,1,7);c.fillRect(24,16,12,1);
+  c.fillRect(37,17,1,6);c.fillStyle=highlight;c.fillRect(26,11,8,1);
+ }else{
+  c.fillStyle='#1f4233';c.fillRect(17,16,6,1);c.fillRect(40,20,4,1);
+  c.fillStyle=highlight;c.fillRect(18,14,1,2);c.fillRect(21,15,1,1);
+  c.fillRect(40,18,1,2);c.fillRect(43,19,1,1);
+ }
  forestGroundTileCache.set(key,atlas);return atlas;
 }
 function drawSpawnGround(g){
@@ -2676,6 +2689,9 @@ function drawSpawnDebris(p){
  ctx.fillStyle='#172127';ctx.fillRect(x-3*sz,y-sz,7*sz,2*sz);
  ctx.fillStyle='#515e69';ctx.fillRect(x-2*sz,y-3*sz,5*sz,3*sz);
  ctx.fillStyle='#a0aca9';ctx.fillRect(x-2*sz,y-3*sz,3*sz,sz);
+ ctx.fillStyle='#384854';ctx.fillRect(x+sz,y-2*sz,sz,2*sz);
+ ctx.fillRect(x-sz,y-sz,sz,sz);ctx.fillStyle='#c0c5ac';ctx.fillRect(x-2*sz,y-3*sz,sz,Math.max(1,sz/2));
+ ctx.fillStyle='#5b7755';ctx.fillRect(x-sz,y-sz,sz*2,Math.max(1,sz/2));
 }
 const colossalRootCache=new Map();
 function drawColossalRoot(start,bend,end,width,seed){
@@ -2719,6 +2735,11 @@ function drawColossalRoot(start,bend,end,width,seed){
    if(i%11===3){
     brush.fillStyle='#3d3025';brush.fillRect(p.x,p.y,Math.max(1,p.r),1);
    }
+   if(i%13===5&&p.r>2){
+    // Split bark plate: warm upper bevel and cool lower crevice.
+    brush.fillStyle='#bb8d56';brush.fillRect(p.x-2,p.y-rim-1,2,1);
+    brush.fillStyle='#28352a';brush.fillRect(p.x+1,p.y+1,2,1);
+   }
    if(p.t<.55&&seeded(seed+217,i*37)>.83){
     brush.fillStyle=i%2?'#55704a':'#718358';
     brush.fillRect(p.x-1,p.y-rim,2,1);
@@ -2741,6 +2762,23 @@ function drawColossalTrunk(){
  for(const [a,b,c] of [[-.32,.16,'#94603b'],[-.14,.08,'#403028'],[.08,.1,'#a06b41'],[.31,.10,'#3c3025']]){
   ctx.fillStyle=c;ctx.fillRect(x+width*a,y-height,width*b,height);
  }
+ // Large bark plates break the old uninterrupted vertical stripes. The
+ // marks follow the trunk and are deterministic at every camera scale.
+ for(let row=0;row<11;row++)for(let column=0;column<4;column++){
+  const px=Math.round(x-width*.37+column*4*sz+(row%2)*sz),
+   py=Math.round(y-height+row*7*sz+3*sz),t=(row+column*3)%4;
+  ctx.fillStyle='#372d25';ctx.fillRect(px,py,sz,4*sz);
+  ctx.fillRect(px,py+3*sz,2*sz,sz);
+  ctx.fillStyle=t===0?'#bc8752':'#966d43';ctx.fillRect(px-sz,py,sz,3*sz);
+  if(t===1){ctx.fillStyle='#567449';ctx.fillRect(px-sz,py+5*sz,3*sz,sz);}
+ }
+ // A hollow knot with stepped rings reads as old wood rather than a flat wall.
+ const knotX=Math.round(x-width*.08),knotY=Math.round(y-28*sz);
+ ctx.fillStyle='#302a24';ctx.fillRect(knotX-3*sz,knotY,6*sz,7*sz);
+ ctx.fillRect(knotX-2*sz,knotY-sz,4*sz,9*sz);
+ ctx.fillStyle='#ab794a';ctx.fillRect(knotX-3*sz,knotY,sz,6*sz);
+ ctx.fillRect(knotX-2*sz,knotY-sz,4*sz,sz);
+ ctx.fillStyle='#563b29';ctx.fillRect(knotX-sz,knotY+2*sz,2*sz,4*sz);
  ctx.fillStyle='#52714a';ctx.fillRect(x-width*.47,y-7*sz,width*.3,3*sz);
  ctx.fillRect(x+width*.18,y-10*sz,width*.28,5*sz);
  // Raízes largas e expostas sustentam o solo; braços menores colidem.
@@ -2762,7 +2800,17 @@ function drawRuinedArch(){
    ctx.fillStyle=stone[(k+index)%stone.length];
    ctx.fillRect(x-width*.45,y-height+k*5*sz,width*.82,2*sz);
    ctx.fillStyle='#314b46';ctx.fillRect(x+width*.12,y-height+k*5*sz,sz,2*sz);
+   // Inset masonry joints, left-lit bevels and a staggered crack pattern.
+   const yy=Math.round(y-height+k*5*sz);
+   ctx.fillStyle='#38444b';ctx.fillRect(Math.round(x-width*.43),yy+3*sz,Math.round(width*.85),sz);
+   ctx.fillRect(Math.round(x+(k%2?-.19:.16)*width),yy+sz,sz,2*sz);
+   ctx.fillStyle='#bdc3ad';ctx.fillRect(Math.round(x-width*.44),yy,2*sz,sz);
+   if(k%2===index){ctx.fillStyle='#5b7953';ctx.fillRect(Math.round(x-width*.37),yy+2*sz,2*sz,sz);}
   }
+  // Broad broken plinths root the pillars in the same pixel grid.
+  ctx.fillStyle='#2a3840';ctx.fillRect(x-6*sz,y-sz,12*sz,3*sz);
+  ctx.fillStyle='#89948c';ctx.fillRect(x-6*sz,y-sz,11*sz,sz);
+  ctx.fillStyle='#55754f';ctx.fillRect(x-5*sz,y-sz,3*sz,sz);
   ctx.fillStyle='#42674d';ctx.fillRect(x-width*.42,y-5*sz,3*sz,sz);
  }
  for(let i=0;i<8;i++){
@@ -2772,6 +2820,8 @@ function drawRuinedArch(){
   ctx.fillStyle=stone[(i+1)%stone.length];
   ctx.fillRect(Math.round(x)-2*sz,Math.round(y)-3*sz,4*sz,4*sz);
   ctx.fillStyle='#bac0b0';ctx.fillRect(Math.round(x)-2*sz,Math.round(y)-3*sz,2*sz,sz);
+  ctx.fillStyle='#37494c';ctx.fillRect(Math.round(x)+sz,Math.round(y)-2*sz,sz,3*sz);
+  ctx.fillStyle='#62815a';ctx.fillRect(Math.round(x)-sz,Math.round(y)-4*sz,2*sz,sz);
  }
 }
 // Cada objeto usa a projeção do próprio pé. A ordem de pintura é feita
@@ -2844,6 +2894,20 @@ function drawWorldProp(prop){
  ctx.fillRect(p.x-size*.75,p.y-size*2,1.5*size,1.6*size);
  ctx.fillStyle=prop.type==='stone'?'#9eb6bf':'#5caa74';
  ctx.fillRect(p.x-size*.55,p.y-size*2.1,size,size*.7);
+ const pixel=Math.max(1,Math.round(size/3)),x=Math.round(p.x),y=Math.round(p.y);
+ if(prop.type==='stone'){
+  ctx.fillStyle='#2d424f';ctx.fillRect(x+pixel,y-5*pixel,pixel,4*pixel);
+  ctx.fillRect(x-pixel,y-2*pixel,2*pixel,pixel);
+  ctx.fillStyle='#c1c7b0';ctx.fillRect(x-2*pixel,y-6*pixel,2*pixel,pixel);
+  ctx.fillStyle=runState?.region==='tundra'?'#d4e7e5':'#687c59';
+  ctx.fillRect(x-2*pixel,y-pixel,3*pixel,pixel);
+ }else{
+  ctx.fillStyle='#173f35';ctx.fillRect(x-pixel,y-4*pixel,pixel,3*pixel);
+  ctx.fillRect(x+pixel,y-3*pixel,2*pixel,pixel);
+  ctx.fillStyle='#8ab07a';ctx.fillRect(x-2*pixel,y-5*pixel,pixel,pixel);
+  ctx.fillRect(x,y-6*pixel,pixel,pixel);
+  ctx.fillStyle='#354f35';ctx.fillRect(x-pixel,y-pixel,3*pixel,pixel);
+ }
 }
 // Pintura isométrica por profundidade: os objetos atrás do ator aparecem
 // primeiro; copas, rochas e estruturas à frente cobrem seu corpo.
@@ -3717,24 +3781,59 @@ function interactWithNearest(){
 }
 function drawInteractables(){
  if(!drill.active||runState?.active||!interactables.length)return;
- ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 10px system-ui,sans-serif';
+ ctx.save();ctx.imageSmoothingEnabled=false;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 10px monospace';
  for(const o of [...interactables].sort((a,b)=>(a.x+a.z)-(b.x+b.z))){
   const p=point(o.x,o.z),x=Math.round(p.x),y=Math.round(p.y);const close=o.id===nearestInteractable?.id;
+  const rect=(px,py,width,height,color)=>{ctx.fillStyle=color;ctx.fillRect(x+px,y+py,width,height);};
+  // Native pixel clusters: a shared contact shadow and a restrained light source.
+  rect(-9,0,18,3,'#06131ccc');rect(-12,1,24,1,'#06131c88');
   if(o.kind==='npc'){
-   ctx.fillStyle='#061920';ctx.fillRect(x-9,y-20,18,20);
-   ctx.fillStyle='#66d3bd';ctx.fillRect(x-7,y-18,14,12);
-   ctx.fillStyle='#b8f5e6';ctx.fillRect(x-5,y-24,10,8);
-   ctx.fillStyle='#183d49';ctx.fillRect(x-8,y-5,6,7);ctx.fillRect(x+2,y-5,6,7);
+   // Hair, eyes, skin planes and a travel coat remain readable at mobile scale.
+   rect(-6,-32,12,2,'#172932');rect(-7,-30,14,10,'#172932');
+   rect(-5,-31,10,4,'#9b7751');rect(-5,-30,5,1,'#d3af78');
+   rect(-5,-27,10,8,'#d8b48c');rect(-5,-25,2,4,'#edcba0');rect(4,-26,2,6,'#ad805e');
+   rect(-5,-27,3,2,'#654b3a');rect(2,-27,3,2,'#654b3a');
+   rect(-3,-24,2,1,'#253640');rect(2,-24,2,1,'#253640');
+   rect(0,-22,1,2,'#a77a59');rect(-2,-20,5,1,'#a77a59');
+   rect(-9,-19,18,16,'#172932');rect(-10,-17,3,10,'#172932');rect(7,-17,3,10,'#172932');
+   rect(-8,-18,7,14,'#6aa99c');rect(0,-18,8,14,'#3e706e');
+   rect(-7,-17,2,9,'#91c8b3');rect(-7,-18,6,3,'#b5d2b8');rect(1,-18,5,2,'#86ad9b');
+   rect(-1,-16,2,12,'#243e49');rect(-9,-15,3,7,'#6aa99c');rect(7,-15,2,7,'#426c6c');
+   rect(-9,-8,3,3,'#d8b48c');rect(7,-8,3,3,'#bb936f');
+   rect(-7,-7,14,2,'#6b4b38');rect(-1,-7,3,2,'#d9b56c');
+   rect(-6,-4,5,5,'#243e49');rect(2,-4,5,5,'#243e49');
+   rect(-7,0,6,2,'#172932');rect(2,0,6,2,'#172932');rect(-6,0,3,1,'#697e81');
+   rect(4,-11,3,4,'#805d40');rect(4,-11,3,1,'#d7ad6e');
+  }else if(['portal','exit','entrance'].includes(o.kind)){
+   // Stone jambs surround a faceted light; no collision or travel logic changes.
+   rect(-10,-28,20,29,'#172932');rect(-12,-24,4,25,'#617d83');rect(8,-24,4,25,'#3c535f');
+   rect(-8,-30,16,5,'#9bad9c');rect(-10,-25,3,2,'#c9d1af');rect(9,-25,2,2,'#9bad9c');
+   rect(-7,-25,14,24,'#383d62');rect(-5,-23,10,21,'#63678f');rect(-3,-21,6,18,'#91bbc0');
+   rect(-1,-20,2,15,'#c5e6cd');rect(-5,-19,2,4,'#a4d1cc');rect(3,-9,2,5,'#7e9faf');
+   rect(-14,0,28,3,'#172932');rect(-12,0,24,1,'#b4bda5');
+  }else if(o.kind==='heal'){
+   rect(-7,-24,14,21,'#172932');rect(-5,-23,10,17,'#4d8d80');
+   rect(-4,-21,4,13,'#84c0a1');rect(-3,-24,6,2,'#d9b56c');
+   rect(-1,-20,2,10,'#e9e1c2');rect(-4,-17,8,3,'#e9e1c2');
+   rect(-9,-5,18,4,'#172932');rect(-7,-5,14,2,'#9eaa99');
   }else{
-   ctx.fillStyle='#07161e';ctx.fillRect(x-11,y-14,22,15);
-   ctx.fillStyle='#a77942';ctx.fillRect(x-10,y-16,20,14);
-   ctx.fillStyle='#e0b475';ctx.fillRect(x-9,y-18,18,5);
-   ctx.fillStyle='#e4e5bb';ctx.fillRect(x-2,y-15,4,11);
+   // Brass bindings, wood slats and a raised lock establish the chest volume.
+   rect(-12,-15,24,16,'#172932');rect(-10,-18,20,4,'#172932');
+   rect(-10,-16,20,5,'#bd8d53');rect(-9,-17,18,1,'#e2ba77');
+   rect(-11,-12,22,11,'#805638');rect(-10,-11,19,2,'#ac7a45');
+   rect(-10,-6,19,1,'#a57443');rect(-10,-2,20,1,'#553c30');rect(9,-11,2,10,'#5e4131');
+   rect(-8,-16,2,15,'#d5ac62');rect(6,-16,2,15,'#aa8248');
+   rect(-8,-15,1,3,'#efcf88');rect(-8,-8,1,1,'#efcf88');rect(6,-8,1,1,'#efcf88');
+   rect(-2,-12,5,7,'#172932');rect(-1,-11,3,5,'#d5ac62');rect(0,-10,1,2,'#4d3930');
+   rect(-11,-1,4,3,'#172932');rect(7,-1,4,3,'#172932');
   }
-  if(close){ctx.strokeStyle='#c5fce1';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x,y+3,16,8,0,0,Math.PI*2);ctx.stroke();}
-  const label=o.kind==='npc'?'TESTE NPC':'TESTE BAÚ';const width=ctx.measureText(label).width+10;
-  ctx.fillStyle='#071b24d9';ctx.fillRect(Math.round(x-width/2),y-39,Math.round(width),15);
-  ctx.fillStyle='#d6ffea';ctx.fillText(label,x,y-31);
+  if(close){
+   for(const sign of [-1,1]){rect(sign<0?-18:13,2,5,2,'#b9e5ca');rect(sign<0?-14:9,5,5,2,'#82bba9');}
+   rect(-8,7,16,1,'#82bba9');
+  }
+  const label=o.kind==='npc'?'TESTE NPC':o.kind==='chest'?'TESTE BAÚ':o.name;const width=ctx.measureText(label).width+10;
+  ctx.fillStyle='#071b24e8';ctx.fillRect(Math.round(x-width/2),y-48,Math.round(width),15);
+  ctx.fillStyle='#d6ffea';ctx.fillText(label,x,y-40);
  }
  ctx.restore();
 }function update(dt){const beforeWorld=runState?.world&&roomGeometry?{player:{x:player.x,z:player.z},enemies:new Map(enemies.map(e=>[e.id,{x:e.x,z:e.z}]))}:null;roomTransitionCooldown=Math.max(0,roomTransitionCooldown-dt);clock+=dt;refreshNearbyInteractable();if(runState?.active){saveTimer+=dt;if(saveTimer>=5){saveTimer=0;saveCampaign();setCampaignHud();}}shake*=Math.exp(-dt*14);
@@ -4072,6 +4171,20 @@ function pixelEllipse(x,y,rx,ry,size,color){
   previous=next;
  }
 }
+// Scanline triangles keep warning/aim markers on the same crisp pixel grid.
+function pixelTriangle(a,b,c,color){
+ const points=[a,b,c].sort((p,q)=>p.y-q.y);
+ ctx.fillStyle=color;
+ for(let y=Math.ceil(points[0].y);y<=Math.floor(points[2].y);y++){
+  const cuts=[];
+  for(let i=0;i<3;i++){
+   const p=points[i],q=points[(i+1)%3];
+   if(p.y===q.y||y<Math.min(p.y,q.y)||y>=Math.max(p.y,q.y))continue;
+   cuts.push(p.x+(q.x-p.x)*(y-p.y)/(q.y-p.y));
+  }
+  if(cuts.length===2){const left=Math.ceil(Math.min(...cuts)),right=Math.floor(Math.max(...cuts));ctx.fillRect(left,y,right-left+1,1);}
+ }
+}
 function pixelArcSegment(cx,cy,rx,ry,start,end,size,color){
  const count=Math.max(8,Math.ceil(Math.abs(end-start)*Math.max(rx,ry)/5));
  let last=null;
@@ -4120,7 +4233,9 @@ function pixelArcTrail(a){
   for(let i=0;i<=24;i++){
    const t=start+(end-start)*i/24,next={x:ox+Math.cos(t)*rad,y:oy+Math.sin(t)*rad};
    if(last){
-    pixelSegment(last.x,last.y,next.x,next.y,px*3,main);
+    // Tapered ribbons retain an opaque cutting edge and a shorter afterimage.
+    const thickness=Math.max(px,Math.round(px*(1+2*i/24)));
+    pixelSegment(last.x,last.y,next.x,next.y,thickness,main);
     if(i%2===0)pixelSegment(last.x,last.y-px,next.x,next.y-px,px,edge);
    }
    last=next;
@@ -4140,6 +4255,13 @@ function drawWeaponImage(key,x,y,width,height){
   Math.round(x),Math.round(y),Math.round(width),Math.round(height));
  return true;
 }
+// Local +X is always the projected shot direction. The limb tips stay fixed;
+// only the nock retracts toward the archer, then returns on release.
+function bowStringGeometry(width,height,pull,scale=1){
+ const tipX=-width*.25;
+ return{top:{x:tipX,y:-height*21/48},bottom:{x:tipX,y:height*20/48},
+  nock:{x:tipX-clamp(pull,0,1)*8*scale,y:0}};
+}
 function drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress){
  if(!WEAPON_ATLAS.complete||WEAPON_ATLAS.naturalWidth!==216)return false;
  const key=hero?({
@@ -4155,21 +4277,21 @@ function drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progres
  const stage=move?playableAttackTiming(move,progress):null;
  ctx.save();ctx.translate(Math.round(pose.x1),Math.round(pose.y1));
  if(hero&&key==='bow'){
-  // O arco tem o eixo perpendicular ao disparo. Antes ele girava como
-  // uma espada; a corda e a flecha agora mostram o ato de puxar/soltar.
   ctx.rotate(pose.aimAngle);
   drawWeaponImage(key,-width/2,-height/2,width,height);
+  const string=bowStringGeometry(width,height,pose.pull,s);
+  const thread=Math.max(1,Math.round(s*.65));
+  pixelSegment(string.top.x,string.top.y,string.nock.x,string.nock.y,thread,'#ded8b5');
+  pixelSegment(string.nock.x,string.nock.y,string.bottom.x,string.bottom.y,thread,'#ded8b5');
   if(attacking&&stage&&!stage.released){
-   const draw=Math.max(0,pose.pull);
    if(fxReady()){
-    const arrowLength=stage.phase==='anticipation'?25:20;
-    ctx.drawImage(FX_ATLAS,2*16,0,16,16,
-     Math.round(3*s-draw*8*s),Math.round(-arrowLength*.35),
-     Math.round(arrowLength*s*.65),Math.round(arrowLength*.55));
+    const arrowLength=28*s,arrowHeight=14*s;
+    ctx.drawImage(FX_ATLAS,(move?.largeArrow?3:2)*16,0,16,16,
+     Math.round(string.nock.x-arrowLength/16),Math.round(-arrowHeight*7/16),
+     Math.round(arrowLength),Math.round(arrowHeight));
    }
-   ctx.fillStyle='#e8e6c4';
-   const x=Math.round(-draw*8*s);
-   ctx.fillRect(x,Math.round(-height*.38),Math.max(2,Math.round(s)),Math.round(height*.76));
+   // A short leather glove makes the drawing hand readable over the string.
+   ctx.fillStyle='#9c7657';ctx.fillRect(Math.round(string.nock.x-s),Math.round(-2*s),Math.max(2,Math.round(2*s)),Math.max(2,Math.round(4*s)));
   }
  }else{
   // Espadas, adagas e cajados partem do punho; o tempo do giro não
@@ -4220,10 +4342,25 @@ function ground(){
       const p=point(i+.5,j+.5),x=Math.round(p.x),y=Math.round(p.y),sz=Math.max(2,Math.round(sx*.11));
       ctx.fillStyle=runState.region==='forest'?'#69c775':runState.region==='desert'?'#dcb867':runState.region==='tundra'?'#c9eaf4':'#af8be1';
       ctx.fillRect(x-sz,y-sz*2,sz*2,sz*2);
-      if(runState.region==='forest'){ctx.fillStyle='#236644';ctx.fillRect(x-sz*2,y-sz,sz*4,sz);}
-      else if(runState.region==='desert'){ctx.fillStyle='#547d50';ctx.fillRect(x,y-sz*3,sz,sz*4);}
-      else if(runState.region==='tundra'){ctx.fillStyle='#eefaff';ctx.fillRect(x,y-sz*4,sz,sz*2);}
-      else{ctx.fillStyle='#56418c';ctx.fillRect(x-sz,y-sz*4,sz*2,sz);}
+      if(runState.region==='forest'){
+       ctx.fillStyle='#236644';ctx.fillRect(x-sz*2,y-sz,sz*4,sz);
+       ctx.fillStyle='#a5bb77';ctx.fillRect(x-sz,y-sz*2,sz,Math.max(1,sz/2));
+       ctx.fillStyle='#173f32';ctx.fillRect(x,y-sz,sz,sz);
+      }else if(runState.region==='desert'){
+       ctx.fillStyle='#294f3e';ctx.fillRect(x-sz,y-sz*4,sz*3,sz*5);
+       ctx.fillStyle='#547d50';ctx.fillRect(x,y-sz*4,sz,sz*5);
+       ctx.fillRect(x-sz*2,y-sz*3,sz,sz*2);ctx.fillRect(x+sz,y-sz*2,sz,sz);
+       ctx.fillStyle='#a9ad6d';ctx.fillRect(x,y-sz*4,Math.max(1,sz/2),sz*4);
+      }else if(runState.region==='tundra'){
+       ctx.fillStyle='#6e9bb0';ctx.fillRect(x-sz,y-sz*3,sz*3,sz*4);
+       ctx.fillStyle='#eefaff';ctx.fillRect(x,y-sz*4,sz,sz*3);
+       ctx.fillStyle='#b2d8de';ctx.fillRect(x+sz,y-sz*2,sz,sz*2);
+      }else{
+       ctx.fillStyle='#342d50';ctx.fillRect(x-sz*2,y-sz*4,sz*4,sz*4);
+       ctx.fillStyle='#776493';ctx.fillRect(x-sz,y-sz*4,sz*2,sz*3);
+       ctx.fillStyle='#c5add3';ctx.fillRect(x-sz,y-sz*4,sz,sz*2);
+       ctx.fillStyle='#56418c';ctx.fillRect(x-sz,y-sz*4,sz*2,sz);
+      }
     }
   }
   // Stone pillars / pixels at the perimeter: simple procedural props, no external art.
@@ -4234,6 +4371,13 @@ function ground(){
     ctx.fillStyle='#75939b';ctx.fillRect(Math.round(p.x-s),Math.round(p.y-5*s),s,3*s);
     ctx.fillStyle='#263b46';ctx.fillRect(Math.round(p.x),Math.round(p.y-3*s),s,2*s);
     ctx.fillStyle='#b8d19a';ctx.fillRect(Math.round(p.x-s),Math.round(p.y-5*s),2*s,s);
+    // Chipped capital, masonry seam and moss follow the pillar's lit edge.
+    ctx.fillStyle='#263b46';ctx.fillRect(Math.round(p.x-s*1.5),Math.round(p.y-6*s),3*s,s);
+    ctx.fillStyle='#9baea8';ctx.fillRect(Math.round(p.x-s*1.5),Math.round(p.y-6*s),2*s,Math.max(1,Math.round(s/2)));
+    ctx.fillStyle='#172e39';ctx.fillRect(Math.round(p.x-s),Math.round(p.y-3*s),2*s,Math.max(1,Math.round(s/2)));
+    ctx.fillRect(Math.round(p.x-s*.25),Math.round(p.y-5*s),Math.max(1,Math.round(s/2)),2*s);
+    ctx.fillStyle='#607d57';ctx.fillRect(Math.round(p.x-s*1.5),Math.round(p.y-s),3*s,s);
+    ctx.fillStyle='#344d43';ctx.fillRect(Math.round(p.x-s*1.5),Math.round(p.y),3*s,Math.max(1,Math.round(s/2)));
   }
   const v=ctx.createRadialGradient(w*.5,h*.46,h*.12,w*.5,h*.5,Math.max(w,h)*.72);
   v.addColorStop(0,'#0000');v.addColorStop(1,'#03101bbc');ctx.fillStyle=v;ctx.fillRect(0,0,w,h);
@@ -4242,13 +4386,21 @@ function ellipse(x,y,rx,ry,fill){ctx.fillStyle=fill;ctx.beginPath();ctx.ellipse(
 function aimVisual(){
  if(!player||player.hp<=0)return;
  const p=point(player.x,player.z),tip=point(player.x+player.face.x*1.10,player.z+player.face.z*1.10);
- ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=2.1;ctx.strokeStyle=player.assist&&aimAssist?'#79ffe0':'#a9d7ef';ctx.shadowColor=player.assist?'#60ffd1':'#80d3ff';ctx.shadowBlur=9;
- ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(tip.x,tip.y);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;
- const theta=Math.atan2(tip.y-p.y,tip.x-p.x);ctx.beginPath();ctx.moveTo(tip.x+Math.cos(theta)*7,tip.y+Math.sin(theta)*7);ctx.lineTo(tip.x-Math.cos(theta-.55)*7,tip.y-Math.sin(theta-.55)*7);ctx.lineTo(tip.x-Math.cos(theta+.55)*7,tip.y-Math.sin(theta+.55)*7);ctx.closePath();ctx.fill();
- if(enemy&&enemy.hp>0){const d=length(enemy.x-player.x,enemy.z-player.z);const enemyDir=unit(enemy.x-player.x,enemy.z-player.z);const align=enemyDir.x*player.face.x+enemyDir.z*player.face.z;
-  if(d<4.2&&align>.4){const q=point(enemy.x,enemy.z);ctx.strokeStyle=aimAssist&&player.assist?'#85f7d7':'#bdd8e5';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.globalAlpha=.4+.15*Math.sin(clock*6);ctx.beginPath();ctx.ellipse(q.x,q.y,27,12,0,0,TAU);ctx.stroke();ctx.setLineDash([]);}
+ const col=player.assist&&aimAssist?'#89d8bd':'#9abacb';
+ ctx.save();ctx.globalAlpha=.64;ctx.shadowBlur=0;
+ pixelSegment(p.x,p.y,tip.x,tip.y,2,'#203943');
+ const theta=Math.atan2(tip.y-p.y,tip.x-p.x);
+ for(const sign of [-1,1])pixelSegment(tip.x,tip.y,
+  tip.x-Math.cos(theta+sign*.65)*8,tip.y-Math.sin(theta+sign*.65)*8,2,col);
+ for(const e of living()){
+  const q=point(e.x,e.z),focus=e.id===focusId;
+  ctx.globalAlpha=focus?.75:.23;
+  // Four corner brackets preserve target readability without covering its feet.
+  for(const sign of [-1,1]){
+   pixelSegment(q.x+sign*17,q.y-7,q.x+sign*26,q.y-3,2,focus?'#9cdbbd':'#9abacb');
+   pixelSegment(q.x+sign*17,q.y+7,q.x+sign*26,q.y+3,2,focus?'#9cdbbd':'#9abacb');
+  }
  }
- for(const e of living()){const p=point(e.x,e.z);ctx.save();ctx.globalAlpha=e.id===focusId?.8:.19;ctx.strokeStyle=e.id===focusId?'#a5ffe2':'#c9d7e3';ctx.lineWidth=e.id===focusId?2.6:1.3;ctx.setLineDash(e.id===focusId?[]:[5,5]);ctx.beginPath();ctx.ellipse(p.x,p.y,28,13,0,0,TAU);ctx.stroke();ctx.restore();}
  ctx.restore();
 }
 function drawDodgeEchoes(){
@@ -4365,16 +4517,16 @@ function actorSpriteScale(){
 function figure(u,team){
  if(!u)return;
  const hero=team==='player',alive=u.hp>0;
- if(hero&&!alive&&u.visualDeathAt===undefined)u.visualDeathAt=clock;
+ if(!alive&&u.visualDeathAt===undefined)u.visualDeathAt=clock;
  const foot=point(u.x,u.z),x=Math.round(foot.x),y=Math.round(foot.y),air=hero?0:(u.air||0);
  const moving=(u.moveMagnitude||0)>.13;
  // Durante o ataque, não alternar de repente os frames de caminhada.
  const heading=Math.atan2(u.face.z,u.face.x);
  const direction=((Math.round(heading/ (TAU/8))%8)+8)%8;
- const img=hero?characterImage(u,true):(PIXEL_ART[u.style]||PIXEL_ART.enemy);
+ const img=characterImage(u,hero);
  const atk=hero?u.act:null,attacking=hero?!!atk:u.phase==='strike';
  const progress=hero&&atk?atk.time/atk.move.dur:attacking?1-clamp(u.strike/(u.strikeMax||.3),0,1):0;
- const motion=hero?characterMotion(u,true):{state:0,frame:moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0,name:'walk'},animFrame=motion.frame;
+ const motion=characterMotion(u,hero),animFrame=motion.frame;
  const sw=hero&&atk?swingPose(atk.move,progress):{angle:.0,active:attacking};
  const parrying=hero&&u.parryWindow>0,dodging=hero&&u.dodge>0;
  const stagger=clamp((u.reaction||0)/.30,0,1);
@@ -4382,7 +4534,8 @@ function figure(u,team){
  ctx.save();ctx.imageSmoothingEnabled=false;
  // Blocky contact shadow, remains on ground while airborne.
  ctx.globalAlpha=alive?.72:.25;ctx.fillStyle='#01070f';
- ctx.fillRect(x-Math.round(14*s),y-3,Math.round(28*s),6);
+ ctx.fillRect(x-Math.round(11*s),y-3,Math.round(22*s),6);
+ ctx.fillRect(x-Math.round(14*s),y-1,Math.round(28*s),3);
  ctx.globalAlpha=1;
  if(air>0){ctx.strokeStyle='#e8a965';ctx.lineWidth=2;ctx.strokeRect(x-18*s,y-7,36*s,14);}
  // Avanço contínuo sem salto de posição entre preparação/impacto.
@@ -4409,7 +4562,7 @@ function figure(u,team){
       Math.abs(Math.sin((u.walk||0)*(hero?(RACE_VISUAL_LANGUAGE[activeRace()]?.stride||1):1)))*
       (hero?(RACE_VISUAL_LANGUAGE[activeRace()]?.bob||1.65):2):idle;
    // Apoio dos pés sobre a célula do mundo para a sobreposição ficar natural.
-   const footY=hero?RACE_SHAPES[activeRace()].footY+2:runState?.world?44:34;
+   const footY=hero?RACE_SHAPES[activeRace()].footY+2:img.naturalHeight>=768?44:runState?.world?44:34;
    const spriteRow=img.naturalHeight===2688?direction+motion.state*8:
      attacking&&img.naturalHeight===768?direction+8:direction;
    if(hero){
@@ -4432,7 +4585,7 @@ function figure(u,team){
  const pose=visualWeaponPose({...u,face:drawFacing},archetype,attacking,sw.angle,parrying,s,progress,atk?.move);
   const {a,r,x1,y1,x2,y2,side}=pose;
  ctx.lineCap='square';
- const equipmentDrawn=hero&&(!alive||drawEquipmentSprites(u,true,archetype,pose,s,attacking,parrying,progress));
+ const equipmentDrawn=!alive||drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress);
  if(equipmentDrawn){
   // Sprite PNG no lugar das linhas; a pose segue o joystick/ataque.
  }else if(hero&&archetype==='hunter'){
@@ -4548,18 +4701,22 @@ function warning(){
  const elite=e.style==='elite',unblockable=elite&&e.type==='crush',eliteDash=elite&&e.type==='dash';
  const col=unblockable?'#ff454f':elite?'#ffd27f':fake?'#c9a5ff':heavy?'#ffcd7e':rush?'#ff734f':'#ff696a';
  ctx.save();ctx.lineWidth=2+t*3;ctx.strokeStyle=col;ctx.globalAlpha=.6+t*.36;
- ctx.beginPath();ctx.ellipse(p.x,p.y,29+t*16,14+t*8,0,0,TAU);ctx.stroke();
+ pixelEllipse(p.x,p.y,29+t*16,14+t*8,2,col);
  const rad=eliteDash?160:unblockable?110:rush?125:elite&&e.type==='thrust'?135:heavy?90:73,spread=eliteDash?20:unblockable?76:elite&&e.type==='thrust'?20:rush?17:heavy?36:29;
  const cx=p.x+Math.cos(theta)*rad*.56,cy=p.y+Math.sin(theta)*rad*.56;
  ctx.fillStyle=fake?'#ac82ff29':rush?'#ff5d5140':heavy?'#ffb54b2e':'#ff5c512c';
- ctx.beginPath();ctx.moveTo(p.x,p.y);
- ctx.lineTo(cx+Math.cos(theta+Math.PI*.5)*spread,cy+Math.sin(theta+Math.PI*.5)*spread);
- ctx.lineTo(cx-Math.cos(theta+Math.PI*.5)*spread,cy-Math.sin(theta+Math.PI*.5)*spread);ctx.closePath();ctx.fill();
- ctx.lineWidth=2.5;ctx.strokeStyle=col;ctx.stroke();
+ const left={x:cx+Math.cos(theta+Math.PI*.5)*spread,y:cy+Math.sin(theta+Math.PI*.5)*spread};
+ const right={x:cx-Math.cos(theta+Math.PI*.5)*spread,y:cy-Math.sin(theta+Math.PI*.5)*spread};
+ pixelTriangle(p,left,right,ctx.fillStyle);
+ pixelSegment(p.x,p.y,left.x,left.y,2,col);pixelSegment(p.x,p.y,right.x,right.y,2,col);
+ pixelSegment(left.x,left.y,right.x,right.y,2,col);
  const labelText=unblockable?'INAPARÁVEL':eliteDash?'INVESTIDA':elite&&e.type==='thrust'?'ESTOCADA':elite?'CORTE':fake?'FINTA':rush?'INVESTIDA':heavy?'PESADO':'ATAQUE';
- ctx.textAlign='center';ctx.fillStyle=col;ctx.font='1000 11px system-ui';ctx.shadowColor=col;ctx.shadowBlur=10;
+ ctx.textAlign='center';ctx.fillStyle=col;ctx.font='bold 11px monospace';ctx.shadowBlur=0;
  ctx.fillText(labelText,p.x,p.y-110);
- ctx.font='900 26px system-ui';ctx.fillText(unblockable?'✕':fake?'◇':'!',p.x,p.y-83-t*5);
+ const badgeY=Math.round(p.y-89-t*5);
+ if(unblockable){pixelSegment(p.x-5,badgeY-5,p.x+5,badgeY+5,3,col);pixelSegment(p.x+5,badgeY-5,p.x-5,badgeY+5,3,col);}
+ else if(fake){pixelSegment(p.x,badgeY-7,p.x+6,badgeY,2,col);pixelSegment(p.x+6,badgeY,p.x,badgeY+7,2,col);pixelSegment(p.x,badgeY+7,p.x-6,badgeY,2,col);pixelSegment(p.x-6,badgeY,p.x,badgeY-7,2,col);}
+ else{ctx.fillRect(Math.round(p.x-2),badgeY-8,4,11);ctx.fillRect(Math.round(p.x-2),badgeY+6,4,4);}
  ctx.restore();
 }
 }
@@ -4838,13 +4995,13 @@ function tacticalVisual(){
    const ally=living().find(a=>a.id===g.guardAlly);
    if(!ally)continue;
    const a=point(g.x,g.z),b=point(ally.x,ally.z);
-   ctx.save();ctx.globalAlpha=.45+.25*Math.sin(clock*8);ctx.strokeStyle='#8effe4';ctx.lineWidth=4;ctx.setLineDash([7,6]);ctx.beginPath();ctx.moveTo(a.x,a.y-28);ctx.lineTo(b.x,b.y-26);ctx.stroke();ctx.setLineDash([]);
+   ctx.save();ctx.globalAlpha=.45+.25*Math.sin(clock*8);pixelSegment(a.x,a.y-28,b.x,b.y-26,2,'#7bbca8');
    ctx.fillStyle='#b6ffec';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText('🛡 COBERTURA',(a.x+b.x)/2,(a.y+b.y)/2-40);ctx.restore();
   }
   if(g.role==='flanco'&&g.flankCooldown<=0&&g.phase==='chase'&&length(g.x-player.x,g.z-player.z)<4.8){
    const side=rotate(player.face,g.flankSide*2.12),loc=point(player.x+side.x*2,player.z+side.z*2),from=point(g.x,g.z);
    ctx.save();ctx.globalAlpha=.22+.10*Math.sin(clock*5);ctx.setLineDash([4,6]);ctx.lineWidth=2;ctx.strokeStyle='#c2a1ff';ctx.beginPath();ctx.moveTo(from.x,from.y);ctx.lineTo(loc.x,loc.y);ctx.stroke();ctx.setLineDash([]);
-   ctx.beginPath();ctx.ellipse(loc.x,loc.y,14,7,0,0,TAU);ctx.stroke();ctx.restore();
+   pixelEllipse(loc.x,loc.y,14,7,2,'#b299c7');ctx.restore();
   }
  }
  const nearThreats=living().filter(e=>['windup','strike','feint'].includes(e.phase)&&length(e.x-player.x,e.z-player.z)<4.8);
@@ -4852,8 +5009,9 @@ function tacticalVisual(){
  for(const e of nearThreats){
   const dir=unit(e.x-player.x,e.z-player.z),where=point(player.x+dir.x*1.2,player.z+dir.z*1.2),angle=Math.atan2(where.y-hero.y,where.x-hero.x);
   ctx.save();ctx.translate(where.x,where.y-22);ctx.rotate(angle);
-  ctx.fillStyle=e.phase==='feint'?'#cdadff':e.type==='heavy'?'#ffce7b':'#ff827b';ctx.shadowBlur=8;ctx.shadowColor=ctx.fillStyle;
-  ctx.beginPath();ctx.moveTo(13,0);ctx.lineTo(-8,-6);ctx.lineTo(-8,6);ctx.closePath();ctx.fill();ctx.restore();
+  const color=e.phase==='feint'?'#c3a3d6':e.type==='heavy'?'#e6bf7a':'#e49887';ctx.shadowBlur=0;
+  pixelTriangle({x:13,y:0},{x:-8,y:-6},{x:-8,y:6},'#172330');
+  pixelTriangle({x:9,y:0},{x:-6,y:-4},{x:-6,y:4},color);ctx.restore();
  }
  ctx.restore();
 }
