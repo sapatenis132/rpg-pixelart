@@ -75,6 +75,17 @@ select{min-height:35px}.hidden{display:none!important}
 @media(max-height:450px){header{height:45px}.section{padding:5px 7px}.sectionTitle{margin-bottom:3px}#palette .section .mini,#notesWrap{display:none}#statusbar{height:43px}}
 @media(orientation:portrait) and (max-width:600px){header{height:83px;flex-wrap:wrap;align-content:center;row-gap:4px}.titlebox{min-width:126px}.header-actions{margin-left:auto}#name{order:3;flex-basis:100%;max-width:none;height:29px}#workspace{flex-direction:column}#viewer{flex:1;min-height:30%}#palette{height:43%;width:100%;border-left:0;border-top:1px solid #426075;display:grid;grid-template-columns:145px 1fr;grid-template-rows:auto 1fr}#palette .section:nth-child(1){grid-column:1;grid-row:1 / span 2;border-right:1px solid #38586b}#palette .section:nth-child(2){grid-column:2;grid-row:1}#tiles{grid-column:2;grid-row:2;grid-template-columns:1fr 1fr}.tile-btn{height:39px}#notes{height:50px}#palette .sectionTitle{font-size:9px}#undo,#redo{font-size:0;padding:5px 1px}#undo:after{content:"↶";font-size:19px}#redo:after{content:"↷";font-size:19px}#status{display:none}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+
+/* Direção artística consistente com o RPG principal: pixel art nítida. */
+#map,.thumb canvas,#tiles canvas{image-rendering:pixelated}
+#viewer{background:#0b1820;border:2px solid #567267;box-shadow:4px 4px 0 #030c12}
+button,select,input,textarea,.titlebox,.tool,.thumb,.panel,.chip{
+ border-radius:2px!important;
+ backdrop-filter:none!important;
+}
+button{box-shadow:2px 2px 0 #020c14!important}
+button:active{transform:translate(2px,2px);box-shadow:none!important}
+.titlebox,.panel{box-shadow:3px 3px 0 #030c13}
 </style>
 </head>
 <body>
