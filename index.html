@@ -2545,6 +2545,7 @@ function drawForestPropSprite(o,p){
  return true;
 }
 function drawSpawnDebris(p){
+ if(drawForestPropSprite({type:'stone'},p))return;
  const sz=Math.max(2,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y);
  ctx.fillStyle='#172127';ctx.fillRect(x-3*sz,y-sz,7*sz,2*sz);
  ctx.fillStyle='#515e69';ctx.fillRect(x-2*sz,y-3*sz,5*sz,3*sz);
@@ -2600,9 +2601,10 @@ function drawRuinedArch(){
 function drawSpawnFeature(o){
   const offset=['flower','leaf','moss'].includes(o.type)?0:.5,
    p=point(o.x+offset,o.z+offset);
-  const reach=o.type==='tree'?250:120;
-  if(p.x< -reach||p.x>w+reach||p.y<-180||p.y>h+(o.type==='tree'?250:100))return;
+  const reach=o.type==='tree'?320:150;
+  if(p.x< -reach||p.x>w+reach||p.y<-350||p.y>h+(o.type==='tree'?320:120))return;
   if(o.type==='tree')drawSpawnTree(p,o.v);
+  else if(drawForestPropSprite(o,p))return;
   else if(o.type==='log'){
    const s=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
    ctx.fillStyle='#2c251e';ctx.fillRect(x-4*s,y-2*s,8*s,3*s);
@@ -2657,6 +2659,8 @@ function drawSpawnLandmark(landmark){
 function drawWorldProp(prop){
  const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
  if(p.x< -90||p.x>w+90||p.y< -90||p.y>h+130)return;
+ if(runState?.region==='forest'&&
+    drawForestPropSprite({type:prop.type==='stone'?'stone':'shrub',v:prop.v},p))return;
  ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
  ctx.fillStyle=prop.type==='stone'?'#526b7c':'#27594b';
  ctx.fillRect(p.x-size*.75,p.y-size*2,1.5*size,1.6*size);
@@ -4597,6 +4601,16 @@ window.__rpgDebug.spriteFiles=()=>Object.fromEntries(
   width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
  }]));
 window.__rpgDebug.spriteAsset=race=>raceAsset(race);
+window.__rpgDebug.forestArtFiles=()=>({
+ trees:{loaded:forestTreeReady(),width:FOREST_TREE_ATLAS.naturalWidth,height:FOREST_TREE_ATLAS.naturalHeight,
+  src:FOREST_TREE_ATLAS.getAttribute('src')},
+ props:{loaded:forestPropsReady(),width:FOREST_PROP_ATLAS.naturalWidth,height:FOREST_PROP_ATLAS.naturalHeight,
+  src:FOREST_PROP_ATLAS.getAttribute('src')},
+ ground:{loaded:forestTerrainReady(),width:FOREST_TERRAIN_ATLAS.naturalWidth,height:FOREST_TERRAIN_ATLAS.naturalHeight,
+  src:FOREST_TERRAIN_ATLAS.getAttribute('src')},
+ groundTypes:[...FOREST_TERRAIN_TYPES],
+ propTypes:Object.keys(FOREST_PROP_INDEX)
+});
 window.__rpgDebug.advancedAnimationNames=()=>[...CHARACTER_MOTIONS];
 window.__rpgDebug.advancedAnimationFiles=()=>({
  actors:Object.fromEntries(Object.entries(ADVANCED_ACTOR_SPRITES).map(([id,img])=>[id,{
@@ -4666,8 +4680,8 @@ window.__rpgDebug.attackWeaponPose=(archetype,key,t)=>{
 };
 
 window.__rpgDebug.forestVisualScale=()=>({actor:actorSpriteScale(),
- treePixel:forestTreePixelSize(),treeWidth:48*forestTreePixelSize(),
- treeHeight:64*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
+ treePixel:forestTreePixelSize(),treeWidth:(forestTreeReady()?64:48)*forestTreePixelSize(),
+ treeHeight:(forestTreeReady()?96:64)*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
 window.__rpgDebug.forestSceneOrder=(seed,id,actorX=0,actorZ=0)=>{
  const world=generateWorld(seed),room=world.rooms[id],g=makeRoomGeometry(room);
  return worldPainterOrder(g,[{u:{x:actorX,z:actorZ,hp:1},team:'player'}])
