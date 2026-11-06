@@ -642,6 +642,59 @@ const WEAPON_MOVES={
   DASH_H:dagger('Estocada de Esquiva',24,.40,1.80,{dash:true,down:true})
  }
 };
+// Formas individuais: a hitbox não é simplesmente o mesmo corte horizontal.
+// O espaço ocupado pela lâmina, os quadros de ataque e o sprite compartilham
+// a mesma família de movimento. Os valores de dano originais são preservados.
+const DAGGER_FORMS={
+ L:{motion:'slash',arc:.82,hitWidth:.34},
+ LL:{motion:'reverse',arc:.90,hitWidth:.32},
+ LLL:{motion:'spin',hitWidth:.32,fxStyle:'daggerOrbit'},
+ H:{motion:'thrust',hitWidth:.27},
+ LH:{motion:'chop',hitWidth:.32},
+ HL:{motion:'thrust',hitWidth:.25},
+ HH:{motion:'doubleThrust',hitWidth:.23,fxStyle:'daggerStabs'},
+ LLH:{motion:'thrust',hitWidth:.20,fxStyle:'daggerPierce'},
+ LHL:{motion:'hook',hitWidth:.27,fxStyle:'daggerCross'},
+ HLL:{motion:'double',hitWidth:.30,fxStyle:'daggerFlurry'},
+ LHH:{motion:'cross',hitWidth:.29,fxStyle:'daggerCross'},
+ HLH:{motion:'thrust',hitWidth:.23,fxStyle:'daggerPierce'},
+ LLLH:{motion:'thrust',hitWidth:.17,fxStyle:'daggerExecute'},
+ LLHL:{motion:'cross',hitWidth:.27,fxStyle:'daggerCross'},
+ LHLH:{motion:'dashThrust',hitWidth:.20,fxStyle:'daggerDash'},
+ LHHL:{motion:'reverse',arc:1.12,hitWidth:.29,fxStyle:'daggerFlurry'},
+ HLLH:{motion:'dashThrust',hitWidth:.19,fxStyle:'daggerDash'},
+ HLHL:{motion:'cross',hitWidth:.30,fxStyle:'daggerFlurry'},
+ HHL:{motion:'thrust',hitWidth:.23,fxStyle:'daggerExecute'},
+ RIP_L:{motion:'thrust',hitWidth:.23},
+ RIP_H:{motion:'doubleThrust',hitWidth:.25},
+ DASH_L:{motion:'reverse',hitWidth:.31},
+ DASH_H:{motion:'dashThrust',hitWidth:.23}
+};
+for(const [key,form] of Object.entries(DAGGER_FORMS))
+ Object.assign(WEAPON_MOVES.rebel[key],{weaponStyle:'dagger',...form});
+// Espada: redemoinho, corte ascendente, cruzado, esmagamento e execução
+// devem ocupar regiões diferentes, mesmo quando usam L/H parecidos.
+const SWORD_FORMS={
+ LLL:{motion:'spin',hitWidth:.41},LLH:{motion:'uppercut',hitWidth:.32},
+ LHL:{motion:'cross',hitWidth:.34},LHH:{motion:'chop',hitWidth:.43},
+ HLL:{motion:'double',hitWidth:.37},HLH:{motion:'chop',hitWidth:.35},
+ HH:{motion:'chop',hitWidth:.47},LLLH:{motion:'spin',hitWidth:.43},
+ LLHL:{motion:'uppercut',hitWidth:.34},LHLH:{motion:'cross',hitWidth:.39},
+ LHHL:{motion:'chop',hitWidth:.40},HLLH:{motion:'uppercut',hitWidth:.36},
+ HLHL:{motion:'cross',hitWidth:.35},HHL:{motion:'spin',hitWidth:.42}
+};
+for(const [key,form] of Object.entries(SWORD_FORMS))
+ Object.assign(ATTACKS[key],form);
+const GUARDIAN_FORMS={
+ H:{motion:'bash',hitWidth:.43},LLL:{motion:'spin',hitWidth:.44},
+ LH:{motion:'bash',hitWidth:.40},HH:{motion:'bash',hitWidth:.48},
+ LLH:{motion:'bash',hitWidth:.43},LHL:{motion:'cross',hitWidth:.34},
+ LHH:{motion:'bash',hitWidth:.45},HLH:{motion:'chop',hitWidth:.40},
+ HLL:{motion:'cross',hitWidth:.36},LLLH:{motion:'bash',hitWidth:.45},
+ LHLH:{motion:'bash',hitWidth:.43}
+};
+for(const [key,form] of Object.entries(GUARDIAN_FORMS))
+ Object.assign(WEAPON_MOVES.guardian[key],form);
 let labArchetype='warrior',labRace='human';
 function currentArchetype(){if(runState?.active&&ARCHETYPE_OPTIONS[runState.character?.archetype])return runState.character.archetype;
  return drill.active&&ARCHETYPE_OPTIONS[labArchetype]?labArchetype:'warrior';}
@@ -872,27 +925,66 @@ const smooth01=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 const rotate=(v,a)=>({x:v.x*Math.cos(a)-v.z*Math.sin(a),z:v.x*Math.sin(a)+v.z*Math.cos(a)});
 function distanceToSegment(x,z,ax,az,bx,bz){const vx=bx-ax,vz=bz-az,t=clamp(((x-ax)*vx+(z-az)*vz)/(vx*vx+vz*vz||1),0,1);return length(x-(ax+vx*t),z-(az+vz*t));}
 function activeInterval(move){return{start:Math.max(.09,move.impact-.18),end:Math.min(.79,move.impact+.18)};}
-function swingPose(move,progress){const b=activeInterval(move),pct=(progress-b.start)/(b.end-b.start),s=smooth01(pct);
-  return{fraction:clamp(pct,0,1),angle:mix(-1.05,1.05,s)*(move.angle||1),active:progress>=b.start&&progress<=b.end};
+// Posição da arma em coordenadas do mundo. A forma também conduz a
+// animação da lâmina: estocada não pode girar como um corte lateral.
+function swingPose(move,progress){
+ const b=activeInterval(move),pct=(progress-b.start)/(b.end-b.start),t=smooth01(pct);
+ const motion=move.motion||'slash',sign=move.angle||1;
+ let angle=0;
+ if(motion==='thrust'||motion==='dashThrust'||motion==='doubleThrust')
+  angle=.045*Math.sin(t*Math.PI*1.5)*sign;
+ else if(motion==='spin')angle=mix(-3.15,3.15,t)*sign;
+ else if(motion==='reverse')angle=mix(.97,-.97,t)*sign;
+ else if(motion==='cross')angle=(t<.52?mix(-.92,.92,smooth01(t/.52)):mix(.92,-.92,smooth01((t-.52)/.48)))*sign;
+ else if(motion==='double')angle=(t<.51?mix(-.95,.70,smooth01(t/.51)):mix(.95,-.72,smooth01((t-.51)/.49)))*sign;
+ else if(motion==='uppercut')angle=mix(-.58,.70,t)*sign;
+ else if(motion==='chop')angle=mix(-.38,.32,t)*sign;
+ else if(motion==='hook')angle=mix(.93,-.41,t)*sign;
+ else if(motion==='bash')angle=mix(-.26,.25,t)*sign;
+ else angle=mix(-(move.arc||1.05),move.arc||1.05,t)*sign;
+ return{fraction:clamp(pct,0,1),angle,active:progress>=b.start&&progress<=b.end};
 }
-// The collision is a swept capsule along the visible weapon's world-space arc.
-// Sampling between fixed simulation ticks prevents fast slashes from tunneling through a target.
+// Cada forma gera cápsulas reais de colisão; o guia de alcance usa
+// exatamente os mesmos segmentos, impedindo diferença entre arte e acerto.
+function meleeHitSegments(move,x,z,face,progress){
+ const motion=move.motion||'slash',b=activeInterval(move);
+ const stage=clamp((progress-b.start)/(b.end-b.start),0,1);
+ const pose=swingPose(move,progress);
+ const axis=rotate(face,pose.angle),side={x:-face.z,z:face.x};
+ const narrow=motion==='thrust'||motion==='dashThrust'||motion==='doubleThrust';
+ const width=move.hitWidth??(move.fin?.51:.44);
+ const reach=move.reach+(narrow?.06:.07);
+ const out=[];
+ const segment=(offset,radial,extra=0)=>{
+  const inner=narrow?.36:motion==='bash'?.46:.34;
+  const len=narrow?reach*(.62+.38*smooth01(stage/.77)):reach;
+  const ox=x+side.x*offset,oz=z+side.z*offset;
+  out.push({ax:ox+radial.x*inner,az:oz+radial.z*inner,
+   bx:ox+radial.x*(len+extra),bz:oz+radial.z*(len+extra),width});
+ };
+ if(motion==='doubleThrust'){
+  segment(-.22,axis);segment(.22,axis);
+ }else segment(0,axis);
+ return out;
+}
+// Amostragem temporal: cortes largos seguem arcos; estocadas ocupam
+// um corredor fino à frente. Aumenta amostras no giro para não atravessar
+// um alvo entre dois quadros de 60 FPS.
 function bladeTouch(a,prevProgress,nowProgress,foe){
  if(!foe||foe.hp<=0||foe.iframe>0)return false;
  const m=a.move,b=activeInterval(m);
  if(nowProgress<b.start||prevProgress>b.end)return false;
  const dist=length(foe.x-player.x,foe.z-player.z);
- if(dist>m.reach+.41)return false;
+ const width=m.hitWidth??(m.fin?.51:.44);
+ if(dist>m.reach+width+.18)return false;
  const to=unit(foe.x-player.x,foe.z-player.z);
- if(to.x*player.face.x+to.z*player.face.z<-.13)return false;
+ if((m.motion||'slash')!=='spin'&&to.x*player.face.x+to.z*player.face.z<-.13)return false;
  const begin=clamp(prevProgress,b.start,b.end),end=clamp(nowProgress,b.start,b.end);
- for(let k=0;k<=5;k++){
-  const p=begin+(end-begin)*k/5,dir=rotate(player.face,swingPose(m,p).angle);
-  const inner=.34,reach=m.reach+.07;
-  const ax=player.x+dir.x*inner,az=player.z+dir.z*inner;
-  const bx=player.x+dir.x*reach,bz=player.z+dir.z*reach;
-  const allowance=.41+(m.fin?.14:.10);
-  if(distanceToSegment(foe.x,foe.z,ax,az,bx,bz)<=allowance)return true;
+ const samples=m.motion==='spin'?12:6;
+ for(let k=0;k<=samples;k++){
+  const p=begin+(end-begin)*k/samples;
+  for(const seg of meleeHitSegments(m,player.x,player.z,player.face,p))
+   if(distanceToSegment(foe.x,foe.z,seg.ax,seg.az,seg.bx,seg.bz)<=seg.width)return true;
  }
  return false;
 }
