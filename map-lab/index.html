@@ -168,6 +168,30 @@ let w=12,h=10,ground=[],objects=[],largeObjects=[],nextLargeId=1,colorOverrides=
 let undoStack=[],redoStack=[],cursor=null,activePointers=new Map(),gesture=null,raf=0;
 let procBase=null,procInfo=null,procPreviousTool='paint';
 const canvas=$('map'),ctx=canvas.getContext('2d',{alpha:false});let cw=1,ch=1,dpr=1;
+// Atlas compartilhados com o RPG: apenas apresentação (seed e colisão intactas).
+const LAB_FOREST_ART={};
+for(const name of ['trees','props','ground']){
+ const img=new Image();img.decoding='async';
+ img.onload=()=>{buildPalette();draw()};
+ img.src='../assets/sprites/forest/'+name+'.png';
+ LAB_FOREST_ART[name]=img;
+}
+const LAB_TREE_COLS={tree:0,ancientTree:1,pine:3};
+const LAB_PROP_COLS={bush:13,flowers:4,mushroom:3,fern:2,tallGrass:11,
+ reeds:11,stump:14,log:0,rock:1,boulder:1};
+const LAB_GROUND_ROWS={grass:4,dirt:6,stone:7,path:3,water:5,bridge:2,marsh:14};
+function labArtReady(name,w,h){const img=LAB_FOREST_ART[name];
+ return !!img?.complete&&img.naturalWidth===w&&img.naturalHeight===h;}
+function drawLabNatureSprite(id,pos,c){
+ if(view!=='iso')return false;
+ const col=LAB_PROP_COLS[id];
+ if(col===undefined||!labArtReady('props',192,64))return false;
+ const scale=Math.max(.7,Math.min(2.2,c.tw/43)),dw=Math.round(24*scale),dh=Math.round(32*scale);
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(LAB_FOREST_ART.props,(col%8)*24,Math.floor(col/8)*32,24,32,
+  Math.round(pos.x-dw/2),Math.round(pos.y-dh+scale*2),dw,dh);
+ return true;
+}
 const key=(x,y)=>y*w+x;const inBounds=(x,y)=>x>=0&&y>=0&&x<w&&y<h;
 const treeIds=new Set(['tree','ancientTree','pine','palm','deadTree']);
 const passableIds=new Set(['bush','flowers','mushroom','tallGrass','fern','reeds','lily','thorns']);
