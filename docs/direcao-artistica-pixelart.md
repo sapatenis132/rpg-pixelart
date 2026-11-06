@@ -53,10 +53,37 @@ transições entre salas, seeds ou estados de campanha sem testes específicos.
 10. **Sem retrabalho de gameplay**: área visível de corte, tiro e
     partículas deve corresponder ao movimento/hitbox existente.
 
+## Segundo lote implementado — animações e combate (novembro de 2026)
+- PNGs em `assets/sprites/enemies/`: **5 spritesheets 128×768** (inimigo básico,
+  guardião, duelista, berserker e Sentinela), cada um com 8 direções e
+  4 quadros por direção para caminhar e atacar. Distinguem silhueta, capa,
+  elmo, armadura, postura e tamanho.
+- `assets/sprites/equipment/weapons.png`: atlas 216×48 com **9 equipamentos**
+  (espada, adaga, cajado, arco, escudo, espada inimiga, florete, machado
+  e espada enorme). As armas seguem a pose do combate de forma independente
+  do corpo; a antiga geometria continua como fallback.
+- `assets/sprites/equipment/fx.png`: atlas 128×16 com **8 quadros**:
+  magia comum, magia maior, flecha, flecha gigante, parry, impacto de
+  dano, choque físico e descarga arcana.
+- Golpes de estocada, giro, impacto, ascensão, corte descendente e
+  corte lateral são representados por rastros quadrados, sem curvas
+  suavizadas. Partículas, anéis no chão e flashes de impacto adotam
+  rasterização pixelada, preservando a intensidade e o timing.
+- HUD de combate e controles horizontais ganham molduras angulares,
+  materiais opacos e aspecto de console 16-bit, mantendo áreas de toque.
+- Testes browser verificam o carregamento dos cinco inimigos,
+  nove equipamentos e oito FX nas resoluções horizontais do projeto.
+
+**Limites atuais:** algumas indicações táticas, ataques especiais e
+animações ambientais ainda usam desenho Canvas provisório. Os novos
+inimigos ainda requerem revisão artística manual em Android real;
+os sprites ilustram estados básicos e não constituem ainda um atlas
+completo de todas as finalizações individuais.
+
 ## Próximos lotes artísticos
-**Lote 2 — combate visual:** criar sheets externas para inimigos, Sentinela,
-armas por arquétipo e 6+ estados de animação. Trocar linhas, círculos e
-curvas desenhados por armas e FX pixelados. Não mexer na física de impacto.
+**Lote 2 — combate visual (em progresso):** continuar adicionando estados
+de dano, esquiva, parry, morte e finalizadores específicos por arma; refinar
+silhuetas, ataques do chefe e efeitos especiais que ainda são temporários.
 
 **Lote 3 — mundo:** atlas de tiles de chão por bioma, árvores e flora com
 mais detalhes, rochas, água, pontes, raízes e estruturas. Usar as 15+
