@@ -14,7 +14,7 @@ new Function(script); // A sintaxe completa do jogo precisa compilar.
 const server=http.createServer((req,res)=>{
  // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(/^\/assets\/sprites\/(?:actors|legacy)\/[a-z0-9_-]+\.png$/.test(pathname)){
+ if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment)\/[a-z0-9_-]+\.png$/.test(pathname)){
   try{
    const pixels=readFileSync(resolve(root,'.'+pathname));
    res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
@@ -55,7 +55,22 @@ try{
    assert.equal(a.width,128);assert.equal(a.height,768);
    assert.ok(a.src.startsWith('assets/sprites/actors/'));
   }
-  assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
+  // Animações reais de todos os inimigos e folha com nove armas.
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.enemySpriteFiles())
+   .every(asset=>asset.loaded)&&window.__rpgDebug.equipmentFile().loaded,
+   null,{timeout:15000});
+  const enemies=await page.evaluate(()=>window.__rpgDebug.enemySpriteFiles());
+  assert.equal(Object.keys(enemies).length,5,'cinco tipos distintos de inimigos');
+  for(const [name,img] of Object.entries(enemies)){
+   assert.equal(img.width,128,name+' atlas largura');
+   assert.equal(img.height,768,name+' atlas com ataques');
+   assert.ok(img.src.includes('/enemies/'),name+' usa PNG independente');
+  }
+  const equipment=await page.evaluate(()=>window.__rpgDebug.equipmentFile());
+  assert.equal(equipment.width,216);
+  assert.equal(equipment.height,48);
+  assert.equal(Object.keys(equipment.sprites).length,9,'nove silhuetas de equipamento');
+    assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
   // Os cinco personagens devem ter miniaturas pixel art únicas e desenhadas.
   await page.evaluate(()=>window.__rpgDebug.openCharacterCreator());
