@@ -1442,6 +1442,16 @@ function renderCharacterCreator(){
     // Miniatura proporcional ao atlas 32×48, presa no cartão pela grade CSS.
      pc.drawImage(raceAsset(id),0,1*48,32,48,0,0,48,72);
     b.prepend(preview);
+   }else if(step.key==='archetype'){
+    // Arte da classe visível antes do jogador escolher.
+    const preview=document.createElement('canvas');preview.width=48;preview.height=72;
+    preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
+    const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
+    const base=raceAsset(creatorDraft.race||'human');
+    if(base?.width)pc.drawImage(base,0,1*48,32,48,0,0,48,72);
+    const gear=playableOutfit(id);
+    if(gear)pc.drawImage(gear,0,1*48,32,48,0,0,48,72);
+    b.classList.add('hasPortrait');b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
    grid.appendChild(b);
