@@ -1450,7 +1450,7 @@ function renderCharacterCreator(){
     const base=raceAsset(creatorDraft.race||'human');
     if(base?.width)pc.drawImage(base,0,1*48,32,48,0,0,48,72);
     const gear=playableOutfit(id);
-    if(gear)pc.drawImage(gear,0,1*48,32,48,0,0,48,72);
+    if(gear)drawPlayableOutfitFrame(pc,gear,0,1,0,0,48,72,creatorDraft.race||'human');
     b.classList.add('hasPortrait');b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
@@ -3696,6 +3696,21 @@ function playableOutfit(role){
  const img=PLAYABLE_OUTFITS[role];
  return img?.complete&&img.naturalWidth===128&&img.naturalHeight===2688?img:null;
 }
+// O traje não deve esconder o rosto/orelha dos pequeninos ou anões.
+// Máscara baseada na anatomia da raça, preservada em todas as classes.
+function playableOutfitTop(race){
+ const shape=RACE_SHAPES[race]||RACE_SHAPES.human;
+ return Math.max(0,Math.min(42,shape.torsoY-1));
+}
+function drawPlayableOutfitFrame(context,img,frame,row,x,y,w,h,race){
+ if(!img)return;
+ const minY=playableOutfitTop(race),crop=h*minY/48;
+ context.save();context.beginPath();
+ context.rect(x,y+crop,w,h-crop);context.clip();
+ context.imageSmoothingEnabled=false;
+ context.drawImage(img,frame*32,row*48,32,48,x,y,w,h);
+ context.restore();
+}
 const ADVANCED_ACTOR_SPRITES={},ADVANCED_ENEMY_SPRITES={};
 for(const id of Object.keys(RACE_OPTIONS)){
  const img=new Image();img.decoding='async';ADVANCED_ACTOR_SPRITES[id]=img;
@@ -3996,8 +4011,8 @@ function drawDodgeEchoes(){
    ctx.globalAlpha=(settings.economy?.22:.38)*k;
    const row=img.naturalHeight===2688?a.dir+3*8:a.dir;
    ctx.drawImage(img,a.frame*32,row*48,32,48,Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
-   if(outfit)ctx.drawImage(outfit,a.frame*32,row*48,32,48,
-    Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
+   if(outfit)drawPlayableOutfitFrame(ctx,outfit,a.frame,row,
+    Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale),activeRace());
    ctx.strokeStyle='#99f5e0';ctx.lineWidth=Math.max(1,Math.round(scale));
    ctx.strokeRect(Math.round(p.x-11*scale),Math.round(p.y-24*scale),Math.round(22*scale),Math.round(32*scale));
  }
@@ -4151,8 +4166,8 @@ function figure(u,team){
     const outfit=playableOutfit(currentArchetype());
     if(outfit){
      const costumeRow=direction+(img.naturalHeight===2688?motion.state:attacking?1:0)*8;
-     ctx.drawImage(outfit,animFrame*32,costumeRow*48,32,48,
-      Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
+     drawPlayableOutfitFrame(ctx,outfit,animFrame,costumeRow,
+      Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s),activeRace());
     }
    }
    ctx.globalAlpha=1;
@@ -4687,6 +4702,7 @@ window.__rpgDebug.playableOutfits=()=>Object.fromEntries(
   src:img.getAttribute('src')
  }]));
 window.__rpgDebug.playableCostume=role=>playableOutfit(role);
+window.__rpgDebug.playableOutfitTop=playableOutfitTop;
 window.__rpgDebug.playableAttackTiming=playableAttackTiming;
 window.__rpgDebug.playerMoveIdentity=playerMoveIdentity;
 window.__rpgDebug.forestArtFiles=()=>({
