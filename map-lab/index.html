@@ -184,6 +184,15 @@ function labArtReady(name,w,h){const img=LAB_FOREST_ART[name];
  return !!img?.complete&&img.naturalWidth===w&&img.naturalHeight===h;}
 function drawLabNatureSprite(id,pos,c){
  if(view!=='iso')return false;
+ const tree=LAB_TREE_COLS[id];
+ if(tree!==undefined&&labArtReady('trees',384,96)){
+  const scale=Math.max(.65,Math.min(1.6,c.tw/54));
+  const dw=Math.round(64*scale),dh=Math.round(96*scale);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(LAB_FOREST_ART.trees,tree*64,0,64,96,
+   Math.round(pos.x-dw/2),Math.round(pos.y-dh+scale*2),dw,dh);
+  return true;
+ }
  const col=LAB_PROP_COLS[id];
  if(col===undefined||!labArtReady('props',192,64))return false;
  const scale=Math.max(.7,Math.min(2.2,c.tw/43)),dw=Math.round(24*scale),dh=Math.round(32*scale);
