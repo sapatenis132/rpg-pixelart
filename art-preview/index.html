@@ -44,7 +44,9 @@ footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10
 <option value="1">Frente</option><option value="0">Diagonal direita</option><option value="2">Diagonal esquerda</option>
 <option value="3">Perfil esquerdo</option><option value="4">Diagonal costas esquerda</option><option value="5">Costas</option><option value="6">Diagonal costas direita</option><option value="7">Perfil direito</option>
 </select>
-<button id="pause">Pausar animação</button><span id="status" class="status">Carregando atlas PNG...</span>
+<button id="pause">Pausar animação</button>
+<label for="silhouetteMode"><input id="silhouetteMode" type="checkbox"> Só silhueta</label>
+<span id="status" class="status">Carregando atlas PNG...</span>
 </div>
 <h2>Arquétipos jogáveis — roupas e silhuetas</h2>
 <p>Compare as cinco classes sobre a mesma raça. Troque raça, direção e animação para verificar se equipamentos e proporções permanecem legíveis.</p>
@@ -53,7 +55,9 @@ footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10
 <option value="orc">Orc</option><option value="dwarf">Anão</option>
 <option value="halfling">Pequenino</option></select></div>
 <section id="roles" class="cards"></section>
-<h2>Raças jogáveis</h2><section id="races" class="cards"></section>
+<h2>Raças jogáveis — anatomia e movimento</h2>
+<p>Compare o contorno com a opção “Só silhueta”. Todas as raças mantêm os próprios atributos e podem usar qualquer uma das cinco classes.</p>
+<section id="races" class="cards"></section>
 <h2>Inimigos e chefe</h2><section id="enemies" class="cards"></section>
 <h2>Floresta — nova pixel art</h2>
 <p>Árvores, vegetação, flores e terrenos desenhados como arquivos PNG. As árvores continuam maiores que os personagens, com colisão apenas nos troncos.</p>
@@ -69,15 +73,32 @@ const actorSets=[
  ['enemies','enemy','Bandido'],['enemies','guardian','Guardião'],['enemies','duelist','Duelista'],['enemies','berserker','Berserker'],['enemies','elite','Sentinela do Eclipse']
 ];
 const $=x=>document.getElementById(x);
+const RACE_APPEARANCE={
+ human:'Proporções equilibradas • cabelo assimétrico',
+ elf:'Alta • esguia • orelhas longas',
+ orc:'Larga • presas • ombros musculosos',
+ dwarf:'Compacto • barba grande • botas firmes',
+ halfling:'Baixo • cabelo levantado • pés largos'
+};
+const raceTraits={};
+for(const id of Object.keys(RACE_APPEARANCE)){
+ const img=new Image();img.decoding='async';
+ img.src='../assets/sprites/playable/race-traits/'+id+'.png';
+ raceTraits[id]=img;
+}
 const images=[];
 for(const [group,id,title] of actorSets){
  const article=document.createElement('article');article.className='card';article.dataset.elite=String(id==='elite');
  const name=document.createElement('strong');name.textContent=title;
  const canvas=document.createElement('canvas');canvas.className='sprite';canvas.width=32;canvas.height=48;
- const note=document.createElement('small');note.textContent='Atlas PNG • 128 × 2688 · 7 ações';
+ const note=document.createElement('small');
+ note.textContent=group==='races'?RACE_APPEARANCE[id]:'Atlas PNG • 128 × 2688 · 7 ações';
  article.append(name,canvas,note);$(group).append(article);
- const img=new Image();img.decoding='async';img.src='../assets/sprites/animated/'+id+(group==='enemies'?'-enemy':'')+'.png';
- images.push({img,canvas,id});
+ const img=new Image();img.decoding='async';
+ img.src=group==='races'?
+  '../assets/sprites/playable/races/'+id+'.png':
+  '../assets/sprites/animated/'+id+'-enemy.png';
+ images.push({img,canvas,id,group});
 }
 // Cada papel visual é um PNG independente e não altera atributos/hitboxes.
 const roleSpecs=[
@@ -162,6 +183,11 @@ function paintItems(){
   ctx.drawImage(o.asset,o.index*w,0,w,h,0,0,o.canvas.width,o.canvas.height);
  }
 }
+function silhouette(ctx){
+ if(!$('silhouetteMode').checked)return;
+ ctx.save();ctx.globalCompositeOperation='source-in';
+ ctx.fillStyle='#080d15';ctx.fillRect(0,0,32,48);ctx.restore();
+}
 let paused=false,lastFrame=-1;
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Continuar animação':'Pausar animação'};
 function render(ts){
@@ -174,6 +200,7 @@ function render(ts){
   loaded++;
   const c=obj.canvas.getContext('2d');c.imageSmoothingEnabled=false;c.clearRect(0,0,32,48);
   c.drawImage(obj.img,frame*32,(direction+anim*8)*48,32,48,0,0,32,48);
+  if(obj.group==='races')silhouette(c);
  }
  const roleRace=$('previewRace').value;
  const base=images.find(x=>x.id===roleRace)?.img;
@@ -190,6 +217,10 @@ function render(ts){
   c.save();c.beginPath();c.rect(0,top,32,48-top);c.clip();
   c.drawImage(item.img,frame*32,row,32,48,0,0,32,48);
   c.restore();
+  const traits=raceTraits[roleRace];
+  if(traits?.complete&&traits.naturalHeight===2688)
+   c.drawImage(traits,frame*32,row,32,48,0,0,32,48);
+  silhouette(c);
  }
  $('status').textContent=loaded+'/10 atores • '+roleLoaded+'/5 classes';
  paintForest();paintItems();requestAnimationFrame(render);
