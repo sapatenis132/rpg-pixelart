@@ -34,7 +34,12 @@ footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10
 <nav><a href="../index.html">Jogar</a><a href="../map-lab/index.html">Laboratório de mapas</a></nav>
 </header>
 <div class="controls">
-<label for="anim">Animação</label><select id="anim"><option value="0">Caminhada</option><option value="1">Ataque</option></select>
+<label for="anim">Animação</label><select id="anim">
+<option value="0">Caminhada</option><option value="1">Ataque</option>
+<option value="2">Defesa / Parry</option><option value="3">Esquiva</option>
+<option value="4">Dano recebido</option><option value="5">Queda / Morte</option>
+<option value="6">Finalização</option>
+</select>
 <label for="direction">Direção</label><select id="direction">
 <option value="1">Frente</option><option value="0">Diagonal direita</option><option value="2">Diagonal esquerda</option>
 <option value="3">Perfil esquerdo</option><option value="4">Diagonal costas esquerda</option><option value="5">Costas</option><option value="6">Diagonal costas direita</option><option value="7">Perfil direito</option>
@@ -46,7 +51,7 @@ footer{margin:28px 0 0;color:#a7c4bc;border-top:2px solid #37555f;padding-top:10
 <h2>Armas, escudos e efeitos</h2>
 <p>Armas separadas do corpo: suas posições e rotações são controladas pelo sistema de combate.</p>
 <section id="items" class="cards"></section>
-<footer>Quadros originais: 32×48 pixels, 8 direções, 4 quadros por animação. PNGs reais, sem suavização. A galeria demonstra os recursos, não substitui os testes de combate. Mudanças em desenvolvimento.</footer>
+<footer>Quadros originais: 32×48 pixels, 8 direções, 7 estados (caminhada, ataque, defesa, esquiva, dano, queda e finalizador), com 4 quadros cada. PNGs reais, sem suavização. A galeria demonstra os recursos, não substitui os testes de combate. Mudanças em desenvolvimento.</footer>
 </main><script>
 (() => {
 const actorSets=[
@@ -59,9 +64,9 @@ for(const [group,id,title] of actorSets){
  const article=document.createElement('article');article.className='card';article.dataset.elite=String(id==='elite');
  const name=document.createElement('strong');name.textContent=title;
  const canvas=document.createElement('canvas');canvas.className='sprite';canvas.width=32;canvas.height=48;
- const note=document.createElement('small');note.textContent='Atlas PNG • 128 × 768';
+ const note=document.createElement('small');note.textContent='Atlas PNG • 128 × 2688 · 7 ações';
  article.append(name,canvas,note);$(group).append(article);
- const img=new Image();img.decoding='async';img.src='../assets/sprites/'+(group==='races'?'actors':'enemies')+'/'+id+'.png';
+ const img=new Image();img.decoding='async';img.src='../assets/sprites/animated/'+id+(group==='enemies'?'-enemy':'')+'.png';
  images.push({img,canvas,id});
 }
 const names=['Espada','Adaga','Cajado','Arco','Escudo','Espada inimiga','Florete','Machado','Espadão'];
@@ -95,7 +100,7 @@ function render(ts){
  const direction=Number($('direction').value),anim=Number($('anim').value);
  let loaded=0;
  for(const obj of images){
-  if(!obj.img.complete||obj.img.naturalWidth!==128)continue;
+  if(!obj.img.complete||obj.img.naturalWidth!==128||obj.img.naturalHeight!==2688)continue;
   loaded++;
   const c=obj.canvas.getContext('2d');c.imageSmoothingEnabled=false;c.clearRect(0,0,32,48);
   c.drawImage(obj.img,frame*32,(direction+anim*8)*48,32,48,0,0,32,48);
