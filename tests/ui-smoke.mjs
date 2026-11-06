@@ -69,6 +69,10 @@ try{
   const equipment=await page.evaluate(()=>window.__rpgDebug.equipmentFile());
   assert.equal(equipment.width,216);
   assert.equal(equipment.height,48);
+  await page.waitForFunction(()=>window.__rpgDebug.fxFile().loaded,null,{timeout:15000});
+  const effects=await page.evaluate(()=>window.__rpgDebug.fxFile());
+  assert.equal(effects.width,128,'oito efeitos pixelados no atlas');
+  assert.equal(effects.height,16,'efeitos com células 16x16');
   assert.equal(Object.keys(equipment.sprites).length,9,'nove silhuetas de equipamento');
     assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
