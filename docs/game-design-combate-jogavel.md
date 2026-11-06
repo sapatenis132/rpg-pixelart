@@ -20,11 +20,11 @@
 | Arcanista | Manto azul-violeta, marcas arcanas | Cajado canaliza magia; tiros não viram cortes físicos | Orbe de carregamento no cajado antes de disparar |
 | Caçador | Traje de caça, faixas, aljava | Arco perpendicular à mira, corda recuada e flecha preparada | Preparação da flecha, disparo e recuo diferenciados |
 
-Todos os trajes são **PNG raster reais** de 128×2688 pixels (8 direções × 7 estados × 4 quadros por estado), sobrepostos às cinco raças. O formato de combinação evita copiar 25 atlas completos; mantém traços raciais reconhecíveis.
+Todos os trajes são **PNG raster reais** de 128×2688 pixels (8 direções × 7 estados × 4 quadros por estado), sobrepostos às cinco raças. O formato de combinação evita copiar 25 atlas completos; usa recorte pela altura do tronco de cada raça para preservar seus rostos e orelhas. A galeria permite alternar entre 5 classes × 5 raças × 7 estados × 8 direções.
 
 ## Contrato de sincronia
 
-- `playableAttackTiming(move,progress)` acompanha `move.impact` e retorna **resposta**, **preparação**, **contato** e **recuperação**. O código de dano e hitbox continua em `activeInterval(move)` / `meleeHitSegments` / `fireRangedMove`.
+- `playableAttackTiming(move,progress)` retorna **resposta**, **preparação**, **contato** e **recuperação**. Em golpes corpo a corpo, a pose de contato abrange exatamente a janela ativa de `activeInterval(move)` mais o curto encerramento visual. Em disparos, considera `move.impact`, `move.shots` e `move.delayStep`, mantendo a postura durante salvas. A animação não gera dano: a física permanece em `activeInterval(move)` / `meleeHitSegments` / `fireRangedMove`.
 - **Jamais** usar uma animação para confirmar um golpe se ele não acertou. Efeitos de colisão continuam disparados pela lógica de impacto real.
 - A roupa usa a **mesma direção, estado e quadro** do corpo. Quedas e esquivas mantêm traje sem uma sprite imóvel por cima.
 - Arco/cajado usam arte de preparação no personagem apenas enquanto o projétil ainda não saiu; a flecha real é emitida pela simulação.
