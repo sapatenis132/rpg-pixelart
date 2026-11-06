@@ -18,7 +18,7 @@ new Function(galleryScript);
 const server=http.createServer((req,res)=>{
  // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment)\/[a-z0-9_-]+\.png$/.test(pathname)){
+ if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated)\/[a-z0-9_-]+\.png$/.test(pathname)){
   try{
    const pixels=readFileSync(resolve(root,'.'+pathname));
    res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
