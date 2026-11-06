@@ -1,0 +1,171 @@
+# Direção artística 2D pixel art — contrato v1
+
+## Objetivo
+Transformar **todo** o RPG isométrico em pixel art autêntica, usando
+imagens raster e animações por quadros, com leitura em celulares horizontais.
+A câmera continua isométrica **2D**, não precisa simular modelagem ou iluminação
+3D. Não alterar dano, postura, janela de parry, combos, hitboxes, movimento,
+transições entre salas, seeds ou estados de campanha sem testes específicos.
+
+## Implementado nesta ramificação
+- `assets/sprites/actors/{human,elf,orc,dwarf,halfling}.png`: spritesheets
+  PNG indexados, **128×768**, fundos transparentes, pixels definidos.
+- Célula de ator **32×48**. Direções (linhas 0 a 7): diagonal frente
+  direita, frente, diagonal frente esquerda, perfil esquerdo, diagonal
+  costas esquerda, costas, diagonal costas direita e perfil direito.
+- Cada linha tem **4 quadros** horizontais. Linhas 0–7: locomoção; linhas
+  8–15: ação/ataque visual independente. A seleção do quadro de ataque
+  acompanha o progresso da animação de combate *sem* afetar a hitbox real.
+- O pivô da personagem é o apoio dos pés no terreno e não o centro da cabeça.
+- `assets/sprites/legacy/`: 6 atlases existentes de personagens/inimigos e
+  4 tiles de terreno extraídos do JavaScript embutido.
+- Carregamento de imagens externo, com sprites antigos como fallback para raças.
+- Caminhos da floresta: pequenos tiles rasterizados 64×32 reutilizados
+  por cache; seeds continuam controlando as variações.
+- Marcadores de saída com símbolos pixelados, sem esfera verde 3D.
+- Interface principal e laboratório: contornos e superfícies mais retangulares.
+- Teste de carregamento dos cinco PNG nas cinco resoluções horizontais.
+
+## Regras definitivas de arte
+1. **Sprites são arquivos**. Personagens, criaturas, armas, props, tiles e
+   efeitos permanentes devem usar PNG indexado ou RGBA; nunca depender
+   apenas de `fillRect` em tempo real para formar o personagem.
+2. **Sem suavização.** `imageSmoothingEnabled = false`, `image-rendering:
+   pixelated`, movimento visual arredondado a pixels quando apropriado.
+3. **Escala global coerente.** Personagens menores que copas e estruturas
+   altas; presença visual independente da colisão de troncos/chão.
+4. **Silhuetas distintas.** Raça, profissão e inimigo identificáveis em
+   miniaturas e durante o combate. Mostrar equipamento de forma legível.
+5. **Paletas limitadas**, contorno e sombras desenhados em pixels;
+   evitar blur, gradientes volumétricos, esferas, polígonos lisos e
+   sombras gaussianas na camada do mundo.
+6. **Profundidade 2D por Y-sorting** e suporte a oclusão por copas,
+   arcos, rochas e raízes; não mover o sprite para cima da vegetação
+   independentemente da posição.
+7. **Animações autorais por função**: idle, caminhada, corrida,
+   ataques leves/pesados, transições e finalizadores únicos por
+   arma, defesa, parry, esquiva, dano, morte e interações.
+8. **Cenário por família**: terreno, água, trilha, raízes, ruínas,
+   vegetação de passagem, flores protegidas e estruturas de spawn.
+9. **Performance Android**: carregamento uma vez, cache de tiles,
+   atlas compartilhado e renderização de quadros sem criar objetos
+   gráficos por frame.
+10. **Sem retrabalho de gameplay**: área visível de corte, tiro e
+    partículas deve corresponder ao movimento/hitbox existente.
+
+## Segundo lote implementado — animações e combate (novembro de 2026)
+- PNGs em `assets/sprites/enemies/`: **5 spritesheets 128×768** (inimigo básico,
+  guardião, duelista, berserker e Sentinela), cada um com 8 direções e
+  4 quadros por direção para caminhar e atacar. Distinguem silhueta, capa,
+  elmo, armadura, postura e tamanho.
+- `assets/sprites/equipment/weapons.png`: atlas 216×48 com **9 equipamentos**
+  (espada, adaga, cajado, arco, escudo, espada inimiga, florete, machado
+  e espada enorme). As armas seguem a pose do combate de forma independente
+  do corpo; a antiga geometria continua como fallback.
+- `assets/sprites/equipment/fx.png`: atlas 128×16 com **8 quadros**:
+  magia comum, magia maior, flecha, flecha gigante, parry, impacto de
+  dano, choque físico e descarga arcana.
+- Golpes de estocada, giro, impacto, ascensão, corte descendente e
+  corte lateral são representados por rastros quadrados, sem curvas
+  suavizadas. Partículas, anéis no chão e flashes de impacto adotam
+  rasterização pixelada, preservando a intensidade e o timing.
+- HUD de combate e controles horizontais ganham molduras angulares,
+  materiais opacos e aspecto de console 16-bit, mantendo áreas de toque.
+- Testes browser verificam o carregamento dos cinco inimigos,
+  nove equipamentos e oito FX nas resoluções horizontais do projeto.
+
+**Limites atuais:** algumas indicações táticas, ataques especiais e
+animações ambientais ainda usam desenho Canvas provisório. Os novos
+inimigos ainda requerem revisão artística manual em Android real;
+os sprites ilustram estados básicos e não constituem ainda um atlas
+completo de todas as finalizações individuais.
+
+## Terceiro lote — sete estados de animação e cenário detalhado
+- Dez atlas ampliados em `assets/sprites/animated/`, cada um com
+  **128×2688 pixels**, 8 direções × 7 estados × 4 quadros.
+- Estados visuais: caminhada, ataque, defesa/parry, esquiva, reação a dano,
+  queda/morte e finalizador. Gerados por pixel art raster a partir das
+  silhuetas estabelecidas; quadros com inclinação, agachamento,
+  deslocamento do tronco, queda horizontal, guarda e detalhes adicionais.
+  Cada estado é um **PNG real**, não um filtro ou desenho geométrico por frame.
+- Seleção automática por estado da simulação (sem tocar na física):
+  `characterMotion` considera ataque normal/finalização, guarda, parry,
+  esquiva, dano e fases de inimigos abatidos.
+- Ecos de esquiva usam os quadros de movimento evasivo; armas deixam de
+  aparecer sobre o corpo dos inimigos mortos. Recursos v2 persistem
+  como alternativa em caso de falha de carregamento.
+- Finalizações (incluindo perfurações, giro da adaga, turbilhão,
+  escudo e riposta) passam a usar linhas, arcos e pulsos discretos
+  de pixels em vez de grandes efeitos borrados.
+- Árvores na floresta recebem massas de folhas de contorno irregular,
+  reflexos pixelados, estratos de folhagem e textura de casca,
+  preservando o espaço físico de colisão dos troncos, ordenação de
+  camadas e posicionamento por seed.
+- `art-preview/index.html` permite inspecionar separadamente todos os
+  sete estados e oito direções de jogadores e inimigos.
+
+**Pendências artísticas:** os sete estados atuais são protótipos
+derivados das silhuetas anteriores; é necessário continuar polindo
+pose de cada arma, variedade das espécies, animações do chefe,
+tilemaps completos por bioma e sprites de pequenos objetos. Esta
+fase não representa a conclusão de toda a arte.
+
+## Quarto lote — cenário florestal em sprites PNG reais
+
+**Escopo artístico:** personagens jogáveis, florestas e Laboratório de Mapas.
+Os inimigos e a Sentinela não receberam novas alterações nesta etapa,
+porque o trabalho neles ficou reservado para a futura etapa de inimigos.
+
+### Recursos externos adicionados
+- `assets/sprites/forest/trees.png`: **seis árvores** em uma folha de
+  384×96 pixels, com copas em massas de folhagem, sombras, luz, casca,
+  raízes e espécies de silhuetas diferentes. As sprites são maiores que
+  os personagens, mas a colisão continua associada aos troncos.
+- `assets/sprites/forest/props.png`: **16 elementos** em 192×64 pixels:
+  tronco caído, pedras, samambaias, cogumelos, flores de diferentes
+  cores, musgo, folhas, juncos, raízes e arbustos.
+- `assets/sprites/forest/ground.png`: **17 famílias de piso** com
+  quatro variantes cada (256×544, tiles de 64×32). Caminhos, pedra,
+  raízes, gramados, água e sombras possuem texturas raster reais.
+- Os três atlases usam transparência, pixels discretos e nearest-neighbor;
+  o desenho procedural antigo fica como fallback se o arquivo não carregar.
+- Manteve-se o mesmo `worldPainterOrder` (ordenação por profundidade),
+  os mesmos caminhos/saídas, colisão dos troncos e geração por seed.
+
+### Consistência do editor
+O Laboratório de Mapas agora usa esses mesmos PNGs no modo isométrico
+para a vegetação, árvores e alguns tipos de piso. O modo em planta
+mantém a representação legível para edição; a mudança é somente visual.
+As dimensões multicélula, máscaras de colisão, seed e dados exportados
+continuam os mesmos.
+
+### Validação
+O teste automatizado de telas horizontais carrega os três atlas externos,
+confere suas dimensões e categorias, visita mapas de floresta e abre o
+Laboratório no modo isométrico. A galeria de arte mostra uma seleção de
+**28 exemplos ambientais** para avaliação visual.
+
+**Limites atuais:** elementos especiais como arco de ruínas, árvore
+colossal e algumas superfícies fora da floresta ainda usam o desenho
+provisório. É necessário continuar o refinamento de arte sem alterar
+mecânicas já funcionais.
+
+## Próximos lotes artísticos
+**Lote 2 — combate visual (em progresso):** continuar adicionando estados
+de dano, esquiva, parry, morte e finalizadores específicos por arma; refinar
+silhuetas, ataques do chefe e efeitos especiais que ainda são temporários.
+
+**Lote 3 — mundo:** atlas de tiles de chão por bioma, árvores e flora com
+mais detalhes, rochas, água, pontes, raízes e estruturas. Usar as 15+
+travessias planejadas para testar variação e densidade. Corrigir spawn
+obstruído e pontos de saída mantendo o Y-sort.
+
+**Lote 4 — interface e polimento:** painéis, inventário, mapa, fontes,
+ícones, indicadores e controles com unidade gráfica; testes reais de
+legibilidade e FPS no celular.
+
+## Verificação
+Rode `node tests/ui-smoke.mjs` após instalar Playwright e Chromium.
+O teste não substitui inspeção visual em celular e aprovação artística.
+Este documento é diretriz de produção: não significa que todos os lotes
+já foram concluídos.

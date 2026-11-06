@@ -390,6 +390,39 @@ body{display:block;min-height:0}
  .mapCard{padding:7px 10px;gap:4px}.mapHead h2{font-size:16px}.mapHead button,.mapTabs button{min-height:32px}
  #mapGraph{height:min(45dvh,190px)}.mapInfo{font-size:10px}
 }
+
+/* Direção artística 2D: materiais planos e pixels nítidos; alvos de toque intactos. */
+#scene,.racePortrait{image-rendering:pixelated}
+.gauges,.guide-card,.top-btn,#hint,#banner,.raceOption,.mapInfo,.mapPanel{
+ border-radius:3px;backdrop-filter:none;
+ box-shadow:3px 3px 0 #020b13,inset 0 2px 0 #ffffff0e
+}
+.track,.fill{border-radius:0}
+.top-btn{border-width:2px}
+.action{box-shadow:4px 4px 0 #07131e,inset 0 3px 0 #ffffff20}
+#joystick{box-shadow:5px 5px 0 #07131e,inset 0 0 0 3px #0c2232}
+#stick{box-shadow:3px 3px 0 #081724,inset 0 2px 0 #ffffff28}
+#hint{background:#0b2531f5}
+
+/* Controles estilo console 16-bit, preservando as áreas de toque da HUD. */
+#joystick{border-radius:8px;clip-path:polygon(17% 0,83% 0,100% 17%,100% 83%,83% 100%,17% 100%,0 83%,0 17%);
+ background:#1e3f53;border:3px solid #729aad;box-shadow:inset 0 0 0 4px #122c3c}
+#joystick::before{inset:19px;border:2px dashed #6b91a3;border-radius:0;
+ clip-path:polygon(20% 0,80% 0,100% 20%,100% 80%,80% 100%,20% 100%,0 80%,0 20%)}
+#stick{border-radius:6px;background:#437c95;border:3px solid #a9ccdb;
+ box-shadow:inset 3px 3px 0 #78adbb,inset -3px -3px 0 #1e4d65}
+.action{border-radius:5px;clip-path:polygon(18% 0,82% 0,100% 18%,100% 82%,82% 100%,18% 100%,0 82%,0 18%);
+ transition:filter .07s,transform .07s;
+ text-shadow:2px 2px 0 #07131c;box-shadow:none}
+#light{background:#2e7d9e;border:3px solid #9cdff2}
+#heavy{background:#a5693c;border:3px solid #f1bf83}
+#parry{background:#2d8978;border:3px solid #9bdbc7}
+#dodge{background:#7462a5;border:3px solid #c5b7ec}
+.action.pressed{transform:translate(2px,2px);filter:brightness(1.18)}
+.action.cooling{filter:saturate(.38) brightness(.72)}
+#aimToggle{border-radius:3px;box-shadow:3px 3px 0 #081620;
+ background:#28584f;border:2px solid #72bba6}
+#fpsPanel,.weaponSelect,.comboHint{border-radius:2px;backdrop-filter:none}
 </style></head>
 <body>
 <div id="game" aria-label="RPG isométrico pixel art, etapa vinte e dois">
@@ -782,6 +815,19 @@ function drawRangedShots(){
   if(shot.delay>0||shot.epoch!==projectileEpoch)continue;
   const p=point(shot.x,shot.z),tail=point(shot.x-shot.dir.x*(shot.largeArrow?.92:.48),shot.z-shot.dir.z*(shot.largeArrow?.92:.48));
   ctx.save();ctx.imageSmoothingEnabled=false;ctx.lineCap='square';
+  if(fxReady()){
+   if(shot.magic){
+    const big=shot.radius>.25||shot.act?.move?.fin;
+    drawFxSprite(big?1:0,p.x,p.y-22,big?31:20);
+   }else{
+    const angle=Math.atan2(p.y-tail.y,p.x-tail.x);
+    const length=shot.largeArrow?52:30,width=shot.largeArrow?24:15;
+    ctx.translate(Math.round(p.x),Math.round(p.y-24));ctx.rotate(angle);
+    ctx.drawImage(FX_ATLAS,(shot.largeArrow?3:2)*16,0,16,16,
+     -length,-Math.round(width/2),length,width);
+   }
+   ctx.restore();continue;
+  }
   if(shot.magic){
    const r=shot.radius>.25?10:5;
    ctx.fillStyle='#555cc7';ctx.fillRect(Math.round(p.x-r-2),Math.round(p.y-22-r-2),2*r+4,2*r+4);
@@ -1067,9 +1113,32 @@ const RACE_SHAPES={
  dwarf:{headY:13,headW:14,headH:10,torsoY:25,torsoW:21,torsoH:12,legY:37,footY:44,bootW:8,armW:5},
  halfling:{headY:17,headW:11,headH:11,torsoY:29,torsoW:13,torsoH:9,legY:38,footY:45,bootW:9,armW:3}
 };
+// Identidades visuais: não alteram nenhuma mecânica racial existente.
+// Cadência e oscilação afetam SOMENTE o desenho dos sprites.
+const RACE_VISUAL_LANGUAGE={
+ human:{silhouette:'Equilibrada, cabelo assimétrico',stride:1,bob:1.65,attackDrive:2},
+ elf:{silhouette:'Alto e esguio, orelhas alongadas',stride:.91,bob:.60,attackDrive:1.35},
+ orc:{silhouette:'Torso amplo, mandíbula e presas',stride:.79,bob:2.05,attackDrive:2.55},
+ dwarf:{silhouette:'Compacto, ombros e barba volumosos',stride:.86,bob:.75,attackDrive:1.25},
+ halfling:{silhouette:'Baixo, passos rápidos e pés largos',stride:1.21,bob:1.35,attackDrive:2.65}
+};
 // SPRITES RACIAIS v1: atlas pixel art gerado uma vez e reutilizado em combate e no criador.
 // Proporções, orelhas, rosto e cores são características VISUAIS provisórias, sem novo lore.
 let RACE_SPRITES=null;
+// Etapa artística: os arquivos de sprites são PNG reais no repositório.
+// O gerador original permanece como fallback e referência dos testes de raça.
+const RACE_ASSETS={};
+for(const id of Object.keys(RACE_OPTIONS)){
+ const img=new Image();img.decoding='async';RACE_ASSETS[id]=img;
+ img.onload=()=>{if($('creatorOverlay')?.classList.contains('open'))renderCharacterCreator();};
+ img.src='assets/sprites/actors/'+id+'.png';
+}
+function raceAsset(id){
+ const name=Object.prototype.hasOwnProperty.call(RACE_OPTIONS,id)?id:'human';
+ const img=RACE_ASSETS[name];
+ return img?.complete&&img.naturalWidth===128&&img.naturalHeight===768
+  ?img:raceSprite(name);
+}
 // Direções do atlas 8×4. Eixos de mundo e projeção isométrica:
 // 0=3/4 frente dir., 1=frente, 2=3/4 frente esq., 3=perfil esq.,
 // 4=3/4 costas esq., 5=costas, 6=3/4 costas dir., 7=perfil dir.
@@ -1372,7 +1441,10 @@ function renderCharacterCreator(){
    const b=document.createElement('button');b.type='button';b.className='raceOption'+(creatorDraft[step.key]===id?' selected':'');
    b.setAttribute('aria-pressed',String(creatorDraft[step.key]===id));
    const name=document.createElement('strong');name.textContent=race.name;
-   const detail=document.createElement('span');detail.textContent=step.key==='race'?race.effects.join(' · '):race.weapon+' · '+race.desc;
+   const detail=document.createElement('span');
+    detail.textContent=step.key==='race'?
+     RACE_VISUAL_LANGUAGE[id].silhouette+' · '+race.effects.join(' · '):
+     race.weapon+' · '+race.desc;
    b.append(name,detail);
    if(step.key==='race'){
     b.classList.add('hasPortrait');
@@ -1380,8 +1452,21 @@ function renderCharacterCreator(){
     preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
     const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
     // Miniatura proporcional ao atlas 32×48, presa no cartão pela grade CSS.
-     pc.drawImage(raceSprite(id),0,1*48,32,48,0,0,48,72);
+     pc.drawImage(playableRaceRefined(id)||raceAsset(id),0,1*48,32,48,0,0,48,72);
     b.prepend(preview);
+   }else if(step.key==='archetype'){
+    // Arte da classe visível antes do jogador escolher.
+    const preview=document.createElement('canvas');preview.width=48;preview.height=72;
+    preview.className='racePortrait';preview.setAttribute('aria-hidden','true');
+    const pc=preview.getContext('2d');pc.imageSmoothingEnabled=false;
+    const race=creatorDraft.race||'human',
+     base=playableRaceRefined(race)||raceAsset(race);
+    if(base?.width)pc.drawImage(base,0,1*48,32,48,0,0,48,72);
+    const gear=playableOutfit(id);
+    if(gear)drawPlayableOutfitFrame(pc,gear,0,1,0,0,48,72,race);
+    const traits=playableRaceTraits(race);
+    if(traits)pc.drawImage(traits,0,1*48,32,48,0,0,48,72);
+    b.classList.add('hasPortrait');b.prepend(preview);
    }
    b.addEventListener('click',()=>{creatorDraft[step.key]=id;renderCharacterCreator();});
    grid.appendChild(b);
@@ -2250,6 +2335,47 @@ function tryWorldTransition(move){
 }
 
 
+// Tiles isométricos de raster autoral (64x32), nunca polígonos suavizados.
+// Variações pequenas e determinísticas preservam os caminhos de cada seed.
+// Recurso de arte: atlas PNG independente do gerador procedural.
+const FOREST_TERRAIN_TYPES=["forestThicket","forestWater","forestBridge","forestTrail","forestClearing","water","rootFloor","stonePath","clearing","forestMoss","forestStone","forestFern","forestRoot","forestShallow","forestMist","forestGlade","forestShade"];
+const FOREST_TERRAIN_ATLAS=new Image();FOREST_TERRAIN_ATLAS.decoding='async';FOREST_TERRAIN_ATLAS.src='assets/sprites/forest/ground.png';
+const FOREST_TREE_ATLAS=new Image();FOREST_TREE_ATLAS.decoding='async';FOREST_TREE_ATLAS.src='assets/sprites/forest/trees.png';
+const FOREST_PROP_ATLAS=new Image();FOREST_PROP_ATLAS.decoding='async';FOREST_PROP_ATLAS.src='assets/sprites/forest/props.png';
+function forestTerrainReady(){return FOREST_TERRAIN_ATLAS.complete&&FOREST_TERRAIN_ATLAS.naturalWidth===256&&FOREST_TERRAIN_ATLAS.naturalHeight===544;}
+function forestTreeReady(){return FOREST_TREE_ATLAS.complete&&FOREST_TREE_ATLAS.naturalWidth===384&&FOREST_TREE_ATLAS.naturalHeight===96;}
+function forestPropsReady(){return FOREST_PROP_ATLAS.complete&&FOREST_PROP_ATLAS.naturalWidth===192&&FOREST_PROP_ATLAS.naturalHeight===64;}
+const forestGroundTileCache=new Map();
+function forestGroundTile(type,variant,colors){
+ const key=type+':'+variant;
+ if(forestGroundTileCache.has(key))return forestGroundTileCache.get(key);
+ const atlas=document.createElement('canvas');atlas.width=64;atlas.height=32;
+ const c=atlas.getContext('2d');c.imageSmoothingEnabled=false;
+ const shade=colors[0],highlight=colors[1];
+ for(let y=0;y<32;y++){
+  const width=Math.max(1,Math.floor((1-Math.abs(y-15.5)/16)*32));
+  c.fillStyle=y>22?'#233c32':shade;
+  c.fillRect(32-width,y,width*2,1);
+ }
+ const moss=/forest|clearing/.test(type),stones=/stone|Stone|root|Root|Bridge/.test(type);
+ for(let k=0;k<24;k++){
+  const x=4+Math.floor(seeded(variant+type.length*31,k*19+7)*56);
+  const y=2+Math.floor(seeded(variant+type.length*11,k*61+13)*28);
+  const width=Math.max(1,Math.floor((1-Math.abs(y-15.5)/16)*32));
+  if(Math.abs(x-32)>width-3)continue;
+  c.fillStyle=k%4===0?'#18372f':k%3===0?shade:highlight;
+  c.fillRect(x,y,k%5===0?4:2,k%4===0?2:1);
+ }
+ if(moss){
+  c.fillStyle=highlight;c.fillRect(20+variant,14,5,2);
+  c.fillRect(39-variant,21,3,2);
+ }
+ if(stones){
+  c.fillStyle=highlight;c.fillRect(29,15,6,2);
+  c.fillRect(14+variant,18,4,1);
+ }
+ forestGroundTileCache.set(key,atlas);return atlas;
+}
 function drawSpawnGround(g){
  const palette={
   forestThicket:['#29513c','#658c55'],forestWater:['#1c5064','#81bcb5'],
@@ -2262,18 +2388,17 @@ function drawSpawnGround(g){
   forestShallow:['#315e61','#87c4b4'],forestMist:['#52766d','#a4c4b6'],
   forestGlade:['#416e53','#b5c887'],forestShade:['#294a3c','#4e8065']
  };
+ ctx.imageSmoothingEnabled=false;
  for(const [key,type] of g.paths){
-  const [x,z]=key.split(',').map(Number),corners=[point(x,z),point(x+1,z),point(x+1,z+1),point(x,z+1)];
-  const colors=palette[type]||['#8d815f','#aa9970'];
-  polygon(corners,colors[0],type==='rootFloor'?'#a57948':null,.7);
-  const at=point(x+.5,z+.5),n=seeded(g.room.variant,x*331+z*177),sz=Math.max(2,Math.round(sx*.09));
-  ctx.fillStyle=colors[1];
-  ctx.fillRect(Math.round(at.x+sx*(n-.5)*.3),Math.round(at.y+sy*(n-.5)*.3),sz,sz);
-  if(type==='forestShallow'||type==='forestMist'||type==='forestGlade'){
-   ctx.globalAlpha=type==='forestGlade'?.34:.22;
-   ctx.fillStyle=type==='forestGlade'?'#e8e0a0':'#cdeae1';
-   ctx.fillRect(Math.round(at.x-sz*1.7),Math.round(at.y+sz*.4),sz*3,sz);
-   ctx.globalAlpha=1;
+  const [x,z]=key.split(',').map(Number),colors=palette[type]||['#8d815f','#aa9970'];
+  const at=point(x+.5,z+.5),variant=Math.floor(seeded(g.room.variant,x*331+z*177)*4);
+  const dx=Math.round(at.x-sx),dy=Math.round(at.y-sy),dw=Math.round(sx*2),dh=Math.round(sy*2);
+  const row=FOREST_TERRAIN_TYPES.indexOf(type);
+  if(forestTerrainReady()&&row>=0){
+   ctx.drawImage(FOREST_TERRAIN_ATLAS,variant*64,row*32,64,32,dx,dy,dw,dh);
+  }else{
+   const tile=forestGroundTile(type,variant,colors);
+   ctx.drawImage(tile,dx,dy,dw,dh);
   }
  }
 }
@@ -2341,6 +2466,64 @@ function forestTreeSprite(v=0){
    [10,32,25,3],[18,37,16,2]
   ])put(x,y,ww,hh,pal[3]);
  }
+ // Copa em massas irregulares de folhas, com transições em degraus.
+ // As coordenadas são os pixels reais do atlas de 48×64, não geometria 3D.
+ const crownBlob=(cx,cy,rx,ry,salt)=>{
+  for(let yy=-ry;yy<=ry;yy++){
+   const t=yy/Math.max(1,ry);
+   const bend=Math.sqrt(Math.max(0,1-t*t));
+   const irregular=Math.floor((seeded(variant+91+salt,yy*53+salt*113)-.5)*3);
+   const half=Math.max(1,Math.floor(rx*bend)+irregular);
+   const left=Math.round(cx-half),right=Math.round(cx+half);
+   put(left-1,cy+yy,right-left+3,1,pal[0]);
+   put(left,cy+yy,Math.max(2,right-left+1),1,yy>ry*.38?pal[1]:pal[2]);
+   if(yy<-ry*.17&&half>4){
+    const gap=Math.max(1,Math.round(half*.3));
+    put(left+2,cy+yy,Math.max(2,half-gap),1,pal[3]);
+    if(yy%4===0)put(left+4,cy+yy,3,1,pal[4]);
+   }
+  }
+ };
+ if(pine){
+  // Ramos de coníferas em andares; pontas alternadas preservam vazios.
+  for(const [cx,cy,rx,ry,k] of [
+   [24,8,6,7,1],[24,17,11,6,2],[22,25,17,7,3],
+   [25,33,19,7,4],[23,39,15,6,5]
+  ])crownBlob(cx,cy,rx,ry,k);
+  for(let i=0;i<9;i++){
+   const y=15+i*3,x=i%2?7:34;
+   put(x,y,4+i%3,1,pal[i%3===0?4:1]);
+  }
+ }else{
+  // Folhagens arredondadas mas de contorno estritamente pixelado.
+  const sway=variant%3-1;
+  for(const [cx,cy,rx,ry,k] of [
+   [16+sway,15,12,10,1],[30+sway,14,13,10,2],
+   [10,25,11,10,3],[24,23,18,13,4],
+   [36,25,11,10,5],[21,33,14,9,6],[32,34,11,8,7]
+  ])crownBlob(cx,cy,rx,ry,k);
+  for(let i=0;i<9;i++){
+   const x=8+Math.floor(seeded(variant+63,i*47)*33);
+   const y=9+Math.floor(seeded(variant+73,i*97)*24);
+   put(x,y,3,2,pal[i%4===0?4:1]);
+  }
+ }
+ // Fios de trepadeiras e lascas de madeira que não apagam o tronco.
+ for(let i=0;i<7;i++){
+  const bx=20+Math.floor(seeded(variant+17,i*23)*9),by=39+i*3;
+  put(bx,by,1,i%2?4:2,i%3===0?'#3c5137':'#9e7650');
+ }
+ for(let i=0;i<5;i++){
+  const bx=20+Math.floor(seeded(variant+88,i*17)*8),by=45+i*3;
+  put(bx,by,1,3,i%2?'#32241f':'#a4754b');
+ }
+ if(variant===2||variant===4){
+  for(let i=0;i<4;i++){
+   const x=8+i*10,y=30+(i%3)*3;
+   put(x,y,2,7+i%3,pal[1]);
+   put(x+1,y+4,1,4,pal[3]);
+  }
+ }
  // Folhas com reflexos pixelizados, falhas e diferentes densidades.
  for(let i=0;i<96;i++){
   const xx=2+Math.floor(seeded(variant+710,i*91+11)*44);
@@ -2360,15 +2543,34 @@ function forestTreeSprite(v=0){
  return sprite;
 }
 function drawSpawnTree(p,v=0){
- const pixel=forestTreePixelSize(),im=forestTreeSprite(v);
- const x=Math.round(p.x),y=Math.round(p.y);
+ const pixel=forestTreePixelSize(),x=Math.round(p.x),y=Math.round(p.y);
  ctx.fillStyle='rgba(10,23,19,.34)';
  ctx.fillRect(x-Math.round(10*pixel),y-pixel,Math.round(20*pixel),Math.max(2,pixel));
  ctx.imageSmoothingEnabled=false;
- ctx.drawImage(im,x-24*pixel,y-63*pixel,48*pixel,64*pixel);
+ if(forestTreeReady()){
+  const variant=Math.min(5,Math.max(0,Math.floor((Number(v)||0)*6)));
+  ctx.drawImage(FOREST_TREE_ATLAS,variant*64,0,64,96,x-32*pixel,y-95*pixel,64*pixel,96*pixel);
+ }else{
+  const im=forestTreeSprite(v);
+  ctx.drawImage(im,x-24*pixel,y-63*pixel,48*pixel,64*pixel);
+ }
 }
 
+const FOREST_PROP_INDEX={log:0,stone:1,fern:2,mushroom:3,moss:9,leaf:10,reed:11,rootWall:12,shrub:13,stump:14,rubble:1,debris:1};
+function drawForestPropSprite(o,p){
+ if(!forestPropsReady())return false;
+ const index=o.type==='flower'?4+Math.abs(Math.floor(Number(o.v)||0))%5:FOREST_PROP_INDEX[o.type];
+ if(index===undefined)return false;
+ const small=['flower','mushroom','leaf','moss','reed'].includes(o.type);
+ const pixel=small?Math.max(.85,Math.min(1.25,sx*.045)):Math.max(1.1,Math.min(2.2,sx*.070));
+ const dw=Math.max(12,Math.round(24*pixel)),dh=Math.max(15,Math.round(32*pixel));
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(FOREST_PROP_ATLAS,(index%8)*24,Math.floor(index/8)*32,24,32,
+  Math.round(p.x-dw/2),Math.round(p.y-dh+pixel*2),dw,dh);
+ return true;
+}
 function drawSpawnDebris(p){
+ if(drawForestPropSprite({type:'stone'},p))return;
  const sz=Math.max(2,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y);
  ctx.fillStyle='#172127';ctx.fillRect(x-3*sz,y-sz,7*sz,2*sz);
  ctx.fillStyle='#515e69';ctx.fillRect(x-2*sz,y-3*sz,5*sz,3*sz);
@@ -2424,9 +2626,10 @@ function drawRuinedArch(){
 function drawSpawnFeature(o){
   const offset=['flower','leaf','moss'].includes(o.type)?0:.5,
    p=point(o.x+offset,o.z+offset);
-  const reach=o.type==='tree'?250:120;
-  if(p.x< -reach||p.x>w+reach||p.y<-180||p.y>h+(o.type==='tree'?250:100))return;
+  const reach=o.type==='tree'?320:150;
+  if(p.x< -reach||p.x>w+reach||p.y<-350||p.y>h+(o.type==='tree'?320:120))return;
   if(o.type==='tree')drawSpawnTree(p,o.v);
+  else if(drawForestPropSprite(o,p))return;
   else if(o.type==='log'){
    const s=Math.max(3,Math.round(sx*.13)),x=Math.round(p.x),y=Math.round(p.y);
    ctx.fillStyle='#2c251e';ctx.fillRect(x-4*s,y-2*s,8*s,3*s);
@@ -2481,6 +2684,8 @@ function drawSpawnLandmark(landmark){
 function drawWorldProp(prop){
  const p=point(prop.x+.5,prop.z+.5),size=Math.max(3,Math.round(sx*.19));
  if(p.x< -90||p.x>w+90||p.y< -90||p.y>h+130)return;
+ if(runState?.region==='forest'&&
+    drawForestPropSprite({type:prop.type==='stone'?'stone':'shrub',v:prop.v},p))return;
  ctx.fillStyle='#07161c';ctx.fillRect(p.x-size,p.y-size*.45,2*size,size*.6);
  ctx.fillStyle=prop.type==='stone'?'#526b7c':'#27594b';
  ctx.fillRect(p.x-size*.75,p.y-size*2,1.5*size,1.6*size);
@@ -2537,9 +2742,18 @@ function drawWorldFloor(){
   const pos=worldExitAt(exit),p=point(pos.x,pos.z);
   if(p.x< -70||p.x>w+70||p.y< -70||p.y>h+70)continue;
   const gated=!runState.cleared&&(room.kind==='boss'||room.kind==='combat'&&room.variant%5===0);
-  ctx.fillStyle=gated?'#a95c64':'#85efce';ctx.globalAlpha=.75;
-  ctx.beginPath();ctx.ellipse(p.x,p.y,Math.max(15,sx*.46),Math.max(8,sy*.38),0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-  ctx.fillStyle='#071b25';ctx.font='bold 10px system-ui';ctx.textAlign='center';
+  // Marcador de passagem com desenho pixelado, sem círculo 3D fluorescente.
+  const mX=Math.round(p.x),mY=Math.round(p.y),px=Math.max(2,Math.round(sx*.07));
+  ctx.fillStyle='#0b1b20';ctx.fillRect(mX-7*px,mY-4*px,14*px,7*px);
+  ctx.fillStyle=gated?'#793f45':'#3e8169';
+  ctx.fillRect(mX-6*px,mY-3*px,12*px,5*px);
+  ctx.fillStyle=gated?'#eb9692':'#b2eac1';
+  ctx.fillRect(mX-5*px,mY-2*px,2*px,3*px);
+  ctx.fillRect(mX+3*px,mY-2*px,2*px,3*px);
+  ctx.fillRect(mX-3*px,mY-2*px,6*px,px);
+  ctx.fillStyle='#152d32';ctx.fillRect(mX-2*px,mY-px,4*px,3*px);
+  ctx.fillStyle='#e5dfae';ctx.fillRect(mX-px,mY,2*px,px);
+  ctx.fillStyle='#071b25';ctx.font='bold 10px monospace';ctx.textAlign='center';
   const next=roomById(exit.to);const area=runState.world.areas[next.area];
   ctx.fillText(gated?'BLOQUEADA':area.id===room.area?'PASSAGEM':'NOVA ÁREA',p.x,p.y-16);
  }
@@ -3457,9 +3671,325 @@ function drawInteractables(){
 function point(x,z){return{x:w*.5+(x-cam.x-z+cam.z)*sx,y:h*.49+(x-cam.x+z-cam.z)*sy};}
 function polygon(pts,fill,stroke,width=1){ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();}}
 function line(x1,y1,x2,y2,color,width=2){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
-const PIXEL_ART = {};
-for(const [key,filename] of Object.entries({"hero": "hero_sheet.png", "enemy": "enemy_sheet.png", "guardian": "guardian_sheet.png", "duelist": "duelist_sheet.png", "berserker": "berserker_sheet.png", "elite": "elite_sheet.png", "tile0": "tile_0.png", "tile1": "tile_1.png", "tile2": "tile_2.png", "tile3": "tile_3.png"})){const im=new Image();im.src="data:image/png;base64,"+({"hero_sheet.png":"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","enemy_sheet.png":"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","guardian_sheet.png":"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","duelist_sheet.png":"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","berserker_sheet.png":"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","elite_sheet.png":"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","tile_0.png":"iVBORw0KGgoAAAANSUhEUgAAAEgAAAAkCAYAAAAq23xmAAABZklEQVR4nOXazUrDYBCF4dMbEAp1Eei6q15A8f4RL8CVayGLCkJvQFcj9TjGJvlmziS+u7bJl/CQ5h8o1l13+FCvw3Ub9QpYHsylf5Gvn3wFrmGODycAwPPj07dplFCyBXswb/0ZALDr7gHUgEpf4BAMVwEqbUFjYDglVPgC5sBwCqiwgVvCcJlQzQeMhOEyoJoNlAnDeVCtkGYPooThIqAmz1wJhmsJNXqmyjBcC6ibJ14SDDcH6s+JlgzDTYH69cc1wXBjoH58uWYY7haorw//CYYbgtrwjaoMnH23xWv/Hjb+1DwodwsCtFtRNuDgFsQTV4KKbtQ+iFsz1KyjGFcRaupfsOl5kNdSj3ShZ9JeS4FKvRbz8qAAPZb0at6rwn7KUIAi94O8FFCRdxOBoJv2GVDRMFboY58IqCwYK+XBYQuobBir9KNnQAdjlXx5AdDDWCVffwH0MJYcyKr6AlW5qr2C9wn8rUsWKFj7FQAAAABJRU5ErkJggg==","tile_1.png":"iVBORw0KGgoAAAANSUhEUgAAAEgAAAAkCAYAAAAq23xmAAABgklEQVR4nN3azW3CQBCG4Y8GEpDCgQY4pYAo/QulgJzSAAeQgDSQnAY5k/HP7s7f8t7AZm09WoyxDSTrabf/id6HYavoHaAkmO/jV/j+he/AEOb1/Q0A8Hn4+LNOJFTYhiWYy+kMANhsXwDkgHLf4BQMLwOU24ZKYHiRUOYbaIHhRUCZDawJw/OEUh/QEobnAaU2kCcMT4LSQmoeJBKGZwFV/eFMMDxNqOIPZYbhaUAtXrknGF4L1OxKPcHstmscT9fR5TVQowt7gimtBOrfm9Yw18sNALDePKuNWdsSqPsL7xlDUMByLCvcKagVv1AV8XUawxq+z5dZJEGJMwjwg+IH1pqZ1drkDOIrZ5hRtc39ivGKjkG8nqHmavoV4z0SlOp5kFSv50amZ9JSvUC5/heTkqCAeKzQf/NSGY5ThAIkuR4kFQFleTURMLpo7wFlDUOZ3vaxgPKCoVxuHGpAecNQqW89A3EwVMqHF4B4GCrl4y9APAwVDkRlfYAqXdkewfsFtWtdFlZocn0AAAAASUVORK5CYII=","tile_2.png":"iVBORw0KGgoAAAANSUhEUgAAAEgAAAAkCAYAAAAq23xmAAABcUlEQVR4nOXaTYoCMRAF4OcBFHQheAFXHkC8PzIHmNVcQHChoAfQhZS0XTWtMfVnfDvtpBI+QtumAyTLZLG8RM+hm1H0BCgSzGn3Fz6/8Al0YVabNQDgd/vz0CYSKmxgCeZ0ON6uzaYAckC5DzgEw9omgHIbqASG9Q2EMh+gBobVCoAyK6wJw2o7QqkXtIRhYzlAqRXyhGFjC1BaSNVFImHYXAyg3u6cCaYfTajiTlYw89kY+8O5uk43GlAvN862YkpAa6CeNsoGU5N3oP692BJMPyVQ7MuWYfp5Ber+QQPG4kbrkSGoUX+jqvVVMxQJSlxBwHdBDa4g1viLoIruQaxzw1BVv2KsWENQqs9B4gAf+ghg+iQtDvghUK7/xcQJCFBAPFbov3lxQgnuU4QCJNkPkhIBZbmbCBht2ntAWcNQTF/7WEB5wVBcXhxqQHnDUFK/egbiYCgpDy8A8TCUlMdfgHgYSjgQJesBqnTJdgTvChltSxYB0GW1AAAAAElFTkSuQmCC","tile_3.png":"iVBORw0KGgoAAAANSUhEUgAAAEgAAAAkCAYAAAAq23xmAAABgElEQVR4nN3aXUrDUBCG4a8bMCJC0QV45QLE/SMuwCsXoBREjBvQq5E4TmNOzsx8k753bdKT8JCk+QOKdXZ188Veh2k79gpIFszn6zN9/egrMIW5vb8DADw9PP6ahwlFW7AF8354AwBc7C8B1IBKX+AcjK4CVNqCWmB0TKjwBfTA6BhQYQN7wugyodwHjITRZUC5DZQJo7OgvJC6B2HC6CKgVv+4EozOE6r5R5VhdB5Qi2feEoyuB+rfmbYMo1sDdXRiFMz1/hwvh4/ucXpqgfrzZfQWM44jAGAYBrcx17YE6udD9q4kUMByrCjcOaidvlHlgdO6Gx3Dmn6vp0VkQZlbEMA7IK/Zsnqb3YL0zFWgMmo6BulOGarrX0x3SlCu50FWWz03Cj2TttrK2XXqtZiVBQXwsahX81YVjlOCAhS5H2TFgIq8mwgE3bTPgIqGkUIf+0RAZcFIKQ8OPaCyYaTSj54BHoxU8uUFgA8jlXz9BeDDSHQgqeoLVOWq9greN9FLXRZhkqYBAAAAAElFTkSuQmCC"})[filename];PIXEL_ART[key]=im;}
+// Recursos visuais externos — PNGs verdadeiros, não imagens base64 no JavaScript.
+const PIXEL_ART={};
+const LEGACY_SHEETS={
+ hero:'hero_sheet.png',enemy:'enemy_sheet.png',guardian:'guardian_sheet.png',
+ duelist:'duelist_sheet.png',berserker:'berserker_sheet.png',elite:'elite_sheet.png',
+ tile0:'tile_0.png',tile1:'tile_1.png',tile2:'tile_2.png',tile3:'tile_3.png'
+};
+for(const [key,filename] of Object.entries(LEGACY_SHEETS)){
+ const img=new Image();img.decoding='async';
+ img.src='assets/sprites/legacy/'+filename;
+ PIXEL_ART[key]=img;
+}
 
+// Atlases raster externos dos inimigos (8 direções x andar/atacar).
+const ENEMY_SPRITES={};
+for(const key of ['enemy','guardian','duelist','berserker','elite']){
+ const image=new Image();image.decoding='async';
+ image.src='assets/sprites/enemies/'+key+'.png';
+ ENEMY_SPRITES[key]=image;
+}
+function enemySprite(style){
+ const image=ENEMY_SPRITES[style]||ENEMY_SPRITES.enemy;
+ return image?.complete&&image.naturalWidth===128&&image.naturalHeight===768
+  ?image:(PIXEL_ART[style]||PIXEL_ART.enemy);
+}
+// Pipeline de animação pixel art v3: sete estados por direção, com os
+// PNGs anteriores mantidos como fallback de carregamento.
+const CHARACTER_MOTIONS=['walk','attack','guard','dodge','hurt','down','finisher'];
+// Class-identifying pixel outfits are layered on top of the race, not
+// generated by tinting the entire body. Shared 7-state directional layout.
+const PLAYABLE_OUTFITS={};
+for(const role of Object.keys(ARCHETYPE_OPTIONS)){
+ const img=new Image();img.decoding='async';PLAYABLE_OUTFITS[role]=img;
+ img.onload=()=>{if($('creatorOverlay')?.classList.contains('open'))renderCharacterCreator();};
+ img.src='assets/sprites/playable/'+role+'-outfit.png';
+}
+function playableOutfit(role){
+ const img=PLAYABLE_OUTFITS[role];
+ return img?.complete&&img.naturalWidth===128&&img.naturalHeight===2688?img:null;
+}
+// O traje não deve esconder o rosto/orelha dos pequeninos ou anões.
+// Máscara baseada na anatomia da raça, preservada em todas as classes.
+function playableOutfitTop(race){
+ const shape=RACE_SHAPES[race]||RACE_SHAPES.human;
+ return Math.max(0,Math.min(42,shape.torsoY-1));
+}
+function drawPlayableOutfitFrame(context,img,frame,row,x,y,w,h,race){
+ if(!img)return;
+ const minY=playableOutfitTop(race),crop=h*minY/48;
+ context.save();context.beginPath();
+ context.rect(x,y+crop,w,h-crop);context.clip();
+ context.imageSmoothingEnabled=false;
+ context.drawImage(img,frame*32,row*48,32,48,x,y,w,h);
+ context.restore();
+}
+// Revisão racial v2: anatomia externa e detalhes de identidade separados
+// para ficarem por cima de roupa e armadura, mesmo durante a esquiva.
+const RACE_REFINED_SPRITES={},RACE_TRAIT_SPRITES={};
+for(const id of Object.keys(RACE_OPTIONS)){
+ const body=new Image(),identity=new Image();body.decoding='async';identity.decoding='async';
+ RACE_REFINED_SPRITES[id]=body;RACE_TRAIT_SPRITES[id]=identity;
+ const repaint=()=>{if($('creatorOverlay')?.classList.contains('open'))renderCharacterCreator();};
+ body.onload=repaint;identity.onload=repaint;
+ body.src='assets/sprites/playable/races/'+id+'.png';
+ identity.src='assets/sprites/playable/race-traits/'+id+'.png';
+}
+function playableRaceRefined(id){
+ const img=RACE_REFINED_SPRITES[id];
+ return animatedSpriteReady(img)?img:null;
+}
+function playableRaceTraits(id){
+ const img=RACE_TRAIT_SPRITES[id];
+ return animatedSpriteReady(img)?img:null;
+}
+const ADVANCED_ACTOR_SPRITES={},ADVANCED_ENEMY_SPRITES={};
+for(const id of Object.keys(RACE_OPTIONS)){
+ const img=new Image();img.decoding='async';ADVANCED_ACTOR_SPRITES[id]=img;
+ img.src='assets/sprites/animated/'+id+'.png';
+}
+for(const id of ['enemy','guardian','duelist','berserker','elite']){
+ const img=new Image();img.decoding='async';ADVANCED_ENEMY_SPRITES[id]=img;
+ img.src='assets/sprites/animated/'+id+'-enemy.png';
+}
+function animatedSpriteReady(img){
+ return !!img?.complete&&img.naturalWidth===128&&img.naturalHeight===2688;
+}
+function characterImage(u,hero){
+ if(hero){
+  const id=activeRace(),refined=playableRaceRefined(id),old=ADVANCED_ACTOR_SPRITES[id];
+  return refined||(animatedSpriteReady(old)?old:raceAsset(id));
+ }
+ const img=ADVANCED_ENEMY_SPRITES[u.style]||ADVANCED_ENEMY_SPRITES.enemy;
+ return animatedSpriteReady(img)?img:enemySprite(u.style);
+}
+// A animação não dita quando a hitbox acerta: ela segue a janela definida
+// pelo movimento. Quadros-pose: resposta inicial, antecipação, contato, recuperação.
+// Isso evita o falso atraso de input e mantém o tempo do combate inalterado.
+function playableAttackTiming(move,progress){
+ const p=clamp(progress,0,1),impact=clamp(move?.impact??.48,.25,.70);
+ const ranged=!!move?.ranged,active=ranged?null:activeInterval(move||{impact});
+ // Ataques corpo a corpo mostram pose de contato durante toda a janela
+ // de hitbox ativa; ataques à distância usam a liberação do projétil.
+ const strike=ranged?Math.max(.10,impact-.055):active.start;
+ const prepare=Math.max(.055,strike-(ranged?.11:.095));
+ const delayed=(Math.max(1,move?.shots||1)-1)*(move?.delayStep||0)/
+  Math.max(.20,move?.dur||.4);
+ const recover=ranged?Math.min(.97,impact+.12+delayed):
+  Math.min(.97,active.end+.03);
+ // Margem numérica evita separar o mesmo instante (.39-.18) em
+ // dois quadros distintos por representação de ponto flutuante.
+ const contactStarts=p+1e-8>=strike;
+ const frame=p<prepare?0:!contactStarts?1:p<recover?2:3;
+ const phase=frame===0?'response':frame===1?'anticipation':
+  frame===2?'contact':'recovery';
+ return{frame,phase,impact,contact:contactStarts&&p<recover,
+  released:p>=impact};
+}
+function playerMoveIdentity(move,archetype){
+ if(!move)return'idle';
+ if(archetype==='hunter')
+  return move.largeArrow?'piercing-shot':(move.shots||1)>=3?'volley':'arrow';
+ if(archetype==='arcanist')
+  return move.heavyShot?'charged-orb':(move.shots||1)>=3?'salvo':'spark';
+ if(move.motion==='bash')return'shield-bash';
+ if(['thrust','dashThrust','doubleThrust'].includes(move.motion))return'thrust';
+ return move.motion||'slash';
+}
+function characterMotion(u,hero){
+ const alive=u.hp>0,attack=hero?u.act:null,
+  moving=(u.moveMagnitude||0)>.13;
+ const visual=hero?RACE_VISUAL_LANGUAGE[activeRace()]:null;
+ const walkFrame=Math.floor(Math.abs(u.walk||0)*.52*(visual?.stride||1))%4;
+ const progress=attack?clamp(attack.time/(attack.move.dur||1),0,.999):
+  clamp(1-(u.strike||0)/(u.strikeMax||.3),0,.999);
+ const step=t=>Math.max(0,Math.min(3,Math.floor(t*4)));
+ if(!alive)return{state:5,frame:step(clamp((clock-(u.visualDeathAt??clock))/.58,0,.999)),name:'down'};
+ if(!hero&&(u.phase==='down'||(u.downTimer||0)>0)){
+  const total=u.downTotal||1.1;
+  return{state:5,frame:step(clamp(1-(u.downTimer||0)/total,0,.999)),name:'down'};
+ }
+ if(hero&&(u.dodge||0)>0){
+  return{state:3,frame:step(clamp(1-u.dodge/.26,0,.999)),name:'dodge'};
+ }
+ if(!hero&&u.phase==='evade'){
+  return{state:3,frame:step(clamp(1-(u.evade||0)/.27,0,.999)),name:'dodge'};
+ }
+ if(hero&&((u.parryWindow||0)>0||(u.parryRecovery||0)>0||(u.guardWindow||0)>0||(u.meleeGuard||0)>0)){
+  const t=(u.parryWindow||0)>0?clamp(1-u.parryWindow/.30,0,.999):.52;
+  return{state:2,frame:step(t),name:'guard'};
+ }
+ if(!hero&&u.phase==='guard')
+  return{state:2,frame:step((clock%0.8)/0.8),name:'guard'};
+ if((u.reaction||0)>.035||(!hero&&u.phase==='stun')){
+  const t=clamp(1-(u.reaction||.13)/.30,0,.999);
+  return{state:4,frame:step(t),name:'hurt'};
+ }
+ if(attack?.move?.fin||attack?.move?.rip||
+  (!hero&&u.style==='elite'&&u.phase==='strike'&&['crush','dash'].includes(u.type))){
+  return{state:6,frame:hero?playableAttackTiming(attack.move,progress).frame:step(progress),name:'finisher'};
+ }
+ if(attack||(!hero&&u.phase==='strike'))
+  return{state:1,frame:hero?playableAttackTiming(attack.move,progress).frame:step(progress),name:'attack'};
+ return{state:0,frame:moving?walkFrame:0,name:'walk'};
+}
+// Cada arma é um recorte de 24x48 de uma folha PNG independente.
+const WEAPON_ATLAS=new Image();WEAPON_ATLAS.decoding='async';
+WEAPON_ATLAS.src='assets/sprites/equipment/weapons.png';
+const FX_ATLAS=new Image();FX_ATLAS.decoding='async';
+FX_ATLAS.src='assets/sprites/equipment/fx.png';
+function fxReady(){return FX_ATLAS.complete&&FX_ATLAS.naturalWidth===128&&FX_ATLAS.naturalHeight===16;}
+function drawFxSprite(frame,x,y,w,h=w){
+ if(!fxReady())return false;
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(FX_ATLAS,frame*16,0,16,16,
+  Math.round(x-w/2),Math.round(y-h/2),Math.round(w),Math.round(h));
+ return true;
+}
+// Cada segmento é uma sequência de pixels quadrados, não uma linha borrada.
+function pixelSegment(x1,y1,x2,y2,size,color){
+ const stride=Math.max(2,Math.round(size*.75)),steps=Math.max(1,Math.ceil(Math.hypot(x2-x1,y2-y1)/stride));
+ ctx.fillStyle=color;
+ for(let i=0;i<=steps;i++){
+  const t=i/steps,x=Math.round(x1+(x2-x1)*t),y=Math.round(y1+(y2-y1)*t);
+  ctx.fillRect(x-Math.round(size/2),y-Math.round(size/2),size,size);
+ }
+}
+function pixelEllipse(x,y,rx,ry,size,color){
+ let previous=null;
+ for(let i=0;i<=40;i++){
+  const theta=i*Math.PI/20,next={x:x+Math.cos(theta)*rx,y:y+Math.sin(theta)*ry};
+  if(previous)pixelSegment(previous.x,previous.y,next.x,next.y,size,color);
+  previous=next;
+ }
+}
+function pixelArcSegment(cx,cy,rx,ry,start,end,size,color){
+ const count=Math.max(8,Math.ceil(Math.abs(end-start)*Math.max(rx,ry)/5));
+ let last=null;
+ for(let i=0;i<=count;i++){
+  const t=start+(end-start)*i/count;
+  const p={x:cx+Math.cos(t)*rx,y:cy+Math.sin(t)*ry};
+  if(last)pixelSegment(last.x,last.y,p.x,p.y,Math.max(1,Math.round(size)),color);
+  last=p;
+ }
+}
+function pixelArcTrail(a){
+ const q=clamp(1-a.life/a.max,0,1),fade=Math.pow(1-q,.72);
+ const p=point(a.x,a.z),d=point(a.x+a.face.x,a.z+a.face.z);
+ const ang=Math.atan2((d.y-p.y)*1.65,d.x-p.x);
+ const px=Math.max(2,Math.round(sx*.075)),lift=actorSpriteScale()*18;
+ const main=a.color||(a.kind==='enemy'?'#e56d69':a.kind==='heavy'?'#e8a45e':'#5fd3dc'),edge=a.edge||'#fff2ca';
+ ctx.save();ctx.imageSmoothingEnabled=false;ctx.globalAlpha=fade;
+ if(a.kind==='thrust'){
+  const x=point(a.x+a.face.x*.2,a.z+a.face.z*.2),end=point(a.x+a.face.x*(1.7+q*.2),a.z+a.face.z*(1.7+q*.2));
+  pixelSegment(x.x,x.y-lift,end.x,end.y-lift,px*3,main);
+  pixelSegment(x.x+px,x.y-lift-px,end.x,end.y-lift-px,px,edge);
+  drawFxSprite(7,end.x,end.y-lift,px*6);
+ }else if(a.kind==='spin'){
+  const r=(a.radius||49)*(a.scale||1);let last=null;
+  for(let i=0;i<=40;i++){
+   const t=i/40*Math.PI*2+q*1.3,next={x:p.x+Math.cos(t)*r,y:p.y-lift+Math.sin(t)*r*.47};
+   if(last)pixelSegment(last.x,last.y,next.x,next.y,px*2,i%5===0?edge:main);
+   last=next;
+  }
+ }else if(['impact','uppercut','chop'].includes(a.kind)){
+  const c=point(a.x+a.face.x*.65,a.z+a.face.z*.65);
+  if(a.kind==='impact'){
+   const f=point(a.x+a.face.x*1.45,a.z+a.face.z*1.45);
+   pixelSegment(c.x,c.y-lift,f.x,f.y-lift,px*4,main);
+   drawFxSprite(6,f.x,f.y-lift,px*(9+q*5));
+  }else{
+   const dy=a.kind==='uppercut'?1:-1,low=c.y-lift+dy*(20-q*17),high=c.y-lift-dy*(22+q*34);
+   pixelSegment(c.x-px*3,low,c.x+px*2,high,px*3,main);
+   pixelSegment(c.x,low,c.x+px*3,high,px,edge);
+   drawFxSprite(6,c.x+px,high,px*5);
+  }
+ }else{
+  const rad=(a.radius??(a.kind==='rip'?57:a.kind==='heavy'?48:39))*(a.scale||1);
+  const sign=a.angle||1,start=ang-1.45*sign+q*.7*sign,end=ang+.67*sign+q*.8*sign;
+  const ox=p.x+Math.cos(ang)*21,oy=p.y-30+Math.sin(ang)*10;let last=null;
+  for(let i=0;i<=24;i++){
+   const t=start+(end-start)*i/24,next={x:ox+Math.cos(t)*rad,y:oy+Math.sin(t)*rad};
+   if(last){
+    pixelSegment(last.x,last.y,next.x,next.y,px*3,main);
+    if(i%2===0)pixelSegment(last.x,last.y-px,next.x,next.y-px,px,edge);
+   }
+   last=next;
+  }
+  if(a.kind==='rip'&&last)drawFxSprite(4,last.x,last.y,px*5);
+ }
+ ctx.restore();
+}
+
+const WEAPON_SPRITES={sword:0,dagger:1,staff:2,bow:3,shield:4,
+ enemySword:5,rapier:6,axe:7,greatsword:8};
+function drawWeaponImage(key,x,y,width,height){
+ if(!WEAPON_ATLAS.complete||WEAPON_ATLAS.naturalWidth!==216)return false;
+ const col=WEAPON_SPRITES[key];if(col===undefined)return false;
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(WEAPON_ATLAS,col*24,0,24,48,
+  Math.round(x),Math.round(y),Math.round(width),Math.round(height));
+ return true;
+}
+function drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress){
+ if(!WEAPON_ATLAS.complete||WEAPON_ATLAS.naturalWidth!==216)return false;
+ const key=hero?({
+  warrior:'sword',guardian:'sword',rebel:'dagger',
+  arcanist:'staff',hunter:'bow'
+ }[archetype]||'sword'):({
+  enemy:'enemySword',guardian:'enemySword',duelist:'rapier',
+  berserker:'axe',elite:'greatsword'
+ }[u.style]||'enemySword');
+ const width=24*s*(key==='dagger'?.75:key==='bow'?.88:1);
+ const height=Math.max(12,Math.max(7,pose.r)*48/38);
+ const move=hero?u.act?.move:null,style=hero?playerMoveIdentity(move,archetype):'enemy';
+ const stage=move?playableAttackTiming(move,progress):null;
+ ctx.save();ctx.translate(Math.round(pose.x1),Math.round(pose.y1));
+ if(hero&&key==='bow'){
+  // O arco tem o eixo perpendicular ao disparo. Antes ele girava como
+  // uma espada; a corda e a flecha agora mostram o ato de puxar/soltar.
+  ctx.rotate(pose.aimAngle);
+  drawWeaponImage(key,-width/2,-height/2,width,height);
+  if(attacking&&stage&&!stage.released){
+   const draw=Math.max(0,pose.pull);
+   if(fxReady()){
+    const arrowLength=stage.phase==='anticipation'?25:20;
+    ctx.drawImage(FX_ATLAS,2*16,0,16,16,
+     Math.round(3*s-draw*8*s),Math.round(-arrowLength*.35),
+     Math.round(arrowLength*s*.65),Math.round(arrowLength*.55));
+   }
+   ctx.fillStyle='#e8e6c4';
+   const x=Math.round(-draw*8*s);
+   ctx.fillRect(x,Math.round(-height*.38),Math.max(2,Math.round(s)),Math.round(height*.76));
+  }
+ }else{
+  // Espadas, adagas e cajados partem do punho; o tempo do giro não
+  // muda a hitbox. O cajado mostra a carga antes do projétil nascer.
+  ctx.rotate(pose.a+Math.PI/2);
+  drawWeaponImage(key,-width/2,-height*42/48,width,height);
+  if(hero&&key==='staff'&&attacking&&stage&&!stage.released&&fxReady()){
+   const glow=style==='charged-orb'?19:11;
+   const grow=stage.phase==='anticipation'?1.12:.78;
+   drawFxSprite(style==='charged-orb'?1:0,0,-height*.78,
+    Math.round(glow*s*.7*grow));
+  }
+ }
+ ctx.restore();
+ if((hero&&archetype==='guardian')||(!hero&&u.style==='guardian')){
+  const guarding=parrying||u.guardWindow>0||u.phase==='guard';
+  const bash=attacking&&u.act?.move.motion==='bash'?Math.sin(Math.PI*progress)*9*s:0;
+  const bx=(pose.side>0?-19:5)*s+Math.cos(pose.aimAngle)*bash;
+  const by=-32*s+Math.sin(pose.aimAngle)*bash-(guarding?3*s:0);
+  drawWeaponImage('shield',bx,by,15*s,27*s);
+  if(guarding){
+   ctx.fillStyle='#a1f6d1';
+   ctx.fillRect(Math.round(bx+6*s),Math.round(by+4*s),Math.max(2,Math.round(2*s)),Math.max(3,Math.round(8*s)));
+  }
+ }
+ return true;
+}
 function ground(){
   if(runState?.world&&roomGeometry){drawWorldFloor();return;}
   ctx.fillStyle='#07151f';ctx.fillRect(0,0,w,h);
@@ -3516,13 +4046,20 @@ function aimVisual(){
 }
 function drawDodgeEchoes(){
  if(settings.reducedMotion||!dodgeEchoes.length)return;
- const img=raceSprite(activeRace());if(!img?.width)return;
- const scale=clamp(sx/36*1.9,1.35,2.7);
+ const img=characterImage(player,true);if(!img?.width)return;
+ const outfit=playableOutfit(currentArchetype());
+ const scale=actorSpriteScale();
  ctx.save();ctx.imageSmoothingEnabled=false;
  for(const a of dodgeEchoes){
    const p=point(a.x,a.z),k=clamp(a.life/a.max,0,1);
    ctx.globalAlpha=(settings.economy?.22:.38)*k;
-   ctx.drawImage(img,a.frame*32,a.dir*48,32,48,Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
+   const row=img.naturalHeight===2688?a.dir+3*8:a.dir;
+   ctx.drawImage(img,a.frame*32,row*48,32,48,Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
+   if(outfit)drawPlayableOutfitFrame(ctx,outfit,a.frame,row,
+    Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale),activeRace());
+   const identity=playableRaceTraits(activeRace());
+   if(identity)ctx.drawImage(identity,a.frame*32,row*48,32,48,
+    Math.round(p.x-16*scale),Math.round(p.y-34*scale),Math.round(32*scale),Math.round(48*scale));
    ctx.strokeStyle='#99f5e0';ctx.lineWidth=Math.max(1,Math.round(scale));
    ctx.strokeRect(Math.round(p.x-11*scale),Math.round(p.y-24*scale),Math.round(22*scale),Math.round(32*scale));
  }
@@ -3627,15 +4164,16 @@ function actorSpriteScale(){
 function figure(u,team){
  if(!u)return;
  const hero=team==='player',alive=u.hp>0;
+ if(!alive&&u.visualDeathAt===undefined)u.visualDeathAt=clock;
  const foot=point(u.x,u.z),x=Math.round(foot.x),y=Math.round(foot.y),air=hero?0:(u.air||0);
  const moving=(u.moveMagnitude||0)>.13;
  // Durante o ataque, não alternar de repente os frames de caminhada.
- const animFrame=hero&&u.act?0:moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0;
  const heading=Math.atan2(u.face.z,u.face.x);
  const direction=((Math.round(heading/ (TAU/8))%8)+8)%8;
- const img=hero?raceSprite(activeRace()):(PIXEL_ART[u.style]||PIXEL_ART.enemy);
+ const img=characterImage(u,hero);
  const atk=hero?u.act:null,attacking=hero?!!atk:u.phase==='strike';
  const progress=hero&&atk?atk.time/atk.move.dur:attacking?1-clamp(u.strike/(u.strikeMax||.3),0,1):0;
+ const motion=characterMotion(u,hero),animFrame=motion.frame;
  const sw=hero&&atk?swingPose(atk.move,progress):{angle:.0,active:attacking};
  const parrying=hero&&u.parryWindow>0,dodging=hero&&u.dodge>0;
  const stagger=clamp((u.reaction||0)/.30,0,1);
@@ -3648,7 +4186,8 @@ function figure(u,team){
  if(air>0){ctx.strokeStyle='#e8a965';ctx.lineWidth=2;ctx.strokeRect(x-18*s,y-7,36*s,14);}
  // Avanço contínuo sem salto de posição entre preparação/impacto.
  const strikeCurve=hero&&atk?Math.sin(PI*clamp(progress,0,1)):0;
- const poseShift=Math.round(strikeCurve*2*s);
+ const poseShift=Math.round(strikeCurve*(hero?
+   (RACE_VISUAL_LANGUAGE[activeRace()]?.attackDrive||2):2)*s);
  // Estocadas projetam o tronco e o punho na direção da mira; os cortes
  // circulares giram mas não avançam como uma lança.
  const drive=hero&&atk&&['thrust','dashThrust','doubleThrust'].includes(atk.move.motion)?
@@ -3662,13 +4201,29 @@ function figure(u,team){
   if(hero&&!settings.reducedMotion&&!atk&&!moving&&!parrying&&!dodging)lean+=Math.sin(clock*2.2)*.009;
  ctx.rotate(hero?0:lean); // evita flicker por interpolação da sprite no giro
  if(img&&(img.naturalWidth||img.width)){
-   if(!alive)ctx.globalAlpha=.35;
+   if(!alive&&img.naturalHeight!==2688)ctx.globalAlpha=.35;
    if(u.flash>0&&Math.floor(clock*22)%2===0)ctx.globalAlpha=.50;
    const idle=hero&&!moving&&!atk&&!settings.reducedMotion?Math.max(0,Math.round(Math.sin(clock*2.2)*s*.55)):0;
-    const bounce=moving&&!atk?Math.abs(Math.sin(u.walk||0))*2:idle;
+    const bounce=moving&&!atk?
+      Math.abs(Math.sin((u.walk||0)*(hero?(RACE_VISUAL_LANGUAGE[activeRace()]?.stride||1):1)))*
+      (hero?(RACE_VISUAL_LANGUAGE[activeRace()]?.bob||1.65):2):idle;
    // Apoio dos pés sobre a célula do mundo para a sobreposição ficar natural.
    const footY=runState?.world?44:34;
-   ctx.drawImage(img,animFrame*32,direction*48,32,48,Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
+   const spriteRow=img.naturalHeight===2688?direction+motion.state*8:
+     attacking&&img.naturalHeight===768?direction+8:direction;
+    ctx.drawImage(img,animFrame*32,spriteRow*48,32,48,Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
+   if(hero){
+    const outfit=playableOutfit(currentArchetype());
+    if(outfit){
+     const costumeRow=direction+(img.naturalHeight===2688?motion.state:attacking?1:0)*8;
+     drawPlayableOutfitFrame(ctx,outfit,animFrame,costumeRow,
+      Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s),activeRace());
+    }
+    const raceTraits=playableRaceTraits(activeRace());
+    if(raceTraits&&img.naturalHeight===2688)
+     ctx.drawImage(raceTraits,animFrame*32,spriteRow*48,32,48,
+      Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
+   }
    ctx.globalAlpha=1;
  }else{
   ctx.fillStyle=hero?'#37a7c4':'#b0716c';ctx.fillRect(-13*s,-30*s,26*s,23*s);
@@ -3683,7 +4238,10 @@ function figure(u,team){
  const pose=visualWeaponPose({...u,face:drawFacing},archetype,attacking,sw.angle,parrying,s,progress,atk?.move);
   const {a,r,x1,y1,x2,y2,side}=pose;
  ctx.lineCap='square';
- if(hero&&archetype==='hunter'){
+ const equipmentDrawn=!alive||drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress);
+ if(equipmentDrawn){
+  // Sprite PNG no lugar das linhas; a pose segue o joystick/ataque.
+ }else if(hero&&archetype==='hunter'){
   // O arco acompanha a mira; durante o disparo, a corda recua e solta.
   const dx=Math.cos(a),dy=Math.sin(a),nx=-dy,ny=dx;
   const bx=x1+dx*11*s,by=y1+dy*11*s;
@@ -3749,7 +4307,7 @@ function figure(u,team){
    ctx.globalAlpha=1;
   }
   // A arma é o destaque e não recebe máscara de rosto.
-  if(hero&&archetype==='guardian'){
+  if(hero&&archetype==='guardian'&&!equipmentDrawn){
   // Escudo na outra mão; reage ao bloqueio e parry.
   const g=(u.guardWindow||0)>0||parrying;
   const shieldDrive=atk?.move?.motion==='bash'?Math.sin(PI*progress)*12*s:0;
@@ -3760,13 +4318,13 @@ function figure(u,team){
   ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
  }
  // Enemy distinctions: defensive shield and elite crown/phase aura.
- if(!hero&&u.style==='guardian'){
+ if(!hero&&u.style==='guardian'&&!equipmentDrawn){
   const shieldX=Math.round(-15*s),shieldY=Math.round(-25*s);
   ctx.fillStyle=u.phase==='guard'?'#78f5c7':'#4a8b94';
   ctx.fillRect(shieldX,shieldY,Math.round(11*s),Math.round(17*s));
   ctx.fillStyle='#c2fff0';ctx.fillRect(shieldX+Math.round(2*s),shieldY+Math.round(3*s),Math.round(3*s),Math.round(9*s));
  }
- if(!hero&&u.style==='elite'){
+ if(!hero&&alive&&u.style==='elite'&&img.naturalHeight!==768&&img.naturalHeight!==2688){
   const col=u.bossStage===3?'#ff7268':u.bossStage===2?'#f4c36d':'#e4d4a0';
   ctx.fillStyle=col;ctx.fillRect(Math.round(-9*s),Math.round(-47*s),Math.round(18*s),Math.round(5*s));
   ctx.fillRect(Math.round(-8*s),Math.round(-51*s),Math.round(4*s),Math.round(7*s));
@@ -3812,6 +4370,7 @@ function warning(){
 }
 }
 function traces(){for(const a of arcs){
+ if(fxReady()){pixelArcTrail(a);continue;}
  // Um golpe de ponta deixa um traço RETO na direção da arma, com
  // flecha/ponto luminoso. Não reutiliza o arco semicircular dos cortes.
  if(a.kind==='thrust'){
@@ -3873,10 +4432,15 @@ function traces(){for(const a of arcs){
 function specialEffects(){
  for(const fx of specials){
   const p=point(fx.x,fx.z),q=1-fx.life/fx.max,e=Math.min(1,q/.18),fade=Math.pow(1-q,.75),d=point(fx.x+fx.dir.x,fx.z+fx.dir.z),ang=Math.atan2((d.y-p.y)*1.3,d.x-p.x),cx=p.x,cy=p.y-29;
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);ctx.globalAlpha=fade*.92;ctx.lineCap='round';ctx.lineJoin='round';
-  // 2-color motion strokes with a hard inner blade and soft emissive edge.
-  const stroke=(x1,y1,x2,y2,width=5,color=fx.color)=>{ctx.shadowColor=color;ctx.shadowBlur=12;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.shadowBlur=0;ctx.lineWidth=Math.max(1.5,width*.23);ctx.strokeStyle=fx.edge;ctx.stroke();};
-  const pulse=(radius,vertical=.48,width=4,color=fx.color)=>{ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=12;ctx.lineWidth=width;ctx.beginPath();ctx.ellipse(0,28,radius,radius*vertical,0,0,TAU);ctx.stroke();ctx.shadowBlur=0;};
+  ctx.save();ctx.translate(Math.round(cx),Math.round(cy));ctx.rotate(ang);ctx.globalAlpha=fade*.92;ctx.imageSmoothingEnabled=false;ctx.lineCap='square';ctx.lineJoin='miter';ctx.shadowBlur=0;
+  // Finalizadores: trilhas discretas de pixels, sem blur nem curvas suaves.
+  const stroke=(x1,y1,x2,y2,width=5,color=fx.color)=>{
+   const n=Math.max(2,Math.round(width));
+   pixelSegment(x1,y1,x2,y2,n,color);
+   pixelSegment(x1+1,y1-1,x2+1,y2-1,Math.max(1,Math.round(n*.24)),fx.edge);
+  };
+  const pulse=(radius,vertical=.48,width=4,color=fx.color)=>
+   pixelEllipse(0,28,radius,radius*vertical,Math.max(2,Math.round(width)),color);
   if(fx.kind==='shieldShock'){
    // A pancada do escudo espalha força pelo chão, sem corte de espada.
    const t=clamp(q/.55,0,1);
@@ -3912,8 +4476,7 @@ function specialEffects(){
    }else if(fx.kind==='daggerOrbit'){
     for(let i=0;i<3;i++){
      const a=q*5.8+i*TAU/3;
-     ctx.strokeStyle=i%2?fx.edge:fx.color;ctx.lineWidth=6-i;
-     ctx.beginPath();ctx.ellipse(0,0,22+q*44,13+q*24,a,a,a+1.65);ctx.stroke();
+     pixelArcSegment(0,0,22+q*44,13+q*24,a,a+1.65,6-i,i%2?fx.edge:fx.color);
     }
     pulse(23+q*33,.55,3.5);
    }else if(fx.kind==='daggerCross'){
@@ -3942,7 +4505,9 @@ function specialEffects(){
    pulse(15+q*72,.40,5-q*3);
   }else if(fx.kind==='LLL'){
    // Turbilhão: three spiraling passes around the enemy, instead of a giant static slash.
-   for(let i=0;i<3;i++){const a=q*6.8+i*TAU/3;ctx.strokeStyle=i===1?fx.edge:fx.color;ctx.lineWidth=6-i;ctx.shadowColor=fx.glow;ctx.shadowBlur=13;ctx.beginPath();ctx.arc(0,2,26+q*26+i*4,a,a+1.55);ctx.stroke();ctx.shadowBlur=0;}
+   for(let i=0;i<3;i++){const a=q*6.8+i*TAU/3;
+    pixelArcSegment(0,2,26+q*26+i*4,26+q*26+i*4,a,a+1.55,6-i,i===1?fx.edge:fx.color);
+   }
    pulse(25+q*35,.49,2.5);
   }else if(fx.kind==='LLH'){
    // Impacto crescente: an upward energy pillar and a pressure ring on the ground.
@@ -3977,13 +4542,47 @@ function specialEffects(){
    // Counterattack: brilliant teal diamond shatter, not the same as a regular finisher.
    const r=18+q*42;
    for(let i=0;i<4;i++){const a=i*PI*.5;stroke(Math.cos(a)*10,Math.sin(a)*10,Math.cos(a)*r,Math.sin(a)*r,5-q*2,i%2?fx.edge:fx.color);}
-   ctx.strokeStyle=fx.edge;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r,0);ctx.lineTo(0,r);ctx.lineTo(-r,0);ctx.closePath();ctx.stroke();
+   pixelSegment(0,-r,r,0,3,fx.edge);
+   pixelSegment(r,0,0,r,3,fx.edge);
+   pixelSegment(0,r,-r,0,3,fx.edge);
+   pixelSegment(-r,0,0,-r,3,fx.edge);
    pulse(17+q*46,.40,3.8);
   }
   ctx.restore();
  }
 }
-function visualEffects(){for(const r of rings){const p=point(r.x,r.z),t=1-r.life/r.max;ctx.save();ctx.globalAlpha=(1-t)*.85;ctx.strokeStyle=r.color;ctx.lineWidth=r.power*2.2*(1-t)+.5;ctx.beginPath();ctx.ellipse(p.x,p.y,r.r+t*43*r.power,(r.r+t*43*r.power)*.45,0,0,TAU);ctx.stroke();ctx.restore();}
+function visualEffects(){
+ if(fxReady()){
+  const pixel=Math.max(2,Math.round(sx*.065));
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.shadowBlur=0;
+  for(const r of rings){
+   const p=point(r.x,r.z),q=1-r.life/r.max,rad=r.r+q*43*r.power;
+   ctx.globalAlpha=(1-q)*.75;pixelEllipse(p.x,p.y,rad,rad*.45,pixel,r.color);
+  }
+  for(const f of flashes){
+   const p=point(f.x,f.z),q=1-f.life/f.max,size=25+q*52*f.power;
+   ctx.globalAlpha=(1-q)*.8;drawFxSprite(6,p.x,p.y-26,size);
+  }
+  for(const part of particles){
+   const p=point(part.x,part.z),alpha=clamp(part.life/part.max,0,1);
+   ctx.globalAlpha=alpha;const size=Math.max(2,Math.round(part.size));
+   if(part.trail)pixelSegment(p.x,p.y-part.y,
+    p.x-part.vx*3.8,p.y-part.y+part.vy*.034,size,part.color);
+   else{
+    ctx.fillStyle=part.color;
+    ctx.fillRect(Math.round(p.x-size/2),Math.round(p.y-part.y-size/2),size,size);
+   }
+  }
+  ctx.restore();
+  for(const t of texts){
+   const p=point(t.x,t.z);
+   ctx.save();ctx.globalAlpha=clamp(t.life/.23,0,1);ctx.shadowBlur=0;
+   ctx.font=`1000 ${t.size}px monospace`;ctx.textAlign='center';ctx.fillStyle=t.color;
+   ctx.fillText(t.t,Math.round(p.x),Math.round(p.y-t.y));ctx.restore();
+  }
+  return;
+ }
+for(const r of rings){const p=point(r.x,r.z),t=1-r.life/r.max;ctx.save();ctx.globalAlpha=(1-t)*.85;ctx.strokeStyle=r.color;ctx.lineWidth=r.power*2.2*(1-t)+.5;ctx.beginPath();ctx.ellipse(p.x,p.y,r.r+t*43*r.power,(r.r+t*43*r.power)*.45,0,0,TAU);ctx.stroke();ctx.restore();}
  for(const f of flashes){const p=point(f.x,f.z),t=1-f.life/f.max,rad=22+t*62*f.power;ctx.save();ctx.globalAlpha=(1-t)*.58;const g=ctx.createRadialGradient(p.x,p.y-26,0,p.x,p.y-26,rad);g.addColorStop(0,'#ffffff');g.addColorStop(.22,f.color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y-26,rad,0,TAU);ctx.fill();ctx.restore();}
  for(const part of particles){const p=point(part.x,part.z),alpha=clamp(part.life/part.max,0,1);ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=part.color;ctx.fillStyle=part.color;ctx.shadowColor=part.color;ctx.shadowBlur=part.trail?8:4;if(part.trail){ctx.lineWidth=part.size;ctx.beginPath();ctx.moveTo(p.x,p.y-part.y);ctx.lineTo(p.x-part.vx*3.8,p.y-part.y+part.vy*.034);ctx.stroke();}else{ctx.beginPath();ctx.arc(p.x,p.y-part.y,part.size,0,TAU);ctx.fill();}ctx.restore();}
  for(const t of texts){const p=point(t.x,t.z);ctx.save();ctx.globalAlpha=clamp(t.life/.23,0,1);ctx.font=`1000 ${t.size}px system-ui`;ctx.textAlign='center';ctx.shadowColor='#000';ctx.shadowBlur=8;ctx.fillStyle=t.color;ctx.fillText(t.t,p.x,p.y-t.y);ctx.restore();}}
@@ -4145,6 +4744,68 @@ window.__rpgDebug={snapshot:()=>({race:activeRace(),padSize:settings.padSize,wea
 window.__rpgDebug.weaponVisualPose=(face,archetype,swingAngle=0,progress=.5,move=null)=>visualWeaponPose(
  {...player,face},archetype,true,swingAngle,false,clamp(sx/36*1.9,1.35,2.7),progress,move);
 window.__rpgDebug.spriteAtlas=race=>raceSprite(race);
+window.__rpgDebug.spriteFiles=()=>Object.fromEntries(
+ Object.entries(RACE_ASSETS).map(([key,img])=>[key,{
+  loaded:!!img.complete&&img.naturalWidth===128&&img.naturalHeight===768,
+  width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }]));
+window.__rpgDebug.spriteAsset=race=>raceAsset(race);
+window.__rpgDebug.playableOutfits=()=>Object.fromEntries(
+ Object.entries(PLAYABLE_OUTFITS).map(([role,img])=>[role,{
+  loaded:!!playableOutfit(role),width:img.naturalWidth,height:img.naturalHeight,
+  src:img.getAttribute('src')
+ }]));
+window.__rpgDebug.playableCostume=role=>playableOutfit(role);
+window.__rpgDebug.playableOutfitTop=playableOutfitTop;
+window.__rpgDebug.raceVisualLanguage=()=>JSON.parse(JSON.stringify(RACE_VISUAL_LANGUAGE));
+window.__rpgDebug.refinedRaces=()=>Object.fromEntries(
+ Object.keys(RACE_OPTIONS).map(id=>[id,{
+  body:{loaded:!!playableRaceRefined(id),width:RACE_REFINED_SPRITES[id].naturalWidth,
+    height:RACE_REFINED_SPRITES[id].naturalHeight,src:RACE_REFINED_SPRITES[id].getAttribute('src')},
+  traits:{loaded:!!playableRaceTraits(id),width:RACE_TRAIT_SPRITES[id].naturalWidth,
+    height:RACE_TRAIT_SPRITES[id].naturalHeight,src:RACE_TRAIT_SPRITES[id].getAttribute('src')}
+ }]));
+window.__rpgDebug.refinedRaceImage=id=>playableRaceRefined(id);
+window.__rpgDebug.raceTraitsImage=id=>playableRaceTraits(id);
+window.__rpgDebug.playableAttackTiming=playableAttackTiming;
+window.__rpgDebug.playerMoveIdentity=playerMoveIdentity;
+window.__rpgDebug.forestArtFiles=()=>({
+ trees:{loaded:forestTreeReady(),width:FOREST_TREE_ATLAS.naturalWidth,height:FOREST_TREE_ATLAS.naturalHeight,
+  src:FOREST_TREE_ATLAS.getAttribute('src')},
+ props:{loaded:forestPropsReady(),width:FOREST_PROP_ATLAS.naturalWidth,height:FOREST_PROP_ATLAS.naturalHeight,
+  src:FOREST_PROP_ATLAS.getAttribute('src')},
+ ground:{loaded:forestTerrainReady(),width:FOREST_TERRAIN_ATLAS.naturalWidth,height:FOREST_TERRAIN_ATLAS.naturalHeight,
+  src:FOREST_TERRAIN_ATLAS.getAttribute('src')},
+ groundTypes:[...FOREST_TERRAIN_TYPES],
+ propTypes:Object.keys(FOREST_PROP_INDEX)
+});
+window.__rpgDebug.advancedAnimationNames=()=>[...CHARACTER_MOTIONS];
+window.__rpgDebug.advancedAnimationFiles=()=>({
+ actors:Object.fromEntries(Object.entries(ADVANCED_ACTOR_SPRITES).map(([id,img])=>[id,{
+  loaded:animatedSpriteReady(img),width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }])),
+ enemies:Object.fromEntries(Object.entries(ADVANCED_ENEMY_SPRITES).map(([id,img])=>[id,{
+  loaded:animatedSpriteReady(img),width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }]))
+});
+window.__rpgDebug.animationState=(u,hero)=>characterMotion(u,!!hero);
+window.__rpgDebug.advancedSpriteImage=(id,hero=true)=>{
+ const image=hero?ADVANCED_ACTOR_SPRITES[id]:ADVANCED_ENEMY_SPRITES[id];
+ return animatedSpriteReady(image)?image:null;
+};
+window.__rpgDebug.enemySpriteFiles=()=>Object.fromEntries(
+ Object.entries(ENEMY_SPRITES).map(([key,img])=>[key,{
+  loaded:!!img.complete&&img.naturalWidth===128&&img.naturalHeight===768,
+  width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }]));
+window.__rpgDebug.equipmentFile=()=>({
+ loaded:!!WEAPON_ATLAS.complete&&WEAPON_ATLAS.naturalWidth===216&&WEAPON_ATLAS.naturalHeight===48,
+ width:WEAPON_ATLAS.naturalWidth,height:WEAPON_ATLAS.naturalHeight,
+ src:WEAPON_ATLAS.getAttribute('src'),sprites:{...WEAPON_SPRITES}
+});
+window.__rpgDebug.fxFile=()=>({loaded:fxReady(),
+ width:FX_ATLAS.naturalWidth,height:FX_ATLAS.naturalHeight,
+ src:FX_ATLAS.getAttribute('src')});
 window.__rpgDebug.spriteShape=race=>RACE_SHAPES[race];
 window.__rpgDebug.spriteFacings=()=>RACE_FACINGS.map(v=>({...v}));
 window.__rpgDebug.spriteFaceEyes=(race,dir,frame)=>raceEyePositions(race,dir,frame);
@@ -4187,8 +4848,8 @@ window.__rpgDebug.attackWeaponPose=(archetype,key,t)=>{
 };
 
 window.__rpgDebug.forestVisualScale=()=>({actor:actorSpriteScale(),
- treePixel:forestTreePixelSize(),treeWidth:48*forestTreePixelSize(),
- treeHeight:64*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
+ treePixel:forestTreePixelSize(),treeWidth:(forestTreeReady()?64:48)*forestTreePixelSize(),
+ treeHeight:(forestTreeReady()?96:64)*forestTreePixelSize(),training:clamp(sx/36*1.9,1.35,2.7)});
 window.__rpgDebug.forestSceneOrder=(seed,id,actorX=0,actorZ=0)=>{
  const world=generateWorld(seed),room=world.rooms[id],g=makeRoomGeometry(room);
  return worldPainterOrder(g,[{u:{x:actorX,z:actorZ,hp:1},team:'player'}])
