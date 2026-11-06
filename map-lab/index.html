@@ -283,7 +283,14 @@ function buildPalette(){const area=$('tiles');area.replaceChildren();for(const [
   if(layer!=='ground'&&pixelSprites[id]){
    const preview=document.createElement('canvas');preview.width=28;preview.height=28;
    const pc=preview.getContext('2d');const sprite=pixelSprites[id];
-   for(let sy=0;sy<7;sy++)for(let sx=0;sx<7;sx++){
+   const col=LAB_TREE_COLS[id],prop=LAB_PROP_COLS[id];
+   if(col!==undefined&&labArtReady('trees',384,96)){
+    pc.imageSmoothingEnabled=false;
+    pc.drawImage(LAB_FOREST_ART.trees,col*64,0,64,96,1,0,26,28);
+   }else if(prop!==undefined&&labArtReady('props',192,64)){
+    pc.imageSmoothingEnabled=false;
+    pc.drawImage(LAB_FOREST_ART.props,(prop%8)*24,Math.floor(prop/8)*32,24,32,1,0,26,28);
+   }else for(let sy=0;sy<7;sy++)for(let sx=0;sx<7;sx++){
     const bit=sprite[sy][sx];if(bit==='0')continue;
     pc.fillStyle=bit==='1'?hexMix(color,-43):bit==='2'?color:hexMix(color,40);pc.fillRect(sx*4,sy*4,4,4);
    }th.append(preview);
@@ -311,6 +318,13 @@ function terrain(x,y,c){const id=ground[key(x,y)];const base=colors.ground[id]||
   if(id==='water'||id==='lava'){ctx.fillStyle='#ffffff35';ctx.fillRect(pos.x-size*.32,pos.y-size*.12,size*.27,Math.max(1,zoom*2));ctx.fillRect(pos.x+size*.04,pos.y+size*.21,size*.18,Math.max(1,zoom*2))}
   if(id==='bridge'||id==='path'){ctx.strokeStyle=id==='bridge'?'#423526b3':'#e1c89b42';ctx.lineWidth=Math.max(1,zoom*1.5);for(let i=-1;i<2;i++){ctx.beginPath();ctx.moveTo(pos.x+i*size*.25,pos.y-size*.4);ctx.lineTo(pos.x+i*size*.25,pos.y+size*.4);ctx.stroke()}}
  }else{
+  if(labArtReady('ground',256,544)&&LAB_GROUND_ROWS[id]!==undefined){
+   const variant=Math.abs(hash(x,y,17))%4;
+   ctx.imageSmoothingEnabled=false;
+   ctx.drawImage(LAB_FOREST_ART.ground,variant*64,LAB_GROUND_ROWS[id]*32,64,32,
+    Math.round(pos.x-c.tw/2),Math.round(pos.y-c.th/2),Math.round(c.tw),Math.round(c.th));
+   return;
+  }
   const tw=c.tw,th=c.th;const points=[[pos.x,pos.y-th/2],[pos.x+tw/2,pos.y],[pos.x,pos.y+th/2],[pos.x-tw/2,pos.y]];
   poly(points,base,'#081923a6',Math.max(.6,zoom));
   if(id==='void')return;
@@ -355,6 +369,7 @@ const pixelSprites={
  ruin:['1100011','1101011','1111111','1111111','1100011','1100011','1100011']
 };
 function drawObj(x,y,c){const id=objects[key(x,y)];if(!id)return;const pos=tileCenter(x,y,c),sprite=pixelSprites[id];if(!sprite)return;
+ if(drawLabNatureSprite(id,pos,c))return;
  const size=Math.max(1.25,Math.min(5.1,view==='top'?c.size/10:c.tw/11));const topOffset=view==='iso'?size*2:0;
  const ox=Math.round(pos.x-size*3.5),oy=Math.round(pos.y-size*3.5-topOffset);
  ctx.fillStyle='#04101688';ctx.beginPath();ctx.ellipse(pos.x,pos.y,3.5*size,1.4*size,0,0,Math.PI*2);ctx.fill();
@@ -374,6 +389,16 @@ function drawLargeObject(p,c){
  ctx.save();
  ctx.fillStyle='#04131981';ctx.beginPath();ctx.ellipse(center.x,center.y+1,width*.39,Math.max(1.2,view==='top'?height*.23:c.th*.30),0,0,Math.PI*2);ctx.fill();
  if(isTree){
+  const treeCol=LAB_TREE_COLS[p.id];
+  if(view==='iso'&&treeCol!==undefined&&labArtReady('trees',384,96)){
+   const visualHeight=Math.max(height,width*1.20);
+   ctx.imageSmoothingEnabled=false;
+   ctx.drawImage(LAB_FOREST_ART.trees,treeCol*64,0,64,96,
+    Math.round(center.x-width/2),Math.round(baseY-visualHeight),
+    Math.round(width),Math.round(visualHeight));
+   ctx.restore();
+   return;
+  }
   const pix=Math.max(1,unit),headH=height*(view==='top'?.87:.71);
   const headY=view==='top'?center.y-height*.53:center.y-height*.98;
   const headX=center.x-width*.5;
