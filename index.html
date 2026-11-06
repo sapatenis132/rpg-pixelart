@@ -4498,6 +4498,10 @@ window.__rpgDebug.advancedAnimationFiles=()=>({
  }]))
 });
 window.__rpgDebug.animationState=(u,hero)=>characterMotion(u,!!hero);
+window.__rpgDebug.advancedSpriteImage=(id,hero=true)=>{
+ const image=hero?ADVANCED_ACTOR_SPRITES[id]:ADVANCED_ENEMY_SPRITES[id];
+ return animatedSpriteReady(image)?image:null;
+};
 window.__rpgDebug.enemySpriteFiles=()=>Object.fromEntries(
  Object.entries(ENEMY_SPRITES).map(([key,img])=>[key,{
   loaded:!!img.complete&&img.naturalWidth===128&&img.naturalHeight===768,
