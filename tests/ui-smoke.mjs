@@ -772,6 +772,7 @@ try{
       swordSpin:form('warrior','LLL').motion,
       swordUppercut:form('warrior','LLH').motion,
       guardianBash:form('guardian','H').motion,
+      guardianFinisherFX:form('guardian','LLH').fxStyle,
       daggerPierce:form('rebel','LLH').motion,
       daggerPierceFX:form('rebel','LLH').fxStyle,
       daggerDouble:form('rebel','HH').motion,
@@ -789,6 +790,7 @@ try{
    assert.equal(combatMotion.forms.swordSpin,'spin');
    assert.equal(combatMotion.forms.swordUppercut,'uppercut');
    assert.equal(combatMotion.forms.guardianBash,'bash');
+   assert.equal(combatMotion.forms.guardianFinisherFX,'shieldShock');
    assert.equal(combatMotion.slashSide,true,'corte da adaga atinge em arco lateral');
    assert.equal(combatMotion.pierceSide,false,'Perfuração não pode usar hitbox lateral');
    assert.equal(combatMotion.pierceFront,true,'Perfuração precisa atingir sua linha frontal');
@@ -801,6 +803,7 @@ try{
     d.newCampaign({name:'Teste',race:'human',archetype:'rebel'},47);
     d.action('L');d.testTick(.13);d.action('L');d.testTick(.10);
     d.testTick(.13);d.action('H');d.testTick(.17);
+    d.testTick(.16); // enquadra a extensão frontal da Perfuração para captura visual
     const s=d.snapshot();
     return {sequence:s.seq,attack:s.attack,accepted:s.acceptedInputs,
      specialTypes:s.specialTypes,weapon:s.weapon,fin:s.maxChain};
