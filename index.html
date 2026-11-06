@@ -3547,6 +3547,73 @@ function enemySprite(style){
 // Cada arma é um recorte de 24x48 de uma folha PNG independente.
 const WEAPON_ATLAS=new Image();WEAPON_ATLAS.decoding='async';
 WEAPON_ATLAS.src='assets/sprites/equipment/weapons.png';
+const FX_ATLAS=new Image();FX_ATLAS.decoding='async';
+FX_ATLAS.src='assets/sprites/equipment/fx.png';
+function fxReady(){return FX_ATLAS.complete&&FX_ATLAS.naturalWidth===128&&FX_ATLAS.naturalHeight===16;}
+function drawFxSprite(frame,x,y,w,h=w){
+ if(!fxReady())return false;
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(FX_ATLAS,frame*16,0,16,16,
+  Math.round(x-w/2),Math.round(y-h/2),Math.round(w),Math.round(h));
+ return true;
+}
+// Cada segmento é uma sequência de pixels quadrados, não uma linha borrada.
+function pixelSegment(x1,y1,x2,y2,size,color){
+ const stride=Math.max(2,Math.round(size*.75)),steps=Math.max(1,Math.ceil(Math.hypot(x2-x1,y2-y1)/stride));
+ ctx.fillStyle=color;
+ for(let i=0;i<=steps;i++){
+  const t=i/steps,x=Math.round(x1+(x2-x1)*t),y=Math.round(y1+(y2-y1)*t);
+  ctx.fillRect(x-Math.round(size/2),y-Math.round(size/2),size,size);
+ }
+}
+function pixelArcTrail(a){
+ const q=clamp(1-a.life/a.max,0,1),fade=Math.pow(1-q,.72);
+ const p=point(a.x,a.z),d=point(a.x+a.face.x,a.z+a.face.z);
+ const ang=Math.atan2((d.y-p.y)*1.65,d.x-p.x);
+ const px=Math.max(2,Math.round(sx*.075)),lift=actorSpriteScale()*18;
+ const main=a.color||(a.kind==='enemy'?'#e56d69':a.kind==='heavy'?'#e8a45e':'#5fd3dc'),edge=a.edge||'#fff2ca';
+ ctx.save();ctx.imageSmoothingEnabled=false;ctx.globalAlpha=fade;
+ if(a.kind==='thrust'){
+  const x=point(a.x+a.face.x*.2,a.z+a.face.z*.2),end=point(a.x+a.face.x*(1.7+q*.2),a.z+a.face.z*(1.7+q*.2));
+  pixelSegment(x.x,x.y-lift,end.x,end.y-lift,px*3,main);
+  pixelSegment(x.x+px,x.y-lift-px,end.x,end.y-lift-px,px,edge);
+  drawFxSprite(7,end.x,end.y-lift,px*6);
+ }else if(a.kind==='spin'){
+  const r=(a.radius||49)*(a.scale||1);let last=null;
+  for(let i=0;i<=40;i++){
+   const t=i/40*Math.PI*2+q*1.3,next={x:p.x+Math.cos(t)*r,y:p.y-lift+Math.sin(t)*r*.47};
+   if(last)pixelSegment(last.x,last.y,next.x,next.y,px*2,i%5===0?edge:main);
+   last=next;
+  }
+ }else if(['impact','uppercut','chop'].includes(a.kind)){
+  const c=point(a.x+a.face.x*.65,a.z+a.face.z*.65);
+  if(a.kind==='impact'){
+   const f=point(a.x+a.face.x*1.45,a.z+a.face.z*1.45);
+   pixelSegment(c.x,c.y-lift,f.x,f.y-lift,px*4,main);
+   drawFxSprite(6,f.x,f.y-lift,px*(9+q*5));
+  }else{
+   const dy=a.kind==='uppercut'?1:-1,low=c.y-lift+dy*(20-q*17),high=c.y-lift-dy*(22+q*34);
+   pixelSegment(c.x-px*3,low,c.x+px*2,high,px*3,main);
+   pixelSegment(c.x,low,c.x+px*3,high,px,edge);
+   drawFxSprite(6,c.x+px,high,px*5);
+  }
+ }else{
+  const rad=(a.radius??(a.kind==='rip'?57:a.kind==='heavy'?48:39))*(a.scale||1);
+  const sign=a.angle||1,start=ang-1.45*sign+q*.7*sign,end=ang+.67*sign+q*.8*sign;
+  const ox=p.x+Math.cos(ang)*21,oy=p.y-30+Math.sin(ang)*10;let last=null;
+  for(let i=0;i<=24;i++){
+   const t=start+(end-start)*i/24,next={x:ox+Math.cos(t)*rad,y:oy+Math.sin(t)*rad};
+   if(last){
+    pixelSegment(last.x,last.y,next.x,next.y,px*3,main);
+    if(i%2===0)pixelSegment(last.x,last.y-px,next.x,next.y-px,px,edge);
+   }
+   last=next;
+  }
+  if(a.kind==='rip'&&last)drawFxSprite(4,last.x,last.y,px*5);
+ }
+ ctx.restore();
+}
+
 const WEAPON_SPRITES={sword:0,dagger:1,staff:2,bow:3,shield:4,
  enemySword:5,rapier:6,axe:7,greatsword:8};
 function drawWeaponImage(key,x,y,width,height){
