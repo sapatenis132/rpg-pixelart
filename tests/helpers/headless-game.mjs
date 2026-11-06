@@ -4,9 +4,12 @@
 import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 import vm from 'node:vm';
+import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
 import {createCanvas,Image} from '@napi-rs/canvas';
 
 export async function loadGame({html, width=960, height=540}={}){
+ const root=fileURLToPath(new URL('../../',import.meta.url));
  html??=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
  const elements=new Map(),images=[];
  const style=()=>({setProperty(key,value){this[key]=value;}});
@@ -58,7 +61,13 @@ export async function loadGame({html, width=960, height=540}={}){
   localStorage:{getItem:key=>stored.get(key)??null,setItem:(key,v)=>stored.set(key,String(v)),
    removeItem:key=>stored.delete(key)},
   navigator:{vibrate(){}},screen:{orientation:{}},performance:{now:()=>0},
-  Image:class extends Image{constructor(){super();images.push(this);}},
+  Image:class extends Image{
+   constructor(){super();images.push(this);}
+   set src(value){this.requestPath=String(value);super.src=this.requestPath.startsWith('data:')?
+    this.requestPath:resolve(root,this.requestPath);}
+   get src(){return this.requestPath||'';}
+   getAttribute(name){return name==='src'?this.requestPath:null;}
+  },
   addEventListener(){},requestAnimationFrame(fn){sandbox.frame=fn;return 1;},
   cancelAnimationFrame(){},setTimeout,clearTimeout,confirm:()=>true
  };
@@ -67,10 +76,16 @@ export async function loadGame({html, width=960, height=540}={}){
  const script=html.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
  if(!script)throw new Error('Script principal ausente');
  // Expõe o render somente no ambiente de teste, sem mudar o jogo publicado.
+ const protectedConfiguration=['RACE_OPTIONS','ATTACKS','WEAPON_MOVES','BALANCE',
+  'POSTURE_PROFILES','COMBAT_MOVE_FACTORS','EXTENSIONS','FOES','ABILITIES'];
+ const probe='window.__protectedForTest=()=>({configuration:{'+
+  protectedConfiguration.join(',')+'}});window.__legacyEnemyForTest=style=>PIXEL_ART[style];';
  const instrumented=script.replace('resize();reset();',
-  'window.__renderForTest=render;resize();reset();');
+  'window.__renderForTest=render;'+probe+'resize();reset();');
  new vm.Script(instrumented,{filename:'index.html'}).runInContext(context,{timeout:20000});
  await Promise.all(images.map(image=>image.decode().catch(()=>{})));
  return{debug:sandbox.__rpgDebug,canvas:elements.get('scene'),elements,
-  render:()=>sandbox.__renderForTest(),frame:time=>sandbox.frame(time),context};
+  render:()=>sandbox.__renderForTest(),frame:time=>sandbox.frame(time),context,
+  protectedState:()=>sandbox.__protectedForTest(),
+  legacyEnemy:style=>sandbox.__legacyEnemyForTest(style)};
 }

@@ -122,8 +122,16 @@ if(process.argv.includes('--render')){
    const atlas=d.heroSpriteAtlas(race,archetype);
    const x=160+col*204,y=72+row*145;
    c.fillStyle='#172e36';c.fillRect(x,y,190,134);
-   c.drawImage(atlas,0,48,32,48,x+8,y-1,96,144);
-   c.drawImage(atlas,0,5*48,32,48,x+92,y-1,96,144);
+   if(d.paintPlayableFrame){
+    for(const [dir,offset] of [[1,8],[5,92]]){
+     const tile=createCanvas(32,48);
+     d.paintPlayableFrame(tile.getContext('2d'),race,archetype,0,dir,0);
+     c.drawImage(tile,x+offset,y-1,96,144);
+    }
+   }else{
+    c.drawImage(atlas,0,48,32,48,x+8,y-1,96,144);
+    c.drawImage(atlas,0,5*48,32,48,x+92,y-1,96,144);
+   }
   });
  });
  writeFileSync(resolve(output,'figurinos-polimento.png'),sheet.toBuffer('image/png'));

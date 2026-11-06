@@ -1,0 +1,595 @@
+{
+  "baseline": "feb6b56f4ab2299a2922ce50b7f7082835645324",
+  "configuration": {
+    "RACE_OPTIONS": "a63132acd29d3865d30529220c932f7310411d6127ec06512a45bc61ecd8250c",
+    "ATTACKS": "5b0ffa99eb56ae8d9fa72361202395bbc583b6f56cf289f41c8ecfee34cbbbd4",
+    "WEAPON_MOVES": "e5ad8d0e25032ab188129f1897bf6ed9a46d863ebfabfed6be80a60ee4b0e090",
+    "BALANCE": "0fc5e88a6f8b5280870d61ff41c2068fc36321028e1fa04c8727807a8aa0e721",
+    "POSTURE_PROFILES": "3fd078e3f978ebff89795550357bc19038cf173b827a9d67725a48c1a29699a2",
+    "COMBAT_MOVE_FACTORS": "354d1268825fa183c157aa11682521be82ed6c0e59ef3da27c6c669fd056d96a",
+    "EXTENSIONS": "ee122159077da3d201caf8ac94a1c97a69467f9872660c08327131a78ae1fefc",
+    "FOES": "c13a6460b598d7fd5d29d4d29a4a2eb26d9895ad528505faace05507a3920edc",
+    "ABILITIES": "1fd0b5c79f56d081c77032aab415b3845ae7bd48d879cb503539cb428941fcbe"
+  },
+  "raceCases": [
+    {
+      "race": "human",
+      "archetype": "warrior",
+      "hp": 100,
+      "mp": 60,
+      "bonuses": {
+        "hp": 0,
+        "mana": 0,
+        "damage": 0,
+        "magicDamage": 0,
+        "xp": 0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "human",
+      "archetype": "guardian",
+      "hp": 100,
+      "mp": 60,
+      "bonuses": {
+        "hp": 0,
+        "mana": 0,
+        "damage": 0,
+        "magicDamage": 0,
+        "xp": 0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "human",
+      "archetype": "rebel",
+      "hp": 100,
+      "mp": 60,
+      "bonuses": {
+        "hp": 0,
+        "mana": 0,
+        "damage": 0,
+        "magicDamage": 0,
+        "xp": 0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "human",
+      "archetype": "arcanist",
+      "hp": 100,
+      "mp": 60,
+      "bonuses": {
+        "hp": 0,
+        "mana": 0,
+        "damage": 0,
+        "magicDamage": 0,
+        "xp": 0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "human",
+      "archetype": "hunter",
+      "hp": 100,
+      "mp": 60,
+      "bonuses": {
+        "hp": 0,
+        "mana": 0,
+        "damage": 0,
+        "magicDamage": 0,
+        "xp": 0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "elf",
+      "archetype": "warrior",
+      "hp": 85,
+      "mp": 75,
+      "bonuses": {
+        "hp": -15,
+        "mana": 15,
+        "damage": -0.1,
+        "magicDamage": 0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "elf",
+      "archetype": "guardian",
+      "hp": 85,
+      "mp": 75,
+      "bonuses": {
+        "hp": -15,
+        "mana": 15,
+        "damage": -0.1,
+        "magicDamage": 0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "elf",
+      "archetype": "rebel",
+      "hp": 85,
+      "mp": 75,
+      "bonuses": {
+        "hp": -15,
+        "mana": 15,
+        "damage": -0.1,
+        "magicDamage": 0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "elf",
+      "archetype": "arcanist",
+      "hp": 85,
+      "mp": 75,
+      "bonuses": {
+        "hp": -15,
+        "mana": 15,
+        "damage": -0.1,
+        "magicDamage": 0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "elf",
+      "archetype": "hunter",
+      "hp": 85,
+      "mp": 75,
+      "bonuses": {
+        "hp": -15,
+        "mana": 15,
+        "damage": -0.1,
+        "magicDamage": 0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "orc",
+      "archetype": "warrior",
+      "hp": 120,
+      "mp": 48,
+      "bonuses": {
+        "hp": 20,
+        "mana": -12,
+        "damage": 0.15,
+        "magicDamage": -0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "orc",
+      "archetype": "guardian",
+      "hp": 120,
+      "mp": 48,
+      "bonuses": {
+        "hp": 20,
+        "mana": -12,
+        "damage": 0.15,
+        "magicDamage": -0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "orc",
+      "archetype": "rebel",
+      "hp": 120,
+      "mp": 48,
+      "bonuses": {
+        "hp": 20,
+        "mana": -12,
+        "damage": 0.15,
+        "magicDamage": -0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "orc",
+      "archetype": "arcanist",
+      "hp": 120,
+      "mp": 48,
+      "bonuses": {
+        "hp": 20,
+        "mana": -12,
+        "damage": 0.15,
+        "magicDamage": -0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "orc",
+      "archetype": "hunter",
+      "hp": 120,
+      "mp": 48,
+      "bonuses": {
+        "hp": 20,
+        "mana": -12,
+        "damage": 0.15,
+        "magicDamage": -0.15,
+        "xp": 0,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "dwarf",
+      "archetype": "warrior",
+      "hp": 130,
+      "mp": 51,
+      "bonuses": {
+        "hp": 30,
+        "mana": -9,
+        "damage": 0.05,
+        "magicDamage": 0.05,
+        "xp": -0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "dwarf",
+      "archetype": "guardian",
+      "hp": 130,
+      "mp": 51,
+      "bonuses": {
+        "hp": 30,
+        "mana": -9,
+        "damage": 0.05,
+        "magicDamage": 0.05,
+        "xp": -0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "dwarf",
+      "archetype": "rebel",
+      "hp": 130,
+      "mp": 51,
+      "bonuses": {
+        "hp": 30,
+        "mana": -9,
+        "damage": 0.05,
+        "magicDamage": 0.05,
+        "xp": -0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "dwarf",
+      "archetype": "arcanist",
+      "hp": 130,
+      "mp": 51,
+      "bonuses": {
+        "hp": 30,
+        "mana": -9,
+        "damage": 0.05,
+        "magicDamage": 0.05,
+        "xp": -0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "dwarf",
+      "archetype": "hunter",
+      "hp": 130,
+      "mp": 51,
+      "bonuses": {
+        "hp": 30,
+        "mana": -9,
+        "damage": 0.05,
+        "magicDamage": 0.05,
+        "xp": -0.15,
+        "luck": 0,
+        "speed": 0,
+        "dodge": 0,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.58
+    },
+    {
+      "race": "halfling",
+      "archetype": "warrior",
+      "hp": 85,
+      "mp": 60,
+      "bonuses": {
+        "hp": -15,
+        "mana": 0,
+        "damage": -0.1,
+        "magicDamage": 0,
+        "xp": 0,
+        "luck": 0.2,
+        "speed": 0.1,
+        "dodge": 0.18,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.4756
+    },
+    {
+      "race": "halfling",
+      "archetype": "guardian",
+      "hp": 85,
+      "mp": 60,
+      "bonuses": {
+        "hp": -15,
+        "mana": 0,
+        "damage": -0.1,
+        "magicDamage": 0,
+        "xp": 0,
+        "luck": 0.2,
+        "speed": 0.1,
+        "dodge": 0.18,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.4756
+    },
+    {
+      "race": "halfling",
+      "archetype": "rebel",
+      "hp": 85,
+      "mp": 60,
+      "bonuses": {
+        "hp": -15,
+        "mana": 0,
+        "damage": -0.1,
+        "magicDamage": 0,
+        "xp": 0,
+        "luck": 0.2,
+        "speed": 0.1,
+        "dodge": 0.18,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.4756
+    },
+    {
+      "race": "halfling",
+      "archetype": "arcanist",
+      "hp": 85,
+      "mp": 60,
+      "bonuses": {
+        "hp": -15,
+        "mana": 0,
+        "damage": -0.1,
+        "magicDamage": 0,
+        "xp": 0,
+        "luck": 0.2,
+        "speed": 0.1,
+        "dodge": 0.18,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.4756
+    },
+    {
+      "race": "halfling",
+      "archetype": "hunter",
+      "hp": 85,
+      "mp": 60,
+      "bonuses": {
+        "hp": -15,
+        "mana": 0,
+        "damage": -0.1,
+        "magicDamage": 0,
+        "xp": 0,
+        "luck": 0.2,
+        "speed": 0.1,
+        "dodge": 0.18,
+        "parry": 0
+      },
+      "dodgeCooldown": 0.4756
+    }
+  ],
+  "enemies": {
+    "enemy": "588c990d793350353882a4c8c5a6ce7d2270401065e176426f4fa7e146f9ac14",
+    "guardian": "901185b191dd1eaa458ca3ef7ba7b82e7bea4787dce457ef58094ab3e217afa7",
+    "duelist": "da223f75468dea3ef31918b80bb7e663cf57c1375e78831ace6106b184c09f69",
+    "berserker": "010bb44a435996205182072c1fd97f89bf7873f8684f49a1ef6219a3ab3cbdb4",
+    "elite": "d9ea57eb506902e5c8100b5b97c0e94be15a05e7f79cf4e7ffd4ce81a676514b"
+  },
+  "worldSeeds": [
+    {
+      "seed": 1,
+      "world": "d6ac0b6864ed0732a1dcfb4105a8f85c89b74024ba51ff8e8a1a231041923824",
+      "spawn": "1418c7748c421366c5f9bcd330bf3567f07eab803ff52c78f3638179570e9ebc"
+    },
+    {
+      "seed": 2,
+      "world": "40379e140cd1fb6c7b5f9411b38344b06a6b201a7c72e540011c419586026d4b",
+      "spawn": "0145011a53844e3605543c593b6a10948701e6c42d5f57267a88c83bc19555cd"
+    },
+    {
+      "seed": 3,
+      "world": "3a90753fdc206329d08555090567ada2ce26fe182f95cfffd80008ed77263e18",
+      "spawn": "7497e995f0e6ac79c2cc5cdcc1df42c64003262b34e9c05bd7436a3bafc82ba6"
+    },
+    {
+      "seed": 4,
+      "world": "e0dca38388cc1cbb9cdf9f09b360e52acdb3f22f5535990f8e32c33b2379a8bf",
+      "spawn": "7b2f8cac07e942f4e93f7c3b17a33bfe3d22b6bd24d964eea079fc7677d066e6"
+    },
+    {
+      "seed": 5,
+      "world": "f99935c4968d47bb16bb82bf23491e1102160d99ac124228438376c1cf263805",
+      "spawn": "321c60ad26a7fdda663659d01d1b44a6ecd172441fa6baa3625222863c469a2f"
+    },
+    {
+      "seed": 6,
+      "world": "63425f08ad35d94e3c75990a7a241061ba7716604c44cceba62c484e32bb6337",
+      "spawn": "c8325ab795df90926a219c928a54410f303b9dde154a7e979d48909f9a540911"
+    },
+    {
+      "seed": 7,
+      "world": "80df327cebcc4d291b822176a8a1ba5a50df4a1a43113cda22b194f53c90d87c",
+      "spawn": "c50a5787f17c941eaa9638ae14ff19bf1a1f3838f6c717a7e5ca9e87688ef531"
+    },
+    {
+      "seed": 8,
+      "world": "fe913aafc14c4d6baa8d97d86e0dd598f27e74710de2447b935413f06ac58dfc",
+      "spawn": "661333252302dc39f54be0161118d7524fd536412ce02eeb7a2b5d19425d16d7"
+    },
+    {
+      "seed": 9,
+      "world": "ea5bff3e3af2650f4c293395d2c290a81a0eac5efa455fcff583fcc2630bd696",
+      "spawn": "a1bc0198744c429fe2ed6b24427b8fdc75c3568acf7cb06c047501f8bbb5fef2"
+    },
+    {
+      "seed": 10,
+      "world": "20c24756713d4e8c6bd3caca448933cf44c4f47b957f2d33cdbcd8e1ba4783cc",
+      "spawn": "2e6e137655b55ef8d1f4da16345fe8527ce6ef00b1e2e20a4ccacf7fc110e977"
+    },
+    {
+      "seed": 11,
+      "world": "7cc57250d66acfe7333da5bce68204d7ab0585a072291dea4a1189457049d9c3",
+      "spawn": "3a7e4a1dd6bf109135ce2cae2664ae641d7fad795c39255cf1e0a4538cf200d4"
+    },
+    {
+      "seed": 12,
+      "world": "166bc420b89422643c66e61d7ac0005fca7960ad6e22792fe818d597731f6832",
+      "spawn": "54dc3bcd10700fc3f221754cddf84eac9fea47db7a48fb4663b3e7b998838adf"
+    },
+    {
+      "seed": 13,
+      "world": "eb882453f6523d58d1159f95608432d1acb7b511d85262a4fa8dee1334dfa840",
+      "spawn": "d3b2b4ada344d541eed754fddba2f795d98cabbb5b3cca0ca364583f057dd17e"
+    },
+    {
+      "seed": 14,
+      "world": "ace5ffd5f2cd0510efc8b0dc54dcc334cf052a4051c08dfe218dc696f19da039",
+      "spawn": "a4320700ce5e96ad02242ca1da838b60d6dc108e21693231194315913fe066f0"
+    },
+    {
+      "seed": 15,
+      "world": "71b55bb6afa2d775daf75c3db3082d02488fd47ed0679b8a39e1d1647952d4dd",
+      "spawn": "1e15c2ff81525f9d8641df4e397acf1c850f0636f1f35114c12302781d1cd4de"
+    },
+    {
+      "seed": 16,
+      "world": "d7af875834b8c8586b899d812ac5db02971dcdb6fc089c05258734d683ce9158",
+      "spawn": "f483c139047924aa670189431096c29c832b9f142ac5257a625f3221c89220dc"
+    },
+    {
+      "seed": 17,
+      "world": "cc481c5c40d946bb998b140a4c56ec565eee88f74a164b904c9c0e7770cf98cc",
+      "spawn": "6d1f2849909ed6a8a1b4995f56503734476dd8ab8f71c93e3267959257e3fba7"
+    },
+    {
+      "seed": 18,
+      "world": "83500bf5197cfc062b9362df401bce5009d5239ef3c6e3f40ab5f431c341485f",
+      "spawn": "2b1f9d2c7a07ebfe88bf6538db9d199de0ad9a006b819df1dab35f1681baf7d4"
+    },
+    {
+      "seed": 19,
+      "world": "8e0faa91e7be1f001aa214c55da9aaf0ce3497118b618ccda150fff2d5ae05a1",
+      "spawn": "493626e0532f75362685a9778b6069bd42c17d004e30c4db7357abcfb3d7636f"
+    },
+    {
+      "seed": 20,
+      "world": "0a7381127006993f4cd820810b577fd3ee4e66b41fc8de163d45b8ace85c00d4",
+      "spawn": "3b5c5b6de8a25b23e28fa8cb1db688027b94984c62a372ab03fca57d9a76543d"
+    },
+    {
+      "seed": 21,
+      "world": "65ba044afadb57afcc6410274a0ba7ee3888248ad1e8fccb3f32c012d10de269",
+      "spawn": "9e0f4b89e2714baead8250c591d6b9d6e84246069a52daabf570a3d18be71777"
+    },
+    {
+      "seed": 22,
+      "world": "3701ba78a9b5fe34ecc6a2a8c5c6f7c16cea8f23dd8d3de0117f21908bfe1881",
+      "spawn": "1a94b0025b7d3082303eb138b11056c04f1a2b83f197f94d6fdbeaf7d78a8be1"
+    },
+    {
+      "seed": 23,
+      "world": "087afcfb08318a1a3a94bf3c45b962408b7abf37ccde53fd634a7fbf2fa2a3ee",
+      "spawn": "0cb6804f7f8c3a12780af2053241469e3d5025f713f3e0d8ba482dc538d1543c"
+    },
+    {
+      "seed": 24,
+      "world": "16e1c8837e4ea9fb7e4db2d227a1fb24b0e28f6a7ec81495bbc512502b1cb3e2",
+      "spawn": "267e7e506b3998dc5cf8ece34136da1aac1f384c68780581fd1e7a165ccb810c"
+    }
+  ]
+}

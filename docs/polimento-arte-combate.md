@@ -1,5 +1,10 @@
 # Polimento de arte e combate — 6 de novembro de 2026
 
+Registro da primeira rodada publicada na PR #38. Na integração racial v6,
+os atlas de 224 quadros da PR #37 passam a ser a arte principal. O gerador
+de figurinos abaixo permanece como fallback; o balanceamento desta rodada
+continua preservado. Veja integracao-identidade-racial-v6.md.
+
 Esta etapa melhora a leitura dos personagens e a resposta dos controles,
 com um ajuste inicial de risco/recompensa do arco. A base é o commit
 d0080798aae887ac19fa75676c72a3185a48d42c de sapatenis132/rpg-pixelart.
