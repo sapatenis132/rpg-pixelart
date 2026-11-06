@@ -2312,6 +2312,14 @@ function tryWorldTransition(move){
 
 // Tiles isométricos de raster autoral (64x32), nunca polígonos suavizados.
 // Variações pequenas e determinísticas preservam os caminhos de cada seed.
+// Recurso de arte: atlas PNG independente do gerador procedural.
+const FOREST_TERRAIN_TYPES=["forestThicket","forestWater","forestBridge","forestTrail","forestClearing","water","rootFloor","stonePath","clearing","forestMoss","forestStone","forestFern","forestRoot","forestShallow","forestMist","forestGlade","forestShade"];
+const FOREST_TERRAIN_ATLAS=new Image();FOREST_TERRAIN_ATLAS.decoding='async';FOREST_TERRAIN_ATLAS.src='assets/sprites/forest/ground.png';
+const FOREST_TREE_ATLAS=new Image();FOREST_TREE_ATLAS.decoding='async';FOREST_TREE_ATLAS.src='assets/sprites/forest/trees.png';
+const FOREST_PROP_ATLAS=new Image();FOREST_PROP_ATLAS.decoding='async';FOREST_PROP_ATLAS.src='assets/sprites/forest/props.png';
+function forestTerrainReady(){return FOREST_TERRAIN_ATLAS.complete&&FOREST_TERRAIN_ATLAS.naturalWidth===256&&FOREST_TERRAIN_ATLAS.naturalHeight===544;}
+function forestTreeReady(){return FOREST_TREE_ATLAS.complete&&FOREST_TREE_ATLAS.naturalWidth===384&&FOREST_TREE_ATLAS.naturalHeight===96;}
+function forestPropsReady(){return FOREST_PROP_ATLAS.complete&&FOREST_PROP_ATLAS.naturalWidth===192&&FOREST_PROP_ATLAS.naturalHeight===64;}
 const forestGroundTileCache=new Map();
 function forestGroundTile(type,variant,colors){
  const key=type+':'+variant;
@@ -2359,8 +2367,14 @@ function drawSpawnGround(g){
  for(const [key,type] of g.paths){
   const [x,z]=key.split(',').map(Number),colors=palette[type]||['#8d815f','#aa9970'];
   const at=point(x+.5,z+.5),variant=Math.floor(seeded(g.room.variant,x*331+z*177)*4);
-  const tile=forestGroundTile(type,variant,colors);
-  ctx.drawImage(tile,Math.round(at.x-sx),Math.round(at.y-sy),Math.round(sx*2),Math.round(sy*2));
+  const dx=Math.round(at.x-sx),dy=Math.round(at.y-sy),dw=Math.round(sx*2),dh=Math.round(sy*2);
+  const row=FOREST_TERRAIN_TYPES.indexOf(type);
+  if(forestTerrainReady()&&row>=0){
+   ctx.drawImage(FOREST_TERRAIN_ATLAS,variant*64,row*32,64,32,dx,dy,dw,dh);
+  }else{
+   const tile=forestGroundTile(type,variant,colors);
+   ctx.drawImage(tile,dx,dy,dw,dh);
+  }
  }
 }
 // Os sprites de árvores são desenhados uma única vez em baixa resolução
@@ -2504,14 +2518,32 @@ function forestTreeSprite(v=0){
  return sprite;
 }
 function drawSpawnTree(p,v=0){
- const pixel=forestTreePixelSize(),im=forestTreeSprite(v);
- const x=Math.round(p.x),y=Math.round(p.y);
+ const pixel=forestTreePixelSize(),x=Math.round(p.x),y=Math.round(p.y);
  ctx.fillStyle='rgba(10,23,19,.34)';
  ctx.fillRect(x-Math.round(10*pixel),y-pixel,Math.round(20*pixel),Math.max(2,pixel));
  ctx.imageSmoothingEnabled=false;
- ctx.drawImage(im,x-24*pixel,y-63*pixel,48*pixel,64*pixel);
+ if(forestTreeReady()){
+  const variant=Math.min(5,Math.max(0,Math.floor((Number(v)||0)*6)));
+  ctx.drawImage(FOREST_TREE_ATLAS,variant*64,0,64,96,x-32*pixel,y-95*pixel,64*pixel,96*pixel);
+ }else{
+  const im=forestTreeSprite(v);
+  ctx.drawImage(im,x-24*pixel,y-63*pixel,48*pixel,64*pixel);
+ }
 }
 
+const FOREST_PROP_INDEX={log:0,stone:1,fern:2,mushroom:3,moss:9,leaf:10,reed:11,rootWall:12,shrub:13,stump:14,rubble:1,debris:1};
+function drawForestPropSprite(o,p){
+ if(!forestPropsReady())return false;
+ const index=o.type==='flower'?4+Math.abs(Math.floor(Number(o.v)||0))%5:FOREST_PROP_INDEX[o.type];
+ if(index===undefined)return false;
+ const small=['flower','mushroom','leaf','moss','reed'].includes(o.type);
+ const pixel=small?Math.max(.85,Math.min(1.25,sx*.045)):Math.max(1.1,Math.min(2.2,sx*.070));
+ const dw=Math.max(12,Math.round(24*pixel)),dh=Math.max(15,Math.round(32*pixel));
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(FOREST_PROP_ATLAS,(index%8)*24,Math.floor(index/8)*32,24,32,
+  Math.round(p.x-dw/2),Math.round(p.y-dh+pixel*2),dw,dh);
+ return true;
+}
 function drawSpawnDebris(p){
  const sz=Math.max(2,Math.round(sx*.12)),x=Math.round(p.x),y=Math.round(p.y);
  ctx.fillStyle='#172127';ctx.fillRect(x-3*sz,y-sz,7*sz,2*sz);
