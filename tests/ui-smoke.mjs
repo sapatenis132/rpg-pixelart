@@ -11,6 +11,10 @@ const script=html.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
 assert.ok(script,'O script principal deve existir');
 new Function(script); // A sintaxe completa do jogo precisa compilar.
 const galleryHtml=readFileSync(resolve(root,'art-preview/index.html'),'utf8');
+const mapLabHtml=readFileSync(resolve(root,'map-lab/index.html'),'utf8');
+const mapLabScript=mapLabHtml.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
+assert.ok(mapLabScript,'laboratório de mapas deve manter seu script');
+new Function(mapLabScript);
 const galleryScript=galleryHtml.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
 assert.ok(galleryScript,'a galeria deve fornecer script de animação');
 new Function(galleryScript);
@@ -29,6 +33,10 @@ const server=http.createServer((req,res)=>{
  if(pathname==='/art-preview/index.html'||pathname==='/art-preview/'){
   res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
   res.end(galleryHtml);return;
+ }
+ if(pathname==='/map-lab/index.html'||pathname==='/map-lab/'){
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+  res.end(mapLabHtml);return;
  }
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
  res.end(html);
@@ -1159,6 +1167,27 @@ try{
  await gallery.locator('#direction').selectOption('5');
  await gallery.screenshot({path:resolve(root,'screenshots','galeria-arte-pixel.png')});
  await gallery.close();
+ const mapLab=await browser.newPage({viewport:{width:854,height:480},
+  deviceScaleFactor:1,isMobile:true,hasTouch:true});
+ mapLab.on('pageerror',error=>failures.push('laboratório: '+error.message));
+ await mapLab.goto(url+'/map-lab/index.html');
+ await mapLab.waitForFunction(()=>{
+  const d=window.__mapLabPixelArt?.();
+  return d&&Object.values(d.assets).every(a=>a.loaded);
+ },null,{timeout:15000});
+ const artLab=await mapLab.evaluate(()=>window.__mapLabPixelArt());
+ assert.deepEqual(Object.keys(artLab.assets).sort(),['ground','props','trees']);
+ assert.ok(artLab.ground.length>=7&&artLab.props.length>=10&&artLab.trees.length===3,
+  'laboratório deve reconhecer os sprites de chão, plantas e árvores');
+ await mapLab.locator('#preset').selectOption('forest');
+ await mapLab.locator('#presetBtn').click();
+ await mapLab.locator('#viewBtn').click();
+ assert.equal(await mapLab.evaluate(()=>window.__mapLabPixelArt().view),'iso');
+ await mapLab.locator('[data-layer="nature"]').click();
+ assert.ok(await mapLab.locator('#tiles .thumb canvas').count()>5,
+  'miniaturas reais da flora no laboratório');
+ await mapLab.screenshot({path:resolve(root,'screenshots','laboratorio-floresta-pixelart.png')});
+ await mapLab.close();
  assert.deepEqual(failures,[],'erros de execução no navegador');
 }finally{
  if(browser)await browser.close();
