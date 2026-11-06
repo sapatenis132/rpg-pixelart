@@ -3763,7 +3763,7 @@ function figure(u,team){
  // Durante o ataque, não alternar de repente os frames de caminhada.
  const heading=Math.atan2(u.face.z,u.face.x);
  const direction=((Math.round(heading/ (TAU/8))%8)+8)%8;
- const img=hero?raceAsset(activeRace()):(PIXEL_ART[u.style]||PIXEL_ART.enemy);
+ const img=hero?raceAsset(activeRace()):enemySprite(u.style);
  const atk=hero?u.act:null,attacking=hero?!!atk:u.phase==='strike';
  const progress=hero&&atk?atk.time/atk.move.dur:attacking?1-clamp(u.strike/(u.strikeMax||.3),0,1):0;
  const animFrame=attacking?Math.min(3,Math.floor(clamp(progress,0,.999)*4)):moving?Math.floor(Math.abs(u.walk||0)*.52)%4:0;
@@ -3799,7 +3799,7 @@ function figure(u,team){
     const bounce=moving&&!atk?Math.abs(Math.sin(u.walk||0))*2:idle;
    // Apoio dos pés sobre a célula do mundo para a sobreposição ficar natural.
    const footY=runState?.world?44:34;
-   const spriteRow=hero&&attacking&&img.naturalHeight===768?direction+8:direction;
+   const spriteRow=attacking&&img.naturalHeight===768?direction+8:direction;
     ctx.drawImage(img,animFrame*32,spriteRow*48,32,48,Math.round(-16*s),Math.round(-footY*s-bounce),Math.round(32*s),Math.round(48*s));
    ctx.globalAlpha=1;
  }else{
@@ -3815,7 +3815,10 @@ function figure(u,team){
  const pose=visualWeaponPose({...u,face:drawFacing},archetype,attacking,sw.angle,parrying,s,progress,atk?.move);
   const {a,r,x1,y1,x2,y2,side}=pose;
  ctx.lineCap='square';
- if(hero&&archetype==='hunter'){
+ const equipmentDrawn=drawEquipmentSprites(u,hero,archetype,pose,s,attacking,parrying,progress);
+ if(equipmentDrawn){
+  // Sprite PNG no lugar das linhas; a pose segue o joystick/ataque.
+ }else if(hero&&archetype==='hunter'){
   // O arco acompanha a mira; durante o disparo, a corda recua e solta.
   const dx=Math.cos(a),dy=Math.sin(a),nx=-dy,ny=dx;
   const bx=x1+dx*11*s,by=y1+dy*11*s;
@@ -3881,7 +3884,7 @@ function figure(u,team){
    ctx.globalAlpha=1;
   }
   // A arma é o destaque e não recebe máscara de rosto.
-  if(hero&&archetype==='guardian'){
+  if(hero&&archetype==='guardian'&&!equipmentDrawn){
   // Escudo na outra mão; reage ao bloqueio e parry.
   const g=(u.guardWindow||0)>0||parrying;
   const shieldDrive=atk?.move?.motion==='bash'?Math.sin(PI*progress)*12*s:0;
@@ -3892,13 +3895,13 @@ function figure(u,team){
   ctx.fillStyle='#203b50';ctx.fillRect(bx+Math.round(5*s),by+Math.round(7*s),Math.round(3*s),Math.round(7*s));
  }
  // Enemy distinctions: defensive shield and elite crown/phase aura.
- if(!hero&&u.style==='guardian'){
+ if(!hero&&u.style==='guardian'&&!equipmentDrawn){
   const shieldX=Math.round(-15*s),shieldY=Math.round(-25*s);
   ctx.fillStyle=u.phase==='guard'?'#78f5c7':'#4a8b94';
   ctx.fillRect(shieldX,shieldY,Math.round(11*s),Math.round(17*s));
   ctx.fillStyle='#c2fff0';ctx.fillRect(shieldX+Math.round(2*s),shieldY+Math.round(3*s),Math.round(3*s),Math.round(9*s));
  }
- if(!hero&&u.style==='elite'){
+ if(!hero&&u.style==='elite'&&img.naturalHeight!==768){
   const col=u.bossStage===3?'#ff7268':u.bossStage===2?'#f4c36d':'#e4d4a0';
   ctx.fillStyle=col;ctx.fillRect(Math.round(-9*s),Math.round(-47*s),Math.round(18*s),Math.round(5*s));
   ctx.fillRect(Math.round(-8*s),Math.round(-51*s),Math.round(4*s),Math.round(7*s));
@@ -4283,6 +4286,16 @@ window.__rpgDebug.spriteFiles=()=>Object.fromEntries(
   width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
  }]));
 window.__rpgDebug.spriteAsset=race=>raceAsset(race);
+window.__rpgDebug.enemySpriteFiles=()=>Object.fromEntries(
+ Object.entries(ENEMY_SPRITES).map(([key,img])=>[key,{
+  loaded:!!img.complete&&img.naturalWidth===128&&img.naturalHeight===768,
+  width:img.naturalWidth,height:img.naturalHeight,src:img.getAttribute('src')
+ }]));
+window.__rpgDebug.equipmentFile=()=>({
+ loaded:!!WEAPON_ATLAS.complete&&WEAPON_ATLAS.naturalWidth===216&&WEAPON_ATLAS.naturalHeight===48,
+ width:WEAPON_ATLAS.naturalWidth,height:WEAPON_ATLAS.naturalHeight,
+ src:WEAPON_ATLAS.getAttribute('src'),sprites:{...WEAPON_SPRITES}
+});
 window.__rpgDebug.spriteShape=race=>RACE_SHAPES[race];
 window.__rpgDebug.spriteFacings=()=>RACE_FACINGS.map(v=>({...v}));
 window.__rpgDebug.spriteFaceEyes=(race,dir,frame)=>raceEyePositions(race,dir,frame);
