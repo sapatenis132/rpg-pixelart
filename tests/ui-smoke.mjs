@@ -22,7 +22,7 @@ new Function(galleryScript);
 const server=http.createServer((req,res)=>{
  // Servir os PNGs reais, em vez de devolver HTML como imagem no smoke test.
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated|forest|playable)\/[a-z0-9_-]+\.png$/.test(pathname)){
+ if(/^\/assets\/sprites\/(?:actors|legacy|enemies|equipment|animated|forest|playable|playable\/(?:races|race-traits))\/[a-z0-9_-]+\.png$/.test(pathname)){
   try{
    const pixels=readFileSync(resolve(root,'.'+pathname));
    res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
@@ -234,6 +234,64 @@ try{
    'a postura de disparo permanece durante a salva escalonada');
   assert.deepEqual(costumes.identities,
    ['charged-orb','salvo','piercing-shot','volley','shield-bash','thrust']);
+  // Nova arte racial: silhuetas legíveis sem cor em três ângulos.
+  await page.waitForFunction(()=>Object.values(window.__rpgDebug.refinedRaces())
+   .every(r=>r.body.loaded&&r.traits.loaded),null,{timeout:15000});
+  const raceArt=await page.evaluate(()=>{
+   const d=window.__rpgDebug,files=d.refinedRaces(),gait=d.raceVisualLanguage(),
+    races=Object.keys(files),ids={},facingSignatures={};
+   const c=document.createElement('canvas');c.width=32;c.height=48;
+   const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+   const inkHash=rgba=>{
+    let h=2166136261,painted=0;
+    for(let i=3;i<rgba.length;i+=4){
+     const value=rgba[i]?1:0;if(value)painted++;
+     h=Math.imul(h^value,16777619)>>>0;
+    }
+    return{hash:h,painted};
+   };
+   for(const id of races){
+    const body=d.refinedRaceImage(id),traits=d.raceTraitsImage(id);
+    const states=[],facings=[],traitInk=[];
+    for(const dir of [1,3,5])for(let state=0;state<7;state++){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(body,0,(state*8+dir)*48,32,48,0,0,32,48);
+     const h=inkHash(ctx.getImageData(0,0,32,48).data);
+     if(state===0)facings.push(h.hash);
+     states.push(h.painted);
+    }
+    for(const dir of [1,3,5]){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(traits,0,dir*48,32,48,0,0,32,48);
+     traitInk.push(inkHash(ctx.getImageData(0,0,32,48).data).painted);
+    }
+    ids[id]={facings,states,traitInk};
+   }
+   for(const [j,dir] of [1,3,5].entries())
+    facingSignatures[dir]=races.map(id=>ids[id].facings[j]);
+   const raceBounds=Object.fromEntries(races.map(id=>[id,d.spriteShape(id)]));
+   return{files,gait,ids,facingSignatures,raceBounds};
+  });
+  assert.deepEqual(Object.keys(raceArt.files).sort(),['dwarf','elf','halfling','human','orc']);
+  for(const [id,assets] of Object.entries(raceArt.files)){
+   for(const [name,img] of Object.entries(assets)){
+    assert.ok(img.loaded,id+' '+name+' carregou');
+    assert.deepEqual([img.width,img.height],[128,2688]);
+    assert.ok(img.src.startsWith(name==='body'?
+     'assets/sprites/playable/races/':'assets/sprites/playable/race-traits/'));
+   }
+   const info=raceArt.ids[id];
+   assert.equal(info.states.length,21);
+   assert.ok(info.states.every(ink=>ink>35),id+' sem estados vazios');
+   assert.ok(info.traitInk.every(ink=>ink>7),id+' identidade visível em três ângulos');
+   assert.ok(raceArt.gait[id].stride>.65&&raceArt.gait[id].stride<1.35);
+   assert.ok(raceArt.gait[id].bob>0&&raceArt.gait[id].bob<3);
+  }
+  for(const [dir,signatures] of Object.entries(raceArt.facingSignatures))
+   assert.equal(new Set(signatures).size,5,'cinco silhuetas distintas na direção '+dir);
+  assert.ok(raceArt.raceBounds.elf.headY<raceArt.raceBounds.dwarf.headY);
+  assert.ok(raceArt.raceBounds.orc.torsoW>raceArt.raceBounds.halfling.torsoW);
+  assert.ok(raceArt.raceBounds.halfling.footY>=raceArt.raceBounds.human.footY);
   assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
   // Os cinco personagens devem ter miniaturas pixel art únicas e desenhadas.
@@ -1219,6 +1277,22 @@ try{
  assert.equal(await gallery.locator('#races .card').count(),5);
  assert.equal(await gallery.locator('#roles .card').count(),5,
   'galeria deve mostrar cinco profissões com trajes próprios');
+ // O modo sem cor verifica desenho e proporções, não apenas paleta.
+ await gallery.locator('#silhouetteMode').check();
+ await gallery.waitForFunction(()=>{
+  const canvases=[...document.querySelectorAll('#races canvas,#roles canvas')];
+  if(canvases.length!==10)return false;
+  return canvases.every(c=>{
+   const data=c.getContext('2d').getImageData(0,0,32,48).data;
+   let opaque=0;
+   for(let i=0;i<data.length;i+=4){
+    if(data[i+3]<8)continue;
+    opaque++;if(data[i]!==8||data[i+1]!==13||data[i+2]!==21)return false;
+   }
+   return opaque>35;
+  });
+ },null,{timeout:15000});
+ await gallery.locator('#silhouetteMode').uncheck();
  await gallery.locator('#previewRace').selectOption('dwarf');
  await gallery.locator('#anim').selectOption('6');
  await gallery.locator('#direction').selectOption('3');
