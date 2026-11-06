@@ -82,7 +82,66 @@ try{
   assert.equal(effects.width,128,'oito efeitos pixelados no atlas');
   assert.equal(effects.height,16,'efeitos com células 16x16');
   assert.equal(Object.keys(equipment.sprites).length,9,'nove silhuetas de equipamento');
-    assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
+    // Sete estados reais por direção: os dez novos atlases PNG carregam
+  // separadamente e não reutilizam a caminhada para defesa, dano ou morte.
+  await page.waitForFunction(()=>{
+   const files=window.__rpgDebug.advancedAnimationFiles();
+   return Object.values(files.actors).every(x=>x.loaded)
+    &&Object.values(files.enemies).every(x=>x.loaded);
+  },null,{timeout:15000});
+  const animation=await page.evaluate(()=>{
+   const d=window.__rpgDebug,files=d.advancedAnimationFiles(),
+    names=d.advancedAnimationNames();
+   const states=[
+    ['walk',d.animationState({hp:100,moveMagnitude:0},true)],
+    ['attack',d.animationState({hp:100,act:{move:{dur:.4},time:.2}},true)],
+    ['guard',d.animationState({hp:100,parryWindow:.15},true)],
+    ['dodge',d.animationState({hp:100,dodge:.12},true)],
+    ['hurt',d.animationState({hp:100,reaction:.15},true)],
+    ['down',d.animationState({hp:0,visualDeathAt:0},true)],
+    ['finisher',d.animationState({hp:100,act:{move:{dur:.5,fin:true},time:.3}},true)],
+    ['enemy-guard',d.animationState({hp:100,phase:'guard',style:'guardian'},false)],
+    ['enemy-evade',d.animationState({hp:100,phase:'evade',style:'duelist',evade:.12},false)],
+    ['enemy-down',d.animationState({hp:100,phase:'down',style:'berserker',downTimer:.5,downTotal:1},false)],
+    ['enemy-finisher',d.animationState({hp:100,phase:'strike',type:'crush',style:'elite',strike:.1,strikeMax:.3},false)]
+   ];
+   const checks=[];
+   for(const [id,hero] of [['human',true],['elf',true],['orc',true],['dwarf',true],['halfling',true],
+      ['enemy',false],['guardian',false],['duelist',false],['berserker',false],['elite',false]]){
+    const img=d.advancedSpriteImage(id,hero);
+    const canvas=document.createElement('canvas');
+    canvas.width=32;canvas.height=48;const ctx=canvas.getContext('2d');
+    const hashes=[];let allPainted=true;
+    for(let state=0;state<7;state++){
+     ctx.clearRect(0,0,32,48);
+     ctx.drawImage(img,32,((state*8)+1)*48,32,48,0,0,32,48);
+     const pixels=ctx.getImageData(0,0,32,48).data;
+     let hash=2166136261,painted=0;
+     for(let i=0;i<pixels.length;i++){hash=Math.imul(hash^pixels[i],16777619)>>>0;if(i%4===3&&pixels[i])painted++;}
+     hashes.push(hash);allPainted=allPainted&&painted>45;
+    }
+    checks.push({id,unique:new Set(hashes).size,allPainted});
+   }
+   return{names,states,files,checks};
+  });
+  assert.deepEqual(animation.names,['walk','attack','guard','dodge','hurt','down','finisher']);
+  assert.equal(Object.keys(animation.files.actors).length,5);
+  assert.equal(Object.keys(animation.files.enemies).length,5);
+  for(const file of [...Object.values(animation.files.actors),...Object.values(animation.files.enemies)]){
+   assert.equal(file.width,128);
+   assert.equal(file.height,2688);
+   assert.ok(file.src.includes('assets/sprites/animated/'));
+  }
+  for(const [name,motion] of animation.states){
+   const expected=name.startsWith('enemy-')?name.slice(6):name;
+   assert.equal(motion.name,expected,name+' escolhido pelo combate');
+   assert.ok(motion.frame>=0&&motion.frame<4,'quadro válido');
+  }
+  for(const item of animation.checks){
+   assert.ok(item.unique>=6,item.id+' precisa de ao menos 6 silhuetas de ação distintas');
+   assert.ok(item.allPainted,item.id+' não deve ter quadros vazios');
+  }
+  assert.equal(await page.evaluate(()=>window.__rpgDebug.snapshot().settings.leftHanded),false);
   await page.evaluate(()=>document.querySelector('#campaignOverlay').classList.remove('open'));
   // Os cinco personagens devem ter miniaturas pixel art únicas e desenhadas.
   await page.evaluate(()=>window.__rpgDebug.openCharacterCreator());
