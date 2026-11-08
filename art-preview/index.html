@@ -181,6 +181,10 @@ function paintItems(){
   ctx.clearRect(0,0,o.canvas.width,o.canvas.height);
   const w=o.isFx?16:24,h=o.isFx?16:48;
   ctx.drawImage(o.asset,o.index*w,0,w,h,0,0,o.canvas.width,o.canvas.height);
+  if(!o.isFx&&o.index===3){
+   // The bow PNG contains its limbs; the game animates this separate string.
+   ctx.fillStyle='#ded8b5';ctx.fillRect(12,6,1,82);
+  }
  }
 }
 function silhouette(ctx){

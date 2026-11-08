@@ -23,13 +23,20 @@ Para executar os testes com Node.js 22 ou superior:
     npm install --no-save playwright@1.56.1 @napi-rs/canvas@0.1.100
     node tests/combat-polish.mjs --render
     node tests/racial-integration.mjs --render
+    node tests/art-polish.mjs --render
     npx playwright install --with-deps chromium
     node tests/ui-smoke.mjs
 
 O primeiro teste executa a simulação e os canvases sem navegador.
 O teste de interface verifica cinco tamanhos de tela mobile no Chromium.
 O teste racial verifica 5.600 composições e compara atributos, combate,
-mapas e arte dos inimigos com a versão anterior à integração.
+mapas e a configuração de combate dos inimigos com a versão anterior à integração.
 O contexto desta integração está em
 [Integração da identidade racial v6](docs/integracao-identidade-racial-v6.md).
 As imagens de revisão são gravadas em **screenshots/**.
+
+## Pixel art v7
+
+Arco corrigido nas oito direções e revisão dos 50 atlas, incluindo inimigos,
+Sentinela, ambiente, armas e efeitos. [Critérios e reprodução](docs/polimento-integral-pixelart-v7.md).
+Verificação adicional: `node tests/art-polish.mjs --render`.

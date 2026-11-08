@@ -1,0 +1,236 @@
+[
+  {
+    "path": "assets/sprites/playable/races/human.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 10840,
+    "frames": 224,
+    "changedFrames": 221,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/race-traits/human.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 1023,
+    "frames": 224,
+    "changedFrames": 138,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/actors/human.png",
+    "width": 128,
+    "height": 768,
+    "changedPixels": 3220,
+    "frames": 64,
+    "changedFrames": 64,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/animated/human.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 9788,
+    "frames": 224,
+    "changedFrames": 220,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/races/elf.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 11860,
+    "frames": 224,
+    "changedFrames": 221,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/race-traits/elf.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 3631,
+    "frames": 224,
+    "changedFrames": 208,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/actors/elf.png",
+    "width": 128,
+    "height": 768,
+    "changedPixels": 3391,
+    "frames": 64,
+    "changedFrames": 64,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/animated/elf.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 10341,
+    "frames": 224,
+    "changedFrames": 223,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/races/orc.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 11864,
+    "frames": 224,
+    "changedFrames": 224,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/race-traits/orc.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 2972,
+    "frames": 224,
+    "changedFrames": 217,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/actors/orc.png",
+    "width": 128,
+    "height": 768,
+    "changedPixels": 4043,
+    "frames": 64,
+    "changedFrames": 64,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/animated/orc.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 12110,
+    "frames": 224,
+    "changedFrames": 223,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/races/dwarf.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 26069,
+    "frames": 224,
+    "changedFrames": 224,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/race-traits/dwarf.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 11458,
+    "frames": 224,
+    "changedFrames": 223,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/actors/dwarf.png",
+    "width": 128,
+    "height": 768,
+    "changedPixels": 8159,
+    "frames": 64,
+    "changedFrames": 64,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/animated/dwarf.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 21872,
+    "frames": 224,
+    "changedFrames": 218,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/races/halfling.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 11811,
+    "frames": 224,
+    "changedFrames": 223,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/race-traits/halfling.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 6706,
+    "frames": 224,
+    "changedFrames": 222,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/actors/halfling.png",
+    "width": 128,
+    "height": 768,
+    "changedPixels": 2813,
+    "frames": 64,
+    "changedFrames": 64,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/animated/halfling.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 8380,
+    "frames": 224,
+    "changedFrames": 220,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/warrior-outfit.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 10363,
+    "frames": 224,
+    "changedFrames": 224,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/guardian-outfit.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 13281,
+    "frames": 224,
+    "changedFrames": 224,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/rebel-outfit.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 2612,
+    "frames": 224,
+    "changedFrames": 224,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/arcanist-outfit.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 5484,
+    "frames": 224,
+    "changedFrames": 220,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/playable/hunter-outfit.png",
+    "width": 128,
+    "height": 2688,
+    "changedPixels": 9618,
+    "frames": 224,
+    "changedFrames": 224,
+    "alphaIdentical": true
+  },
+  {
+    "path": "assets/sprites/legacy/hero_sheet.png",
+    "width": 128,
+    "height": 384,
+    "changedPixels": 22720,
+    "frames": 32,
+    "changedFrames": 32,
+    "alphaIdentical": true
+  }
+]
